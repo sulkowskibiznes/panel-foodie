@@ -1,11 +1,34 @@
+# zależności
 node_modules/
+.pnp
+.pnp.*
+
+# next.js
 .next/
 out/
-.env*.local
-.DS_Store
-supabase/.temp/
-supabase/.branches/
+build/
+next-env.d.ts
+*.tsbuildinfo
+
+# testy
+coverage/
 test-results/
 playwright-report/
-coverage/
-*.tsbuildinfo
+playwright/.cache/
+
+# sekrety: w repo zostaje wyłącznie .env.example
+.env
+.env.*
+!.env.example
+
+# supabase (lokalny stack)
+supabase/.temp/
+supabase/.branches/
+
+# vercel
+.vercel
+
+# system
+.DS_Store
+*.pem
+*.log

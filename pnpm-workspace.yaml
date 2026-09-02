@@ -1,0 +1,7 @@
+# Skrypty instalacyjne (pnpm blokuje je domyślnie). true = pakiet może uruchomić postinstall.
+allowBuilds:
+  sharp: true
+  supabase: true
+  esbuild: true
+  "@tailwindcss/oxide": true
+  unrs-resolver: false

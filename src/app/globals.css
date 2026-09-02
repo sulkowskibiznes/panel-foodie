@@ -1,0 +1,173 @@
+@import "tailwindcss";
+@import "tw-animate-css";
+@import "shadcn/tailwind.css";
+@import "@fontsource-variable/inter/index.css";
+
+@custom-variant dark (&:is(.dark *));
+
+/*
+ * Cal Sans (nagłówki): dwa podzbiory tej samej rodziny. Polskie znaki (ą, ć, ę, ł, ń, ś, ź, ż)
+ * są w latin-ext, ó w latin. Ręczne @font-face, bo next/font/local nie potrafi przypisać
+ * osobnych unicode-range dwóm plikom jednej rodziny (CLAUDE.md, Marka).
+ */
+@font-face {
+  font-family: "Cal Sans";
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+  src: url("/fonts/cal-sans-latin-ext-400-normal.woff2") format("woff2");
+  unicode-range: U+0100-02BA, U+02BD-02C5, U+02C7-02CC, U+02CE-02D7, U+02DD-02FF, U+0304, U+0308,
+    U+0329, U+1D00-1DBF, U+1E00-1E9F, U+1EF2-1EFF, U+2020, U+20A0-20AB, U+20AD-20C0, U+2113,
+    U+2C60-2C7F, U+A720-A7FF;
+}
+@font-face {
+  font-family: "Cal Sans";
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+  src: url("/fonts/cal-sans-latin-400-normal.woff2") format("woff2");
+  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304,
+    U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+}
+
+/* Tokeny marki (SPEC rozdz. 14) + mapowanie tokenów shadcn na markę. Tryb jasny, jedyny w MVP. */
+:root {
+  --foodie-czern: #1b1b1b;
+  --foodie-fiolet: #7600f4;
+  --foodie-biel: #ffffff;
+  --fiolet-050: #f4edfe;
+  --fiolet-100: #e4d3fd;
+  --fiolet-600: #6600d6;
+  --fiolet-700: #5200ab;
+  --szary-050: #fafafa;
+  --szary-100: #f2f2f3;
+  --szary-300: #d6d6d8;
+  --szary-600: #6b6b70;
+  --zielony: #12855c;
+  --bursztyn: #b45309;
+  --czerwony: #b42318;
+
+  /* Kolory terminów z Bazy Klientów (pulpit zespołu): niebieski 6-7 dni, żółty 4-5, pomarańczowy 1-3, czerwony dziś, szary po terminie */
+  --termin-niebieski: #1d4ed8;
+  --termin-zolty: #a16207;
+  --termin-pomaranczowy: #c2410c;
+  --termin-czerwony: #b42318;
+  --termin-szary: #6b6b70;
+
+  --background: var(--foodie-biel);
+  --foreground: var(--foodie-czern);
+  --card: var(--foodie-biel);
+  --card-foreground: var(--foodie-czern);
+  --popover: var(--foodie-biel);
+  --popover-foreground: var(--foodie-czern);
+  --primary: var(--foodie-fiolet);
+  --primary-foreground: var(--foodie-biel);
+  --secondary: var(--fiolet-050);
+  --secondary-foreground: var(--fiolet-700);
+  --muted: var(--szary-100);
+  --muted-foreground: var(--szary-600);
+  --accent: var(--fiolet-050);
+  --accent-foreground: var(--fiolet-700);
+  --destructive: var(--czerwony);
+  --border: var(--szary-300);
+  --input: var(--szary-300);
+  --ring: var(--foodie-fiolet);
+  --chart-1: var(--foodie-fiolet);
+  --chart-2: var(--zielony);
+  --chart-3: var(--bursztyn);
+  --chart-4: var(--czerwony);
+  --chart-5: var(--szary-600);
+  --radius: 0.75rem;
+  --sidebar: var(--foodie-biel);
+  --sidebar-foreground: var(--foodie-czern);
+  --sidebar-primary: var(--foodie-fiolet);
+  --sidebar-primary-foreground: var(--foodie-biel);
+  --sidebar-accent: var(--fiolet-050);
+  --sidebar-accent-foreground: var(--fiolet-700);
+  --sidebar-border: var(--szary-100);
+  --sidebar-ring: var(--foodie-fiolet);
+}
+
+@theme inline {
+  --font-sans: "Inter Variable", system-ui, -apple-system, "Segoe UI", sans-serif;
+  --font-naglowek: "Cal Sans", "Inter Variable", system-ui, -apple-system, "Segoe UI", sans-serif;
+  --font-heading: var(--font-naglowek);
+  --font-mono: ui-monospace, "SF Mono", Menlo, monospace;
+
+  --color-foodie-czern: var(--foodie-czern);
+  --color-foodie-fiolet: var(--foodie-fiolet);
+  --color-foodie-biel: var(--foodie-biel);
+  --color-fiolet-050: var(--fiolet-050);
+  --color-fiolet-100: var(--fiolet-100);
+  --color-fiolet-600: var(--fiolet-600);
+  --color-fiolet-700: var(--fiolet-700);
+  --color-szary-050: var(--szary-050);
+  --color-szary-100: var(--szary-100);
+  --color-szary-300: var(--szary-300);
+  --color-szary-600: var(--szary-600);
+  --color-zielony: var(--zielony);
+  --color-bursztyn: var(--bursztyn);
+  --color-czerwony: var(--czerwony);
+  --color-termin-niebieski: var(--termin-niebieski);
+  --color-termin-zolty: var(--termin-zolty);
+  --color-termin-pomaranczowy: var(--termin-pomaranczowy);
+  --color-termin-czerwony: var(--termin-czerwony);
+  --color-termin-szary: var(--termin-szary);
+
+  --shadow-miekki: 0 1px 2px rgb(27 27 27 / 0.04), 0 8px 24px rgb(27 27 27 / 0.06);
+
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-sidebar-ring: var(--sidebar-ring);
+  --color-sidebar-border: var(--sidebar-border);
+  --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
+  --color-sidebar-accent: var(--sidebar-accent);
+  --color-sidebar-primary-foreground: var(--sidebar-primary-foreground);
+  --color-sidebar-primary: var(--sidebar-primary);
+  --color-sidebar-foreground: var(--sidebar-foreground);
+  --color-sidebar: var(--sidebar);
+  --color-chart-5: var(--chart-5);
+  --color-chart-4: var(--chart-4);
+  --color-chart-3: var(--chart-3);
+  --color-chart-2: var(--chart-2);
+  --color-chart-1: var(--chart-1);
+  --color-ring: var(--ring);
+  --color-input: var(--input);
+  --color-border: var(--border);
+  --color-destructive: var(--destructive);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-accent: var(--accent);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-muted: var(--muted);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-secondary: var(--secondary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-primary: var(--primary);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-popover: var(--popover);
+  --color-card-foreground: var(--card-foreground);
+  --color-card: var(--card);
+  --radius-sm: calc(var(--radius) * 0.6);
+  --radius-md: calc(var(--radius) * 0.8);
+  --radius-lg: var(--radius);
+  --radius-xl: calc(var(--radius) * 1.4);
+  --radius-2xl: calc(var(--radius) * 1.8);
+  --radius-3xl: calc(var(--radius) * 2.2);
+  --radius-4xl: calc(var(--radius) * 2.6);
+}
+
+@layer base {
+  * {
+    @apply border-border outline-ring/50;
+  }
+  html {
+    @apply font-sans;
+    color-scheme: light;
+  }
+  body {
+    @apply bg-background text-foreground;
+  }
+  h1, h2, h3 {
+    @apply font-naglowek;
+  }
+}
