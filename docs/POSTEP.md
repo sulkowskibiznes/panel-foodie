@@ -4,12 +4,12 @@ Zaznaczamy kryterium, gdy przechodzi jako test E2E (CLAUDE.md, „Jak pracujemy"
 
 | # | Kryterium | Faza | Status |
 |---|---|---|---|
-| 1 | Zły token daje ten sam ekran co zły PIN | 1 | ☐ |
-| 2 | 5 złych PIN-ów blokuje na 15 min, 6. próba z dobrym PIN-em też odrzucona | 1 | ☐ |
-| 3 | Sesja żyje po odświeżeniu i po 24 h | 1 | ☐ |
-| 4 | Klient A nie otwiera zasobów klienta B (404), także plik | 1 | ☐ |
-| 5 | Wygaszenie linku wylogowuje sesję przy następnym żądaniu | 1 | ☐ |
-| 6 | Reset PIN-u wylogowuje wszystkie urządzenia linku | 1 | ☐ |
+| 1 | Zły token daje ten sam ekran co zły PIN | 1 | ✅ 2026-09-03 |
+| 2 | 5 złych PIN-ów blokuje na 15 min, 6. próba z dobrym PIN-em też odrzucona | 1 | ✅ 2026-09-03 |
+| 3 | Sesja żyje po odświeżeniu i po 24 h | 1 | ✅ 2026-09-03 |
+| 4 | Klient A nie otwiera zasobów klienta B (404), także plik | 1 | ✅ 2026-09-03 |
+| 5 | Wygaszenie linku wylogowuje sesję przy następnym żądaniu | 1 | ✅ 2026-09-03 |
+| 6 | Reset PIN-u wylogowuje wszystkie urządzenia linku | 1 | ✅ 2026-09-03 |
 | 7 | Pakiet 6 postów + 10 relacji + 2 kampanie renderuje się na 390 px i 1440 px | 2 | ☐ |
 | 8 | „Akceptuję wszystko" ustawia status, datę, osobę i zdarzenie w outbox | 2 | ☐ |
 | 9 | „Zgłaszam uwagi" bez komentarza zablokowane z podpowiedzią | 2 | ☐ |
@@ -26,7 +26,7 @@ Zaznaczamy kryterium, gdy przechodzi jako test E2E (CLAUDE.md, „Jak pracujemy"
 | 20 | Stary plik po podmianie istnieje z superseded_at | 3 | ☐ |
 | 21 | Wysyłka z postem bez daty zablokowana z listą braków | 3 | ☐ |
 | 22 | Klient nie przesuwa materiału w kalendarzu | 3 | ☐ |
-| 23 | content_creator dostaje 404 na trasie faktur | 3 | ☐ |
+| 23 | content_creator dostaje 404 na trasie faktur | 3 | ☐ (trasa i 404 już działają, test E2E dojdzie w fazie 3) |
 | 24 | csm widzi tylko przypisanych klientów | 3 | ☐ |
 | 25 | Impersonacja blokuje decyzje i zapisuje wejście do audit_log | 3 | ☐ |
 | 26 | Zrzuty podglądów zgodne ze wzorcami w obu szerokościach | 2 | ☐ |
@@ -61,3 +61,27 @@ Stan na 2026-09-02, gałąź `faza/0-fundament`.
 
 **Wymaga decyzji Szymona:**
 - Treść regulaminu (w tym sekcja o automatycznej akceptacji) i polityki prywatności: strony istnieją jako szkielet.
+
+## Faza 1: Dostęp
+
+Ukończona 2026-09-03, gałąź `faza/1-dostep`. Kryteria 1-6 zielone w Playwright na 390 px i 1440 px.
+
+**Co działa:**
+- Logowanie klienta linkiem i PIN-em: `src/lib/logowanie-klienta.ts` (czysta logika, jedno wywołanie argon2 w każdej ścieżce, test jednostkowy liczy wywołania), akcja `src/app/p/[token]/akcje.ts`, ekran PIN identyczny dla istniejącego i nieistniejącego tokenu.
+- Blokady liczone atomowo w bazie (`odnotuj_nieudane_logowanie`: 5 → 15 min, 10 w godzinę → 24 h + `outbox` `bezpieczenstwo.blokada`), limit 20 prób / 10 min na IP (`zwieksz_limit`).
+- Sesje: cookie `__Host-fm_sesja` (w dev `fm_sesja`), httpOnly, Secure, SameSite=Lax, 30 dni przesuwnie, rotacja tokenu raz na 24 h przez trasę `/p/[token]/rotacja` z 2-minutową łaską (`src/lib/sesja-klienta.ts`).
+- `assertClientAccess()` w `src/lib/dostep.ts` jako jedyne miejsce izolacji; trasa pliku `/p/[token]/plik/[assetId]/[wariant]` (signed URL 10 min) i szkielet ekranu pakietu zwracają 404 dla cudzych zasobów.
+- Panel zespołu: Supabase Auth e-mail OTP (`@supabase/ssr`, odświeżanie cookies w `src/proxy.ts`), allowlista = `team_members.active` + filtr `TEAM_EMAIL_ALLOWLIST` (domeny lub adresy), macierz ról w `src/lib/uprawnienia.ts`, pulpit z klientami wg roli, karta klienta z zakładkami, zakładka Dostęp (lista linków, tworzenie z jednorazowym PIN-em, dwa pola z kopiowaniem, wygaszenie, wylogowanie urządzeń, reset PIN-u, historia logowań), Ustawienia → Zespół (admin: dodawanie osób tworzy konto Auth).
+- Audyt: logowania udane i nieudane (klient i zespół), blokady, wylogowania, utworzenie linku, wygaszenie, reset PIN-u, wylogowanie urządzeń, skopiowanie dostępu, pobranie oryginału pliku.
+- Testy: 45 jednostkowych (w tym RLS na lokalnej bazie), E2E: 8 dymnych + 6 kryteriów × 2 szerokości, logowanie zespołu w projekcie przygotowawczym Playwrighta (kod OTP z Mailpita, zapisany stan sesji).
+- Lokalny Supabase: szablon maila z kodem `supabase/templates/kod-logowania.html`, limit wysyłek 200/h na potrzeby testów, rejestracja publiczna wyłączona (`[auth] enable_signup = false`), dostawca e-mail włączony.
+
+**Do zrobienia po stronie Szymona (projekt w chmurze):**
+- Authentication → Emails → szablon „Magic Link": wkleić treść z `supabase/templates/kod-logowania.html` (domyślny szablon nie zawiera `{{ .Token }}`, więc kod nie dotrze). Temat: „Twój kod logowania do panelu zespołu Foodie Media".
+- Authentication → Providers → Email: dostawca włączony, „Allow new users to sign up" wyłączone (globalnie), OTP expiry 600 s.
+- Własny SMTP (Resend), bo domyślny wysyła kilka maili na godzinę.
+
+**Odłożone:**
+- Pasek „PODGLĄD KLIENTA" i impersonacja: faza 3 (kontekst klienta ma już miejsce na tryb `podglad`).
+- Odliczanie auto-akceptacji na żywo w przeglądarce: faza 2 (teraz liczone przy renderze).
+- Sprzątanie wygasłych sesji po 90 dniach: faza 6 (cron).

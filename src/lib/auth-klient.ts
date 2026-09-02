@@ -92,3 +92,14 @@ export async function weryfikujPin(hashPinu: string, pin: string): Promise<boole
     return false;
   }
 }
+
+let atrapa: Promise<string> | undefined;
+
+/**
+ * Hash-atrapa do ścieżki „zły token": argon2 weryfikuje PIN na nim, żeby odpowiedź kosztowała
+ * tyle samo czasu, co przy prawdziwym linku. Losowa wartość, liczona raz na proces.
+ */
+export function hashAtrapa(): Promise<string> {
+  atrapa ??= hashujPin(randomBytes(16).toString("hex"));
+  return atrapa;
+}

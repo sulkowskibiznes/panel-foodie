@@ -33,7 +33,8 @@ pnpm build            # build produkcyjny — musi przechodzić przed każdym co
 pnpm lint             # eslint
 pnpm typecheck        # tsc --noEmit
 pnpm test             # vitest
-pnpm test:e2e         # playwright
+pnpm test:e2e         # playwright (wymaga pnpm db:start; sam podnosi next dev na porcie 3100)
+pnpm db:start         # lokalny Supabase w Dockerze (testy E2E, db:types)
 pnpm db:migrate       # supabase db push
 pnpm db:seed          # dane testowe: 3 klienci, po jednym z każdej kategorii
 pnpm db:types         # regeneracja typów z bazy do src/lib/db-types.ts
@@ -55,23 +56,32 @@ src/
     podglad/              # podglądy 1:1 — post/relacja/reels na FB, reklama w 6 placementach
     ui/                   # shadcn
   lib/
-    auth-klient.ts        # sesja klienta, PIN, token linku
-    auth-zespol.ts        # Supabase Auth + role
+    auth-klient.ts        # token linku, PIN, argon2id, hash-atrapa (czysty Node, używa go też seed)
+    logowanie-klienta.ts  # czysta logika logowania z wstrzykiwanymi zależnościami (test liczy wywołania argon2)
+    sesja-klienta.ts      # cookie sesji, rotacja co 24 h, wygaszanie sesji linku
+    kontekst-klienta.ts   # kontekst strony klienta (sesja klienta; w fazie 3 także podgląd zespołu)
+    auth-zespol.ts        # Supabase Auth OTP + członek zespołu + assertTeamClientAccess
     dostep.ts             # assertClientAccess() — JEDYNE miejsce sprawdzania izolacji
-    kontekst-klienta.ts   # kontekst strony klienta (sesja klienta albo podgląd zespołu)
-    krypto.ts             # sha256, HMAC, AES-GCM, HKDF z SESSION_SECRET
-    limity.ts             # blokady linku i limit na IP (tabela rate_limits)
     uprawnienia.ts        # macierz zasób × rola z SPEC rozdz. 2
+    allowlista.ts         # filtr domen/adresów z TEAM_EMAIL_ALLOWLIST (czysty)
+    krypto.ts             # sha256, HMAC, AES-GCM, HKDF z SESSION_SECRET
+    limity.ts             # blokady linku i limit na IP (funkcje SQL zwieksz_limit, odnotuj_nieudane_logowanie)
+    audyt.ts, outbox.ts   # zapiszAudyt(), dodajDoOutbox()
+    zadanie.ts            # IP (hash), UA, ścieżka z nagłówka x-pathname
+    dane/                 # zapytania do bazy (klient: pakiety-klienta.ts; zespół: klienci-zespolu.ts, linki.ts)
     dto/                  # kształty danych dla stron klienta (nigdy surowe wiersze z bazy)
+    format.ts, walidacja.ts
     copy.ts               # WSZYSTKIE teksty interfejsu (polski)
     db-types.ts           # generowane
+  proxy.ts                # TYLKO nagłówek x-pathname i odświeżanie cookies Auth zespołu; zero decyzji o dostępie
 supabase/migrations/
 supabase/seed/            # seed 3 klientów + zespół + usługi; grafiki zastępcze z sharp
+supabase/templates/       # szablon maila z kodem OTP (lokalnie; w chmurze wklejany ręcznie)
 docs/SPEC.md              # źródło prawdy
 docs/PLAN-SESJA-STARTOWA.md  # plan faz 0 i 1, krytyka spec-u, decyzje (2026-09-02)
 docs/POSTEP.md            # stan kryteriów odbioru z rozdz. 18
 tests/unit/
-tests/e2e/
+tests/e2e/                # Playwright na lokalnym Supabase, port 3100; zespół logowany raz w projekcie „przygotowanie"
 ```
 
 ## Zasady, od których nie ma odstępstw

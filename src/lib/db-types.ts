@@ -1406,7 +1406,18 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
-      [_ in never]: never
+      odnotuj_nieudane_logowanie: {
+        Args: { p_link_id: string }
+        Returns: {
+          blokada_24h: boolean
+          proby: number
+          zablokowany_do: string
+        }[]
+      }
+      zwieksz_limit: {
+        Args: { p_key: string; p_okno_sekund: number }
+        Returns: number
+      }
     }
     Enums: {
       actor_kind: "klient" | "zespol" | "system"

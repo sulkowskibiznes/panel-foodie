@@ -32,3 +32,6 @@ supabase/.branches/
 .DS_Store
 *.pem
 *.log
+
+# stan sesji zespołu z testów E2E
+tests/e2e/.auth/
