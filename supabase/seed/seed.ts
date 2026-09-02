@@ -426,7 +426,8 @@ async function seedPakietu(
       { package_id: pakietId, kind: "zaakceptowany", actor_kind: "klient", actor_id: glownyKontaktId, payload: { items: itemyPostow.length + p.relacje.length + p.kampanie.length }, created_at: new Date(zaakceptowano).toISOString() },
     );
   }
-  await wstaw("package_events", zdarzenia);
+  // Wstawianie wielu wierszy naraz: PostgREST wpisuje null w brakujące klucze zamiast DEFAULT, więc payload zawsze jawnie.
+  await wstaw("package_events", zdarzenia.map((z) => ({ payload: {}, ...z })));
 
   // Przykładowa uwaga klienta z odpowiedzią zespołu (do pulpitu i skrzynki uwag)
   if (k.slug === "burger-brothers" && itemyPostow[1] && glownyKontaktId) {

@@ -46,10 +46,14 @@ Stan na 2026-09-02, gałąź `faza/0-fundament`.
 - Testy: Vitest 18 zielonych (copy, krypto, auth-klient) + test RLS gotowy na lokalną bazę; Playwright 8 zielonych na 390 px i 1440 px ze wzorcami zrzutów strony startowej. CI w GitHub Actions.
 - `pnpm typecheck && pnpm lint && pnpm test && pnpm build` zielone.
 
-**Nie sprawdzone, bo zablokowane na maszynie (do domknięcia fazy 0):**
-- Migracje nie były jeszcze uruchomione na żadnej bazie: brak Dockera (lokalny stack) i brak `SUPABASE_ACCESS_TOKEN` (projekt w chmurze). Po odblokowaniu: `pnpm db:start && pnpm db:reset && pnpm db:types && pnpm db:seed`, potem `pnpm db:migrate` na projekt testowy; `src/lib/db-types.ts` i generyk `Database` w `src/lib/supabase/server.ts` dochodzą wtedy.
-- Push na GitHub: brak poświadczeń (SSH/token) na maszynie.
-- Wdrożenie na Vercel: czeka na push i `VERCEL_TOKEN` (albo integrację Git w Vercelu).
+**Sprawdzone później tego samego dnia:**
+- Lokalny stack Supabase (Docker) wstaje, migracje wchodzą, `pnpm db:types` generuje `src/lib/db-types.ts`, test RLS zielony (każda tabela z RLS, `anon`/`authenticated` bez uprawnień), seed lokalny przechodzi.
+- Projekt testowy w chmurze (`eu-central-1`, PG 17): 10 migracji wypchniętych przez `pnpm db:migrate`, seed przeszedł (4 klientów, 5 osób zespołu z kontami Auth, 7 usług, pliki w Storage).
+- Wdrożenie produkcyjne z CLI na Vercelu (team `foodie-panel`, projekt `panel-foodie`, region `fra1`, Node 24): https://panel-foodie.vercel.app odpowiada 200 ze wszystkimi nagłówkami bezpieczeństwa; zmienne środowiskowe ustawione dla production i preview.
+
+**Nadal do zrobienia:**
+- Push na GitHub: czeka na dodanie klucza SSH (`~/.ssh/panel-foodie_ed25519.pub`) jako Deploy key z prawem zapisu; potem `vercel git connect`, żeby wdrożenia szły z gałęzi.
+- Deployment Protection w Vercelu (Settings → Deployment Protection) do włączenia ręcznie, dopóki w bazie testowej są klienci z seedu.
 
 **Odłożone:**
 - Pełne CSP z nonce: faza 6 (SPEC rozdz. 16.6).
