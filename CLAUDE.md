@@ -19,7 +19,7 @@ jest ważniejsze niż wszystko inne.
 
 ## Stack
 
-- Next.js 15 App Router · TypeScript **strict** · Tailwind · shadcn/ui
+- Next.js 16 App Router (`proxy.ts` zamiast `middleware.ts`) · TypeScript **strict** · Tailwind 4 · shadcn/ui
 - Supabase (Postgres + Auth zespołu + Storage), region `eu-central-1`
 - Vercel, funkcje w regionie `fra1`
 - Vitest (jednostkowe) + Playwright (E2E i wizualne)
@@ -55,13 +55,22 @@ src/
     podglad/              # podglądy 1:1 — post/relacja/reels na FB, reklama w 6 placementach
     ui/                   # shadcn
   lib/
-    auth-klient.ts        # sesja klienta, PIN, rate limit
+    auth-klient.ts        # sesja klienta, PIN, token linku
     auth-zespol.ts        # Supabase Auth + role
     dostep.ts             # assertClientAccess() — JEDYNE miejsce sprawdzania izolacji
+    kontekst-klienta.ts   # kontekst strony klienta (sesja klienta albo podgląd zespołu)
+    krypto.ts             # sha256, HMAC, AES-GCM, HKDF z SESSION_SECRET
+    limity.ts             # blokady linku i limit na IP (tabela rate_limits)
+    uprawnienia.ts        # macierz zasób × rola z SPEC rozdz. 2
+    dto/                  # kształty danych dla stron klienta (nigdy surowe wiersze z bazy)
     copy.ts               # WSZYSTKIE teksty interfejsu (polski)
     db-types.ts           # generowane
 supabase/migrations/
-docs/SPEC.md
+supabase/seed/            # seed 3 klientów + zespół + usługi; grafiki zastępcze z sharp
+docs/SPEC.md              # źródło prawdy
+docs/PLAN-SESJA-STARTOWA.md  # plan faz 0 i 1, krytyka spec-u, decyzje (2026-09-02)
+docs/POSTEP.md            # stan kryteriów odbioru z rozdz. 18
+tests/unit/
 tests/e2e/
 ```
 
@@ -89,6 +98,8 @@ tests/e2e/
     Panel nigdy sam nie wylicza ścieżki na Dysku i nigdy nie importuje bez potwierdzenia
     karty weryfikacyjnej przez człowieka. To zabezpieczenie przed materiałami z innego miesiąca.
 12. **Podmiana pliku nie kasuje starego** — stary dostaje `superseded_at` i `superseded_by`.
+13. **Strony klienta dostają wyłącznie DTO z `lib/dto/`**, nigdy surowe wiersze z bazy. Pola
+    zespołu (`internal_note`, `created_by`, hashe) nie mogą wyciec przez przypadkowy `select *`.
 
 ## Język i ton
 
@@ -106,10 +117,11 @@ tests/e2e/
 czerń  #1B1B1B   fiolet #7600F4   biel #FFFFFF
 zielony #12855C (zaakceptowany) · bursztyn #B45309 (poprawki) · czerwony #B42318 (po terminie)
 ```
-Nagłówki: **Cal Sans** (self-hosted, `next/font/local`). Tekst: **Inter**.
+Nagłówki: **Cal Sans** (self-hosted w `public/fonts/`, dwa ręczne `@font-face` z `unicode-range`
+w `globals.css`; `next/font/local` nie obsługuje dwóch podzbiorów jednej rodziny). Tekst: **Inter**
+z `@fontsource-variable/inter` (bez pobierania z Google).
 
-Pliki marki leżą w katalogu **`brand/`** i w fazie 0 masz je przenieść tam, gdzie mają być
-w projekcie (font do `public/fonts/` albo `src/app/fonts/`, sygnety do `public/`):
+Pliki marki leżały w katalogu `brand/`; od fazy 0 są w `public/fonts/` i `public/`:
 - `cal-sans-latin-400-normal.woff2` i `cal-sans-latin-ext-400-normal.woff2` — **oba są
   potrzebne**: podzbiór `latin-ext` niesie polskie znaki (ą, ć, ę, ł, ń, ó, ś, ź, ż).
   Zadeklaruj dwa `@font-face` z odpowiednimi `unicode-range`, nie jeden.
@@ -162,8 +174,12 @@ GOOGLE_DRIVE_ROOT_FOLDER_ID
 ZAPIER_WEBHOOK_URL
 INGEST_TOKEN                    # webhook rejestrujący raporty
 CRON_SECRET
-TEAM_EMAIL_ALLOWLIST            # adresy, które mogą się zalogować do panelu zespołu
+TEAM_EMAIL_ALLOWLIST            # domeny lub adresy (po przecinku) jako filtr wstępny logowania zespołu;
+                                # prawdziwa lista dopuszczonych to team_members.active
 ```
+
+Tokeny narzędziowe (tylko w `.env.local`, nigdy w aplikacji): `SUPABASE_ACCESS_TOKEN` (CLI:
+`link`, `db push`, `gen types`), `VERCEL_TOKEN` (CLI: zmienne środowiskowe, wdrożenia).
 
 ## Gdy utkniesz
 

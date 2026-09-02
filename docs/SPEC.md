@@ -1,6 +1,6 @@
 # SPEC — Panel Klienta Foodie Media (panel.foodiemedia.pl)
 
-Wersja 1.2 · 2 września 2026 · autor specyfikacji: Szymon Sułkowski + Claude
+Wersja 1.3 · 2 września 2026 · autor specyfikacji: Szymon Sułkowski + Claude
 Ten plik jest **jedynym źródłem prawdy** o zakresie. Zmieniasz zakres → zmieniasz ten plik.
 
 **Zmiany w 1.1:** Fakturowo zamiast Fakturowni · import materiałów przez wklejane linki do
@@ -11,6 +11,16 @@ brak logo klienta w interfejsie panelu · uproszczona wysyłka dostępu (sam lin
 **Zmiany w 1.2:** reklamy podglądane w **sześciu placementach — Facebook i Instagram** ·
 w ramce podglądu używamy **zdjęcia profilowego strony klienta** · auto-akceptacja liczona
 w **dniach kalendarzowych (72 h)** · osobny link i PIN dla każdej osoby po stronie klienta.
+
+**Zmiany w 1.3 (po sesji startowej, rozstrzygnięcia w rozdz. 20 poz. 15–30):** token linku dodatkowo
+**szyfrowany** w bazie, żeby „Kopiuj dostęp" działało zawsze · **jeden materiał reklamowy na kampanię**
+z wariantami per lokal (`ad_variants.location_id`) zamiast osobnego materiału na każdy lokal · zmiana
+materiałów w `do_akceptacji` **przesuwa** auto-akceptację o co najmniej 24 h · cron **nie auto-akceptuje**
+pakietu z nierozwiązanymi uwagami klienta · nowe przejścia statusów (Wycofaj do szkicu, Cofnij do poprawek)
+· `sales` bez impersonacji · `media_buyer` edytuje kampanie · opiekun klienta (`clients.opiekun_id`) ·
+link „tylko do podglądu" (`can_approve`) · sesja 30 dni **przesuwnie** · raporty per lokal w kat1 ·
+poprawki błędów w SQL (unikalność pakietu przy `location_id = null`, brakujące enumy, `CHECK`, indeksy) ·
+podglądy bez `next/image` · Next.js 16.
 
 ---
 
@@ -35,12 +45,12 @@ klienta.** Panel ma zabrać tarcie z akceptacji i postawić widoczny licznik.
 
 | Warstwa | Wybór | Uzasadnienie |
 |---|---|---|
-| Framework | **Next.js 15+, App Router, TypeScript strict** | Server Components → dane klienta nigdy nie lecą do przeglądarki bez kontroli |
+| Framework | **Next.js 16+, App Router, TypeScript strict** | Server Components → dane klienta nigdy nie lecą do przeglądarki bez kontroli |
 | UI | **Tailwind CSS + shadcn/ui** | szybkie, spójne, łatwe do brandowania |
 | Baza + auth zespołu + pliki | **Supabase** (Postgres, Auth, Storage), region **eu-central-1 (Frankfurt)** | RODO, RLS, gotowe Storage z signed URL |
 | Hosting | **Vercel**, region funkcji **fra1** | domena własna, preview deploys |
 | Kolejki / zadania cykliczne | **Vercel Cron** + tabele `import_jobs` i `outbox` | auto-akceptacja, import, sprzątanie sesji |
-| Obrazy | `next/image` + warianty generowane przy imporcie (`sharp`) | 80 klientów × ponad 20 plików/mies. — bez wariantów panel będzie mulił |
+| Obrazy | warianty `preview` (1080 px webp) i `thumb` (400 px webp) generowane przy imporcie (`sharp`), serwowane zwykłym `<img>` z wymiarami przez signed URL z własnej trasy (`/p/[token]/plik/[assetId]/[wariant]` → `assertClientAccess()` → 302); `next/image` tylko dla statycznych elementów interfejsu | 80 klientów × ponad 20 plików/mies. — bez wariantów panel będzie mulił; signed URL zmienia się co 10 minut, więc optymalizator `next/image` nie trafiałby w cache i płaciłby za każdą transformację |
 | Testy | **Vitest** (jednostkowe) + **Playwright** (E2E, w tym wizualne) | akceptacja to pieniądze, musi być testowana |
 | Analityka | brak zewnętrznej; własny `audit_log` | mniej zgód RODO |
 
@@ -56,22 +66,31 @@ klienta.** Panel ma zabrać tarcie z akceptacji i postawić widoczny licznik.
 
 Dwa rozłączne światy uwierzytelniania:
 - **Klient** — magic link + PIN, bez konta e-mail (rozdz. 4)
-- **Zespół** — Supabase Auth, e-mail OTP, tylko adresy z allowlisty
+- **Zespół** — Supabase Auth, e-mail OTP. **Prawdziwą listą dopuszczonych jest tabela `team_members`
+  (`active = true`)**, zarządzana przez admina w panelu; konto w Supabase Auth tworzy panel przez admin API
+  w chwili dodania członka zespołu, rejestracja publiczna jest wyłączona. `TEAM_EMAIL_ALLOWLIST` to tylko
+  wstępny filtr domen lub adresów (część zespołu ma adresy poza domeną agencji).
 
 | Rola | Klienci | Materiały | Harmonogram | Raporty | Faktury i dokumenty | Linki dostępu | Ustawienia systemu |
 |---|---|---|---|---|---|---|---|
 | `admin` (Szymon) | wszyscy | pełne | pełne | pełne | pełne | pełne | pełne |
 | `csm` (Gosia, PM) | **tylko przypisani** | pełne | pełne | pełne | pełne | pełne | brak |
 | `content_creator` | tylko przypisani | pełne | pełne | podgląd | **brak dostępu** | brak | brak |
-| `media_buyer` (Stasiek) | tylko przypisani | podgląd | podgląd | pełne | brak dostępu | brak | brak |
+| `media_buyer` (Stasiek) | tylko przypisani | podgląd contentu, **edycja kampanii i wariantów reklam** | podgląd | pełne | brak dostępu | brak | brak |
 | `sales` (Kuba) | wszyscy | podgląd | podgląd | podgląd | **brak dostępu** | brak | brak |
+
+Uprawnienia są w kodzie macierzą zasób × rola (`lib/uprawnienia.ts`), nie kolumną „Materiały".
+**Opiekun klienta** (ten, którego klient widzi w „Twój pakiet") to `clients.opiekun_id`; pozostałe
+przypisania (content creator, media buyer) idą przez `client_assignments`.
 
 **„Wrażliwe rzeczy", do których CSM nie ma dostępu** (decyzja podjęta za Ciebie — zweryfikuj):
 zarządzanie kontami zespołu i rolami, globalne ustawienia i sekrety, logi bezpieczeństwa,
 eksport całej bazy, zestawienia przychodów agencji w skali wszystkich klientów.
 CSM **ma** dostęp do faktur i kwot **swoich** klientów — bez tego nie zrobi swojej pracy.
 
-**Podgląd oczami klienta (impersonacja)** — dla `admin`, `csm`, `sales`:
+**Podgląd oczami klienta (impersonacja)** — dla `admin` i `csm`. `sales` nie ma impersonacji (nie ma
+prawa do faktur, które są częścią widoku klienta); do pokazywania panelu potencjalnym klientom dostaje
+**klienta demonstracyjnego** z seedu.
 - wejście przyciskiem „Zobacz jak klient" z karty klienta,
 - tryb **wyłącznie do odczytu** — akceptacja i komentarze zablokowane, przycisk pokazuje tooltip „niedostępne w podglądzie",
 - stały pasek u góry ekranu: „PODGLĄD KLIENTA — {nazwa}. Wyjdź",
@@ -93,6 +112,25 @@ create type client_category as enum ('kat1','kat2','kat3');
 
 create type package_tier as enum ('foodie_one','foodie_360','siec');
 
+-- Typy wyliczeniowe dopisane w 1.3 (wcześniej kolumny text z listą wartości w komentarzu):
+create type client_status as enum ('aktywny','wstrzymany','zakonczony');
+create type pin_kind as enum ('pin4','pin6','haslo');
+create type approval_kind as enum ('reczna','automatyczna');
+create type campaign_goal as enum ('sprzedaz','ruch','polubienia','leady','zasieg','inne');
+create type item_origin as enum ('import','reczny','dodatkowy');
+create type import_kind as enum ('content','reklamy','dodatkowy','podmiana');
+create type import_status as enum ('oczekuje','trwa','zakonczony','blad');
+create type author_kind as enum ('klient','zespol');
+create type actor_kind as enum ('klient','zespol','system');
+create type package_event_kind as enum (
+  'utworzony','zaimportowany','wyslany','wycofany','otwarty','komentarz','poprawki',
+  'material_dodany','material_podmieniony','zaakceptowany','auto_zaakceptowany',
+  'auto_przesunieta','auto_wstrzymana','cofniety_do_poprawek','zaplanowany'
+);
+create type report_source as enum ('reczne','webhook');
+create type document_kind as enum ('umowa','aneks','powierzenie','inne');
+create type outbox_status as enum ('pending','sent','failed');
+
 create table clients (
   id uuid primary key default gen_random_uuid(),
   name text not null,
@@ -103,10 +141,14 @@ create table clients (
   extra_locations_count int not null default 0,
   drive_folder_url text,                     -- folder klienta w „Materiały klientów" (pomocniczo)
   slack_channel text,
-  status text not null default 'aktywny',    -- aktywny | wstrzymany | zakonczony
+  status client_status not null default 'aktywny',
   cooperation_started_on date,
   timezone text not null default 'Europe/Warsaw',
-  created_at timestamptz not null default now()
+  opiekun_id uuid,                           -- references team_members(id); FK dodawany po utworzeniu tabeli zespołu
+  auto_approve_default boolean not null default true,  -- wyłączenie auto-akceptacji dla całego klienta
+  auto_approve_hours int,                    -- nadpisanie globalnych 72 h; null = ustawienie globalne
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now()
 );
 -- UWAGA: żadnego logo ani kolorów klienta. Panel jest w 100% w brandingu Foodie Media.
 
@@ -161,14 +203,18 @@ create table access_links (
   contact_id uuid references client_contacts(id) on delete set null,
   label text not null,                       -- „Marek — właściciel"
   token_lookup text not null unique,         -- pierwsze 8 znaków tokenu, do wyszukania wiersza
-  token_hash text not null,                  -- sha256 pełnego tokenu
+  token_hash text not null,                  -- sha256 pełnego tokenu; weryfikacja ZAWSZE po hashu
+  token_enc text not null,                   -- token zaszyfrowany AES-256-GCM kluczem z SESSION_SECRET (HKDF),
+                                             -- żeby „Kopiuj dostęp" działało w każdej chwili (rozdz. 4.1)
   pin_hash text not null,                    -- argon2id
-  pin_kind text not null default 'pin4',     -- pin4 | pin6 | haslo
+  pin_kind pin_kind not null default 'pin4',
+  can_approve boolean not null default true, -- false = link tylko do podglądu i komentarzy
   created_by uuid references team_members(id),
   created_at timestamptz not null default now(),
   last_used_at timestamptz,
   revoked_at timestamptz,
   failed_attempts int not null default 0,
+  failed_window_started_at timestamptz,      -- początek okna liczenia „10 nieudanych w godzinę"
   locked_until timestamptz
 );
 
@@ -176,12 +222,21 @@ create table client_sessions (
   id uuid primary key default gen_random_uuid(),
   access_link_id uuid not null references access_links(id) on delete cascade,
   session_hash text not null unique,
+  previous_session_hash text,                -- po rotacji poprzedni token ważny jeszcze 2 min (równoległe żądania)
+  rotated_at timestamptz not null default now(),
   ua_hash text,
   ip_hash text,
   created_at timestamptz not null default now(),
   last_seen_at timestamptz not null default now(),
-  expires_at timestamptz not null,
+  expires_at timestamptz not null,           -- 30 dni od ostatniej aktywności (przesuwnie)
   revoked_at timestamptz
+);
+
+-- Limit prób PIN-u na IP (rozdz. 4.3) bez Redisa: klucz = 'pin:ip:<ip_hash>'
+create table rate_limits (
+  key text primary key,
+  window_started_at timestamptz not null default now(),
+  count int not null default 0
 );
 
 -- === PAKIETY MATERIAŁÓW (serce systemu) ===
@@ -211,13 +266,16 @@ create table packages (
   auto_approve_at timestamptz,               -- wyliczane przy submit (rozdz. 6.4)
   approved_at timestamptz,
   approved_by_contact_id uuid references client_contacts(id),
-  approval_kind text,                        -- reczna | automatyczna
+  approval_kind approval_kind,
   changed_after_approval boolean not null default false,
   period_from date,
   period_to date,                            -- „dzień zakończenia" z planu contentu
   created_by uuid references team_members(id),
   created_at timestamptz not null default now(),
-  unique (client_id, location_id, period_year, period_month)
+  updated_at timestamptz not null default now(),
+  -- NULLS NOT DISTINCT: zwykły unique traktuje NULL jako różne wartości, więc dla kat2/kat3
+  -- (location_id = null) dałoby się założyć wiele pakietów na ten sam miesiąc.
+  unique nulls not distinct (client_id, location_id, period_year, period_month)
 );
 
 -- Kampanii w miesiącu może być kilka: standardowa, na imprezy okolicznościowe,
@@ -226,12 +284,13 @@ create table campaigns (
   id uuid primary key default gen_random_uuid(),
   package_id uuid not null references packages(id) on delete cascade,
   name text not null,                        -- „Kampania standardowa", „Imprezy okolicznościowe"
-  goal text,                                 -- sprzedaz | ruch | polubienia | leady | zasieg | inne
+  goal campaign_goal,
   position int not null default 0,
   ads_folder_url text,                       -- WKLEJONY przez content creatora
   ads_folder_id text,
   note text,                                 -- widoczne dla klienta: po co ta kampania
-  created_at timestamptz not null default now()
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now()
 );
 
 create type item_type as enum ('post','relacja','reels','reklama');
@@ -245,12 +304,16 @@ create table package_items (
   title text,                                -- robocza nazwa, np. „Post 3 — nowa pizza"
   caption text,                              -- opis posta / tekst relacji
   publish_at timestamptz,                    -- NULL dla typu 'reklama'
-  location_ids uuid[] default '{}',          -- kat2/kat3: na które lokale publikujemy
+  location_ids uuid[] default '{}',          -- kat2/kat3: na które lokale publikujemy (posty) lub
+                                             -- na które lokale idzie reklama (jeden item na kampanię)
   internal_note text,                        -- widoczne tylko dla zespołu
-  origin text not null default 'import',     -- import | reczny | dodatkowy
+  origin item_origin not null default 'import',
   updated_in_round int,                      -- runda, w której materiał zmieniono → plakietka
   added_after_submit boolean not null default false,
-  created_at timestamptz not null default now()
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now(),
+  check ((type = 'reklama') = (campaign_id is not null)),
+  check (type <> 'reklama' or publish_at is null)
 );
 
 create type asset_kind as enum ('image','video');
@@ -269,10 +332,15 @@ create table item_assets (
   position int not null default 0,           -- karuzela: kolejność slajdów
   drive_file_id text,
   superseded_at timestamptz,                 -- podmiana zachowuje historię
-  superseded_by uuid references item_assets(id)
+  superseded_by uuid references item_assets(id),
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now()
 );
 
--- Warianty reklamy: do 6 grafik + do 3 tekstów + 2–3 nagłówki + opis + CTA
+-- Warianty reklamy: do 6 grafik + do 3 tekstów + 2–3 nagłówki + opis + CTA + link.
+-- Jeden materiał 'reklama' na kampanię. W kat2/kat3 warianty wspólne mają location_id = null,
+-- a różnice per lokal (link, CTA, czasem tekst) to osobne wiersze z wypełnionym location_id.
+-- 'opis', 'cta' i 'link' mają najwyżej jeden wiersz na (item, lokal); walidacja przy wysyłce.
 create type variant_kind as enum ('grafika','tekst','naglowek','opis','cta','link');
 
 create table ad_variants (
@@ -282,7 +350,18 @@ create table ad_variants (
   position int not null default 0,
   label text,                                -- „Wariant A"
   value_text text,                           -- dla tekst/naglowek/opis/cta/link
-  asset_id uuid references item_assets(id) on delete cascade -- dla grafika
+  asset_id uuid references item_assets(id) on delete cascade, -- dla grafika
+  location_id uuid references locations(id) on delete cascade, -- null = wspólny dla wszystkich lokali
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now()
+);
+
+-- „Obejrzano 12 z 19" (rozdz. 6.2): materiał liczy się jako obejrzany po 2 s w polu widzenia
+create table item_views (
+  item_id uuid not null references package_items(id) on delete cascade,
+  access_link_id uuid not null references access_links(id) on delete cascade,
+  first_viewed_at timestamptz not null default now(),
+  primary key (item_id, access_link_id)
 );
 
 -- === IMPORT Z DYSKU ===
@@ -291,10 +370,10 @@ create table import_jobs (
   package_id uuid references packages(id) on delete cascade,
   campaign_id uuid references campaigns(id) on delete cascade,
   item_id uuid references package_items(id) on delete cascade,  -- dla podmiany
-  kind text not null,                        -- content | reklamy | dodatkowy | podmiana
+  kind import_kind not null,
   source_url text not null,
   source_folder_id text,
-  status text not null default 'oczekuje',   -- oczekuje | trwa | zakonczony | blad
+  status import_status not null default 'oczekuje',
   files_total int, files_done int,
   warnings jsonb not null default '[]',
   error text,
@@ -310,25 +389,25 @@ create table comments (
   package_id uuid not null references packages(id) on delete cascade,
   item_id uuid references package_items(id) on delete cascade, -- null = komentarz do pakietu
   variant_id uuid references ad_variants(id) on delete set null,
-  author_kind text not null,                 -- klient | zespol
+  author_kind author_kind not null,
   author_contact_id uuid references client_contacts(id),
   author_member_id uuid references team_members(id),
   body text not null,
   round int not null,                        -- runda, w której powstał
   after_approval boolean not null default false,
+  seen_by_client_at timestamptz,             -- odpowiedzi zespołu: do plakietek „nieprzeczytane"
   resolved_at timestamptz,
   resolved_by uuid references team_members(id),
-  created_at timestamptz not null default now()
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now()
 );
 
 create table package_events (
   id uuid primary key default gen_random_uuid(),
   package_id uuid not null references packages(id) on delete cascade,
-  kind text not null,                        -- utworzony | zaimportowany | wyslany | otwarty |
-                                             -- komentarz | poprawki | material_dodany |
-                                             -- material_podmieniony | zaakceptowany |
-                                             -- auto_zaakceptowany | zaplanowany
-  actor_kind text,                           -- klient | zespol | system
+  kind package_event_kind not null,          -- zdarzenie 'zaakceptowany' zapisuje w payload migawkę:
+                                             -- listę item_id + asset_id + skróty treści (dowód, co zaakceptowano)
+  actor_kind actor_kind,
   actor_id uuid,
   payload jsonb not null default '{}',
   created_at timestamptz not null default now()
@@ -338,14 +417,15 @@ create table package_events (
 create table reports (
   id uuid primary key default gen_random_uuid(),
   client_id uuid not null references clients(id) on delete cascade,
+  location_id uuid references locations(id) on delete cascade, -- kat1 z kilkoma restauracjami: raport per lokal
   period_year int not null,
   period_month int not null,
-  title text not null,                       -- „Raport miesięczny — sierpień 2026"
-  url text not null,                         -- https://raporty.foodiemedia.pl/r/<token>
+  title text not null,                       -- „Raport miesięczny - sierpień 2026"
+  url text not null,                         -- https://raporty.foodiemedia.pl/r/<token>; host walidowany
   cooperation_month int,
   published_at timestamptz not null default now(),
-  source text not null default 'reczne',     -- reczne | webhook
-  unique (client_id, period_year, period_month)
+  source report_source not null default 'reczne',
+  unique nulls not distinct (client_id, location_id, period_year, period_month)
 );
 
 create type invoice_status as enum ('do_zaplaty','po_terminie','oplacona');
@@ -364,6 +444,7 @@ create table invoices (
   fakturowo_id text,                         -- rezerwa pod ewentualną integrację z Fakturowo
   note text,
   created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now(),
   unique (client_id, number)
 );
 -- „po_terminie" NIE jest wpisywane ręcznie: cron przestawia status,
@@ -372,7 +453,7 @@ create table invoices (
 create table documents (
   id uuid primary key default gen_random_uuid(),
   client_id uuid not null references clients(id) on delete cascade,
-  kind text not null,                        -- umowa | aneks | powierzenie | inne
+  kind document_kind not null,
   title text not null,
   file_path text not null,
   valid_from date,
@@ -420,7 +501,7 @@ create table onboarding_steps (
 -- === INFRASTRUKTURA ===
 create table audit_log (
   id bigserial primary key,
-  actor_kind text not null,                  -- klient | zespol | system
+  actor_kind actor_kind not null,
   actor_id uuid,
   actor_label text,
   action text not null,
@@ -438,7 +519,7 @@ create table outbox (
   id bigserial primary key,
   event text not null,
   payload jsonb not null,
-  status text not null default 'pending',    -- pending | sent | failed
+  status outbox_status not null default 'pending',
   attempts int not null default 0,
   last_error text,
   created_at timestamptz not null default now(),
@@ -451,8 +532,28 @@ create table settings (
   updated_at timestamptz not null default now(),
   updated_by uuid references team_members(id)
 );
--- klucze m.in.: auto_approve_days=3, auto_approve_business_days=false (dni kalendarzowe),
--- retention_months=24, onboarding_enabled=false, zapier_webhook_url
+-- klucze: auto_approve_hours=72, auto_approve_business_days=false (dni kalendarzowe),
+-- retention_months=24, onboarding_enabled=false. Adres webhooka Zapiera jest TYLKO w env.
+
+-- === INDEKSY (poza tymi z definicji tabel) ===
+create index on packages (client_id, status);
+create index on packages (auto_approve_at) where status = 'do_akceptacji';   -- cron auto-akceptacji
+create index on package_items (package_id, position);
+create index on item_assets (item_id);
+create index on ad_variants (item_id);
+create index on comments (package_id, created_at);
+create index on comments (package_id) where resolved_at is null;             -- skrzynka uwag
+create index on package_events (package_id, created_at);
+create index on outbox (status, created_at);
+create index on access_links (client_id);
+create index on client_sessions (access_link_id);
+create index on invoices (client_id, status);
+
+-- updated_at utrzymywane triggerem set_updated_at() na każdej tabeli z tą kolumną.
+
+-- === STORAGE ===
+-- Prywatne buckety: materialy, dokumenty, faktury, awatary. Ścieżka pliku nigdy nie zawiera
+-- nazwy klienta: {client_id}/{asset_id}/original.{ext} | preview.webp | thumb.webp
 ```
 
 ### 3.1 Trzy kategorie klientów — jak to działa w danych
@@ -460,10 +561,12 @@ create table settings (
 | Kategoria | Lokale | Profile FB | Pakiety | Kampanie |
 |---|---|---|---|---|
 | **kat1** — 1 lokal albo różne restauracje | 1..n, `separate_materials = true` | osobne | **osobny pakiet na każdy lokal** (`packages.location_id` wypełnione) | osobne w każdym pakiecie |
-| **kat2** — identyczne lokale, jeden profil | 1..n | jeden wspólny | **jeden pakiet** (`location_id = null`) | jedna kampania, w niej osobny `reklama` item na lokal (różne CTA) |
-| **kat3** — identyczne lokale, osobne profile | 1..n | osobne | **jeden pakiet contentu** (`location_id = null`), `package_items.location_ids` mówi, na które profile idzie post | osobny `reklama` item na każdy lokal |
+| **kat2** — identyczne lokale, jeden profil | 1..n | jeden wspólny | **jeden pakiet** (`location_id = null`) | jedna kampania z **jednym** materiałem `reklama`; `location_ids` = wszystkie lokale; różnice per lokal (link, CTA) jako warianty z `ad_variants.location_id` |
+| **kat3** — identyczne lokale, osobne profile | 1..n | osobne | **jeden pakiet contentu** (`location_id = null`), `package_items.location_ids` mówi, na które profile idzie post | jeden materiał `reklama` na kampanię; podgląd przełącza nazwę strony per lokal, warianty per lokal jak w kat2 |
 
 Podgląd posta w kat3 pokazuje przełącznik profilu (nazwa strony z `locations.fb_page_name`).
+Podgląd reklamy w kat2 i kat3 pokazuje listę „Lokal" tylko wtedy, gdy istnieją warianty per lokal.
+Klient z pięcioma identycznymi lokalami widzi **jedną** sekcję reklamy, nie pięć.
 
 ---
 
@@ -475,14 +578,21 @@ daje dostęp), ale sam link nie wystarczy.
 ### 4.1 Link
 - Adres: `https://panel.foodiemedia.pl/p/<token>`
 - `token` = 32 znaki hex z `crypto.randomBytes(16)` (128 bit). **Nigdy nie generowany przez model językowy.**
-- W bazie: `token_lookup` = pierwsze 8 znaków (indeks), `token_hash` = sha256 całości.
+- W bazie: `token_lookup` = pierwsze 8 znaków (indeks), `token_hash` = sha256 całości,
+  `token_enc` = token zaszyfrowany AES-256-GCM kluczem wyprowadzonym (HKDF) z `SESSION_SECRET`.
+  Weryfikacja zawsze po `token_hash`; `token_enc` służy wyłącznie do „Kopiuj dostęp" w panelu zespołu.
+  Wyciek samej bazy nie ujawnia tokenów, bo klucz żyje tylko w zmiennych Vercela.
 - Link **nie wygasa** sam; wygaszany ręcznie (`revoked_at`) lub przy offboardingu klienta.
 - Każda osoba kontaktowa może mieć własny link → widać, **kto** zaakceptował.
+- `can_approve = false` daje link **tylko do podglądu** (np. dla menedżera zmiany): komentarze tak,
+  przyciski decyzji nie. Domyślnie link może akceptować.
 
 ### 4.2 PIN
 - Domyślnie 4 cyfry, do wyboru 6 cyfr albo proste hasło (`pin_kind`).
 - Hash **argon2id**, nigdy plaintext, nigdy w logach.
-- Panel po wpisaniu PIN-u ustawia sesję na **30 dni** (cookie `httpOnly`, `Secure`, `SameSite=Lax`, `__Host-` prefix).
+- Panel po wpisaniu PIN-u ustawia sesję na **30 dni od ostatniej aktywności** (przesuwnie: każde
+  żądanie przedłuża `expires_at`; cookie `httpOnly`, `Secure`, `SameSite=Lax`, `__Host-` prefix).
+  Klient, który wchodzi raz w miesiącu, nie wpisuje PIN-u za każdym razem.
 - „Zapamiętaj mnie na tym urządzeniu" domyślnie zaznaczone.
 
 ### 4.3 Ochrona przed zgadywaniem — wymóg twardy
@@ -556,8 +666,8 @@ Lista kart: miesiąc, „X. miesiąc współpracy", przycisk „Otwórz raport" 
 
 ### 5.7 Twój pakiet
 Nazwa pakietu (Foodie One / Foodie 360° / Sieć), kwota netto miesięcznie, wypunktowany
-zakres, lista lokali objętych współpracą, dane opiekuna (imię + kanał kontaktu — **bez
-numerów prywatnych zespołu**), data startu współpracy.
+zakres (w MVP stała w `copy.ts` per `package_tier`), lista lokali objętych współpracą, dane opiekuna
+(`clients.opiekun_id`: imię + kanał kontaktu — **bez numerów prywatnych zespołu**), data startu współpracy.
 
 ### 5.8 Co jeszcze możemy zrobić
 Karty usług z `services`: sesja zdjęciowa, FoodieQR, strona WWW i branding, Restaumatic
@@ -586,7 +696,8 @@ Do akceptacji · Automatyczna akceptacja za 2 dni 4 godz.   [Zgłaszam uwagi]  [
 ```
 
 Zakładki: **Posty (6)** · **Relacje (10)** · **Kampanie (2)** · **Wszystko**
-Przy każdej zakładce plakietka z liczbą nieprzeczytanych komentarzy zespołu.
+Przy każdej zakładce plakietka z liczbą nieprzeczytanych komentarzy zespołu (`comments.seen_by_client_at`).
+Reels liczą się do postów i są w zakładce Posty z plakietką „Reels" (na Facebooku lądują w kanale).
 
 W zakładce Kampanie każda kampania to osobna sekcja z nagłówkiem — nazwa, cel i jedno zdanie
 od zespołu („Kampania na imprezy okolicznościowe — chcemy dowozić rezerwacje na urodziny
@@ -619,14 +730,28 @@ To jest funkcja, która rozwiązuje problem z 52% kampanii po terminie. Musi by�
 
 **Zasady:**
 - Licznik startuje w momencie ustawienia statusu `do_akceptacji`, nie w momencie otwarcia linku.
-- **3 dni kalendarzowe, czyli równo 72 godziny.** Zaokrąglenie do pełnej godziny.
-  Ustawienie `auto_approve_business_days` istnieje w `settings` i przełącza na dni robocze,
-  gdyby okazało się, że weekendy zjadają za dużo — domyślnie **wyłączone**.
+- **3 dni kalendarzowe, czyli równo 72 godziny.** Zaokrąglenie **w górę** do pełnej godziny
+  (klient nigdy nie dostaje mniej niż 72 h). Cron auto-akceptacji biegnie co godzinę.
+  Ustawienie `auto_approve_business_days` istnieje w `settings` i przełącza na dni robocze
+  (poniedziałek–piątek w `Europe/Warsaw`, bez świąt), gdyby okazało się, że weekendy zjadają
+  za dużo — domyślnie **wyłączone**. Zmiana ustawień dotyczy pakietów wysłanych po zmianie;
+  istniejących `auto_approve_at` nie przeliczamy.
+- Liczbę godzin można nadpisać per klient (`clients.auto_approve_hours`); domyślnie globalne
+  `settings.auto_approve_hours = 72`.
 - Widoczność: licznik w pasku pakietu i na ekranie Start.
-- Na 24 h przed: pasek zmienia kolor na bursztynowy, tekst „Zostało 24 godziny".
+- Na 24 h przed: pasek zmienia kolor na bursztynowy, tekst „Zostało 24 godziny". Zespół dostaje
+  w tym momencie zdarzenie `pakiet.auto_za_24h`, a jeśli klient w ogóle nie otworzył pakietu przez
+  24 h od wysyłki — `pakiet.nieotwarty_po_24h` (rozdz. 15). To są momenty na WhatsAppową szturchańcę.
 - Zgłoszenie uwag **zatrzymuje** licznik. Wysłanie wersji v2 startuje go od nowa.
+- **Dodanie albo podmiana materiału w `do_akceptacji` przesuwa `auto_approve_at`** na
+  `max(auto_approve_at, teraz + 24 h)` i zapisuje zdarzenie `auto_przesunieta`. Klient nie może
+  zostać auto-zaakceptowany na materiałach, których nie zdążył zobaczyć.
+- **Nierozwiązane uwagi klienta z bieżącej rundy wstrzymują auto-akceptację**: licznik biegnie
+  dalej, ale cron nie zatwierdza takiego pakietu; zapisuje `auto_wstrzymana` i wysyła
+  `pakiet.auto_wstrzymana_uwagi` do zespołu. CSM odpowiada i oznacza „Załatwione" (cron zatwierdzi
+  przy następnym przebiegu, jeśli termin minął) albo cofa do poprawek.
 - CSM może **wyłączyć** auto-akceptację dla konkretnego pakietu (checkbox przy wysyłce)
-  albo dla konkretnego klienta (ustawienie na karcie klienta).
+  albo dla konkretnego klienta (`clients.auto_approve_default` na karcie klienta).
 - Auto-akceptacja zapisuje `approval_kind = 'automatyczna'`, `approved_by_contact_id = null`,
   zdarzenie `auto_zaakceptowany` i **osobne powiadomienie do zespołu**.
 - Klient po auto-akceptacji widzi baner: „Materiały zostały zatwierdzone automatycznie
@@ -639,6 +764,8 @@ To jest funkcja, która rozwiązuje problem z 52% kampanii po terminie. Musi by�
 - **Bez limitu rund.**
 - Zespół wprowadza poprawki → zmienia materiały → naciska „Wyślij v2".
   `round += 1`, `status = do_akceptacji`, nowy `submitted_at` i `auto_approve_at`.
+  „Wyślij v2" działa też **bez zmian w materiałach** (klient napisał „jednak OK"): klient w statusie
+  `poprawki` nie ma przycisków decyzji, więc tarcie ląduje po stronie zespołu, nie klienta.
 - Nagłówek pokazuje „Do akceptacji · wersja 2".
 - Przy materiałach zmienionych w tej rundzie (`updated_in_round = round`): plakietka **„Poprawione"**.
   Przy materiałach dopisanych po wysyłce: plakietka **„Nowe"**.
@@ -663,7 +790,8 @@ To jest funkcja, która rozwiązuje problem z 52% kampanii po terminie. Musi by�
 
 ```
 szkic ──(CSM: Wyślij do akceptacji)──▶ do_akceptacji (v1)
-                                          │
+  ▲                                       │
+  └────────(CSM: Wycofaj do szkicu)───────┤
                         ┌─────────────────┼─────────────────┐
             klient: Akceptuję      klient: Uwagi        cisza 72 godziny
                     │                     │                 │
@@ -679,8 +807,23 @@ szkic ──(CSM: Wyślij do akceptacji)──▶ do_akceptacji (v1)
                                    zaplanowany
 ```
 
-`zaplanowany` ustawia zespół po ustawieniu publikacji w Meta Business Suite. To ostatni
-status — panel nie publikuje sam.
+Pełna lista dozwolonych przejść (wszystko inne maszyna stanów w `lib/pakiety/przejscia.ts` odrzuca):
+
+| Z | Do | Kto | Co się dzieje |
+|---|---|---|---|
+| `szkic` | `do_akceptacji` | zespół | „Wyślij do akceptacji"; `submitted_at`, `auto_approve_at`; walidacja z rozdz. 8 |
+| `do_akceptacji` | `szkic` | zespół | „Wycofaj do szkicu" (zły miesiąc, za wcześnie); zeruje `submitted_at` i `auto_approve_at`; `round` bez zmian; klient widzi „Nic nie czeka" |
+| `do_akceptacji` | `zaakceptowany` | klient | „Akceptuję wszystko"; `approval_kind = 'reczna'`, `approved_by_contact_id` |
+| `do_akceptacji` | `zaakceptowany` | system | cron po upływie `auto_approve_at`; `approval_kind = 'automatyczna'`; pomija pakiety z wyłączoną flagą i z nierozwiązanymi uwagami klienta |
+| `do_akceptacji` | `poprawki` | klient | „Zgłaszam uwagi" (wymaga co najmniej jednego komentarza); licznik zatrzymany |
+| `poprawki` | `do_akceptacji` | zespół | „Wyślij v2"; `round += 1`, nowy `submitted_at` i `auto_approve_at` |
+| `zaakceptowany` | `poprawki` | zespół | „Cofnij do poprawek" |
+| `zaakceptowany` | `zaplanowany` | zespół | „Zaplanowano" po ustawieniu publikacji w Meta Business Suite |
+| `zaplanowany` | `poprawki` | zespół | „Cofnij do poprawek" (np. po uwadze po akceptacji) |
+
+`round` rośnie wyłącznie na `poprawki → do_akceptacji`. `zaplanowany` to status końcowy w normalnym
+przebiegu — panel nie publikuje sam. Każde przejście zapisuje `package_events` i, gdy rozdz. 15 tego
+wymaga, wiersz w `outbox`.
 
 ---
 
@@ -736,6 +879,11 @@ Grafika:  [Wariant 1 ▾ z 6]     Tekst:  [Wariant A ▾ z 3]     Nagłówek: [W
 
 - Zmiana dowolnej listy przerysowuje podgląd natychmiast. Klient może obejrzeć **każdą
   kombinację** — a jest ich do 6 × 3 × 3 = 54.
+- Czwarta lista **Lokal** pojawia się tylko w kat2/kat3, gdy istnieją warianty per lokal
+  (`ad_variants.location_id`): przełącza nazwę strony (kat3) oraz link i CTA (kat2).
+- Grafika 1:1 lub 4:5 w placementach 9:16 (relacje, Reels): wyśrodkowana na tle z rozmytej kopii
+  grafiki, tekst reklamy pod spodem, tak jak robi to Meta. Lista CTA jest zamknięta (`copy.ts`),
+  żeby podgląd pokazywał dokładnie ten przycisk, który pokaże Facebook.
 - Pod podglądem: „Zobacz wszystkie warianty" → siatka miniatur wszystkich grafik i lista
   wszystkich tekstów i nagłówków obok siebie, do porównania.
 - Element reklamowy na Facebooku: nazwa strony, „Sponsorowane", tekst główny z „Zobacz więcej",
@@ -759,6 +907,8 @@ i porównują z zatwierdzonymi wzorcami.
 - Ustawianie godziny publikacji, domyślnie z ustawień klienta (np. 12:00 i 18:00).
 - Walidacja przy wysyłce do akceptacji: **każdy post i każda relacja musi mieć datę**;
   brak daty blokuje wysyłkę z komunikatem, który dokładnie mówi, czego brakuje.
+  Pakiet bez żadnej kampanii dostaje **ostrzeżenie**, nie blokadę (klient bez budżetu reklamowego
+  w danym miesiącu to realny przypadek).
 - Kampanie reklamowe nie wchodzą do kalendarza — mają własną sekcję.
 - Data zakończenia pakietu (`period_to`) = „dzień zakończenia" z planu contentu.
 
@@ -771,7 +921,10 @@ To zastępuje dotychczasowy plan contentu robiony jako grafika.
 ## 9. Raporty
 
 - Panel **nie generuje** raportów. System raportów działa i zostaje.
-- `reports` trzyma link `https://raporty.foodiemedia.pl/r/<token>` + metadane.
+- `reports` trzyma link `https://raporty.foodiemedia.pl/r/<token>` + metadane. Host linku jest
+  walidowany (tylko `raporty.foodiemedia.pl`), żeby wyciek `INGEST_TOKEN` nie pozwolił podstawić
+  klientowi obcego adresu. Dla klientów kat1 z kilkoma restauracjami raport jest **per lokal**
+  (`reports.location_id`; webhook przyjmuje opcjonalne pole `"location": "<nazwa lokalu>"`).
 - **Dwie drogi dodania:**
   1. **Ręcznie** — CSM wkleja link, wybiera miesiąc. 15 sekund. Działa od pierwszego dnia.
   2. **Webhookiem** — `POST /api/ingest/report` z nagłówkiem `Authorization: Bearer <INGEST_TOKEN>`,
@@ -884,7 +1037,7 @@ Zachowanie zależy od statusu pakietu:
 | Status pakietu | Co się dzieje |
 |---|---|
 | `szkic` | bez ograniczeń, bez plakietek |
-| `do_akceptacji`, `poprawki` | materiał dostaje plakietkę **„Poprawione"** albo **„Nowe"**, zdarzenie w `package_events` |
+| `do_akceptacji`, `poprawki` | materiał dostaje plakietkę **„Poprawione"** albo **„Nowe"**, zdarzenie w `package_events`; w `do_akceptacji` dodatkowo `auto_approve_at` przesuwa się na co najmniej 24 h od zmiany (rozdz. 6.4) |
 | `zaakceptowany`, `zaplanowany` | modal z ostrzeżeniem „ten materiał jest już zaakceptowany", po potwierdzeniu: plakietka, `packages.changed_after_approval = true`, baner dla klienta i zdarzenie do `outbox` |
 
 ---
@@ -974,8 +1127,14 @@ Z brandbooka 2025 i kierunku Foodie 2.0:
 --czerwony: #B42318; /* po terminie */
 ```
 
-- **Font: Cal Sans** (nagłówki), self-hosted woff2 przez `next/font/local`.
-  Tekst: **Inter**. Fallback: `system-ui, -apple-system, Segoe UI, sans-serif`.
+- **Font: Cal Sans** (nagłówki), self-hosted woff2 z `public/fonts/`, **dwa `@font-face`
+  z `unicode-range`** (`latin` + `latin-ext`, bo polskie znaki są w `latin-ext`) zadeklarowane ręcznie
+  w `globals.css` — `next/font/local` nie potrafi przypisać osobnych `unicode-range` dwóm plikom tej samej
+  rodziny. Tekst: **Inter** z pakietu `@fontsource-variable/inter` (bez pobierania z Google, zero
+  requestów zewnętrznych). Fallback: `system-ui, -apple-system, Segoe UI, sans-serif`.
+- **Bez pauz i półpauz w tekstach interfejsu**, wyłącznie zwykły myślnik (zasada z materiałów
+  agencji). Przykłady w tym dokumencie zapisane z „—" czytaj w UI jako „-". Test jednostkowy
+  pilnuje `copy.ts`.
 - Logo Foodie: sygnet SVG (fioletowy na jasnym, biały na ciemnym).
 - **Żadnego logo ani kolorów klienta w interfejsie panelu** — nagłówek, karty, nawigacja,
   faktury, raporty. Panel jest narzędziem Foodie Media i wygląda jak Foodie Media.
@@ -1016,6 +1175,10 @@ Zdarzenia:
 | `pakiet.zaakceptowany` | akceptacja ręczna |
 | `pakiet.zaakceptowany_auto` | auto-akceptacja po 3 dniach |
 | `pakiet.poprawki` | klient zgłosił uwagi (z liczbą uwag) |
+| `pakiet.nieotwarty_po_24h` | 24 h od wysyłki, a klient nie otworzył pakietu |
+| `pakiet.auto_za_24h` | do auto-akceptacji zostały 24 godziny |
+| `pakiet.auto_wstrzymana_uwagi` | termin auto-akceptacji minął, ale klient ma nierozwiązane uwagi; cron czeka na zespół |
+| `pakiet.wycofany` | zespół wycofał pakiet do szkicu po wysyłce |
 | `komentarz.po_akceptacji` | uwaga po akceptacji |
 | `material.podmieniony_po_akceptacji` | zespół podmienił materiał w zaakceptowanym pakiecie |
 | `usluga.zainteresowanie` | klient kliknął „Chcę wiedzieć więcej" |
@@ -1042,8 +1205,10 @@ Wysyłka przez tabelę `outbox` + cron co minutę, 5 prób z narastającym odst�
 4. **Izolacja klientów** — każde zapytanie o pakiet, komentarz, fakturę czy plik musi
    sprawdzić `client_id` z sesji. Jedna funkcja `assertClientAccess()`, używana wszędzie;
    test E2E ma próbować sięgnąć po zasób innego klienta i dostać 404 (nie 403).
-5. **Sesje**: rotacja tokenu przy odświeżeniu, `expires_at` 30 dni, wygaszanie wszystkich
-   sesji linku przy resecie PIN-u i przy `revoked_at`.
+5. **Sesje**: rotacja tokenu sesji raz na 24 h (poprzedni token ważny jeszcze 2 minuty dla
+   równoległych żądań), `expires_at` = 30 dni od ostatniej aktywności, wygaszanie wszystkich
+   sesji linku przy resecie PIN-u i przy `revoked_at`. Cookie `__Host-` w produkcji; w środowisku
+   deweloperskim nazwa bez prefiksu, bo Safari nie przyjmuje `Secure` na `http://localhost`.
 6. **CSP** bez `unsafe-inline` dla skryptów, `frame-ancestors 'none'`, HSTS,
    `X-Content-Type-Options: nosniff`, `Referrer-Policy: strict-origin-when-cross-origin`.
 7. **Bez `dangerouslySetInnerHTML`** dla czegokolwiek, co pochodzi od użytkownika.
@@ -1147,20 +1312,40 @@ Każda faza kończy się **działającym wdrożeniem na Vercelu**, nie tylko kod
 
 | # | Sprawa | Decyzja | Status |
 |---|---|---|---|
-| 1 | Stack (odpowiedź „dom") | Odczytane jako „domyślnie" = Next.js + Supabase + Vercel | do potwierdzenia |
-| 2 | Logowanie e-mail + hasło | **Nie robimy.** Tylko link + PIN | do potwierdzenia |
-| 3 | Maksymalna waga wideo | 300 MB, ostrzeżenie od 150 MB; obrazy 25 MB | do potwierdzenia |
-| 4 | „Wrażliwe rzeczy" dla CSM | Ustawienia systemu, konta zespołu, logi bezpieczeństwa, eksport bazy, przychody zbiorcze. Faktury swoich klientów — dostępne | do potwierdzenia |
-| 5 | RODO | Serwery UE, retencja 24 mies., audyt 12 mies., offboarding jednym przyciskiem | do potwierdzenia |
+| 1 | Stack (odpowiedź „dom") | Odczytane jako „domyślnie" = Next.js + Supabase + Vercel | **potwierdzone** (2026-09-02) |
+| 2 | Logowanie e-mail + hasło | **Nie robimy.** Tylko link + PIN | **potwierdzone** (2026-09-02) |
+| 3 | Maksymalna waga wideo | 300 MB, ostrzeżenie od 150 MB; obrazy 25 MB | **potwierdzone** (2026-09-02) |
+| 4 | „Wrażliwe rzeczy" dla CSM | Ustawienia systemu, konta zespołu, logi bezpieczeństwa, eksport bazy, przychody zbiorcze. Faktury swoich klientów — dostępne | **potwierdzone** (2026-09-02) |
+| 5 | RODO | Serwery UE, retencja 24 mies., audyt 12 mies., offboarding jednym przyciskiem | **potwierdzone** (2026-09-02) |
 | 6 | Zakres MVP | Wszystko naraz, w 7 fazach z wdrożeniem po każdej | ustalone |
 | 7 | Dni auto-akceptacji | **3 dni kalendarzowe (72 h)**; przełącznik na dni robocze zostaje w ustawieniach | **potwierdzone** |
 | 8 | Linki dostępu | **Osobny link i PIN na każdą osobę kontaktową**, żeby wiedzieć, kto zaakceptował | **potwierdzone** |
 | 9 | Tryb ciemny | Nie w MVP | ustalone |
 | 10 | Płatności z panelu | Nie w MVP | ustalone |
-| 11 | Integracja z Fakturowo | Nie w MVP — API istnieje, ale nie potwierdza pobierania statusów i PDF. Decyzja po pilotażu | do potwierdzenia |
+| 11 | Integracja z Fakturowo | Nie w MVP — API istnieje, ale nie potwierdza pobierania statusów i PDF. Decyzja po pilotażu | **potwierdzone** (2026-09-02) |
 | 12 | Awatar w podglądach | **Zdjęcie profilowe strony klienta, wyłącznie wewnątrz ramki podglądu.** Poza ramką logo klienta nie występuje | **potwierdzone** |
 | 13 | Podglądy contentu | Wyłącznie Facebook — post, relacja, Reels | **potwierdzone** |
 | 14 | Placementy reklam | **Sześć: FB kanał (telefon), FB kanał (komputer), FB relacje, FB Reels, IG kanał, IG relacje i Reels** | **potwierdzone** |
+| 15 | Warianty reklam per lokal (kat2/kat3) | **Jeden materiał `reklama` na kampanię**, warianty wspólne + warianty per lokal (`ad_variants.location_id`), czwarta lista „Lokal" w podglądzie | **potwierdzone** (2026-09-02) |
+| 16 | Token linku w bazie | `token_hash` do weryfikacji + `token_enc` (AES-256-GCM, klucz z `SESSION_SECRET`) do „Kopiuj dostęp" | **potwierdzone** (2026-09-02) |
+| 17 | Link tylko do podglądu | `access_links.can_approve`, domyślnie `true` | **potwierdzone** (2026-09-02) |
+| 18 | Opiekun klienta | `clients.opiekun_id`; reszta przypisań w `client_assignments` | **potwierdzone** (2026-09-02) |
+| 19 | Godziny auto-akceptacji per klient | `clients.auto_approve_hours`, null = globalne 72 h | **potwierdzone** (2026-09-02) |
+| 20 | Raporty w kat1 z kilkoma restauracjami | Raport per lokal (`reports.location_id`) | **potwierdzone** (2026-09-02) |
+| 21 | Impersonacja dla `sales` | **Nie.** `sales` dostaje klienta demonstracyjnego z seedu | **potwierdzone** (2026-09-02) |
+| 22 | Allowlista zespołu | `team_members.active` jako prawdziwa lista, `TEAM_EMAIL_ALLOWLIST` (domeny lub adresy) jako filtr wstępny, rejestracja publiczna wyłączona | **potwierdzone** (2026-09-02) |
+| 23 | Sesja klienta | 30 dni **przesuwnie** od ostatniej aktywności; rotacja tokenu raz na 24 h | **potwierdzone** (2026-09-02) |
+| 24 | Projekty Supabase | Jeden testowy teraz, drugi produkcyjny przed pilotażem | **potwierdzone** (2026-09-02) |
+| 25 | Zmiana materiałów w `do_akceptacji` | Przesuwa `auto_approve_at` na co najmniej 24 h od zmiany | **potwierdzone** (2026-09-02) |
+| 26 | Nierozwiązane uwagi a cron | Cron nie auto-akceptuje, powiadamia zespół (`pakiet.auto_wstrzymana_uwagi`) | **potwierdzone** (2026-09-02) |
+| 27 | Akceptacja w statusie `poprawki` | Klient nie akceptuje; „Wyślij v2" działa bez zmian w materiałach | **potwierdzone** (2026-09-02) |
+| 28 | Reels | W zakładce Posty z plakietką | **potwierdzone** (2026-09-02) |
+| 29 | Pakiet bez kampanii | Ostrzeżenie przy wysyłce, nie blokada | **potwierdzone** (2026-09-02) |
+| 30 | Dni robocze | Poniedziałek–piątek w `Europe/Warsaw`, bez świąt | **potwierdzone** (2026-09-02) |
+| 31 | Przejścia statusów | Dopisane: `do_akceptacji → szkic`, `zaakceptowany → poprawki`, `zaplanowany → poprawki` | **potwierdzone** (2026-09-02) |
+| 32 | Zdarzenia dla zespołu | Dopisane: `pakiet.nieotwarty_po_24h`, `pakiet.auto_za_24h`, `pakiet.auto_wstrzymana_uwagi`, `pakiet.wycofany` | **potwierdzone** (2026-09-02) |
+| 33 | Obrazy | Bez `next/image` dla materiałów; warianty z importu + signed URL przez własną trasę | **potwierdzone** (2026-09-02) |
+| 34 | Next.js | 16.x (spec mówił „15+") | **potwierdzone** (2026-09-02) |
 
 **Zadanie dla Ciebie, nie dla kodu:** dopisać zasadę auto-akceptacji do regulaminu panelu
 i wspomnieć o niej w umowie lub aneksie.
