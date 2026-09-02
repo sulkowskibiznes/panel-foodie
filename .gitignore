@@ -32,4 +32,3 @@ supabase/.branches/
 .DS_Store
 *.pem
 *.log
-.env*
