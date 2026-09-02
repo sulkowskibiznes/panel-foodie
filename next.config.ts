@@ -13,6 +13,8 @@ const naglowkiBezpieczenstwa = [
 const nextConfig: NextConfig = {
   poweredByHeader: false,
   reactStrictMode: true,
+  // Wskaźnik trybu deweloperskiego psułby wzorce zrzutów Playwrighta (webServer = pnpm dev).
+  devIndicators: false,
   async headers() {
     return [{ source: "/(.*)", headers: naglowkiBezpieczenstwa }];
   },

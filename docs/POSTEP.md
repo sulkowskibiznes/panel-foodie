@@ -33,13 +33,26 @@ Zaznaczamy kryterium, gdy przechodzi jako test E2E (CLAUDE.md, „Jak pracujemy"
 
 ## Faza 0: Fundament
 
-W toku (2026-09-02).
+Stan na 2026-09-02, gałąź `faza/0-fundament`.
 
 **Co działa:**
-- (uzupełniane na bieżąco)
+- Next.js 16.3 (App Router, TS strict z `noUncheckedIndexedAccess`), Tailwind 4, shadcn (`base-nova`) z tokenami marki: fiolet jako `primary`, promień 12 px, cień `shadow-miekki`, brak trybu ciemnego.
+- Cal Sans z dwoma `@font-face` (`latin` + `latin-ext`, polskie znaki potwierdzone na zrzucie), Inter z `@fontsource-variable/inter`. Sygnety w `public/`.
+- Strony `/`, `/regulamin`, `/prywatnosc`, 404 w brandzie; wszystkie teksty w `src/lib/copy.ts` (test pilnuje braku pauz i żargonu).
+- Nagłówki bezpieczeństwa (HSTS, nosniff, Referrer-Policy, X-Frame-Options, X-Robots-Tag noindex), `robots.txt` z `Disallow: /p/` i `/zespol/`, neutralne OG.
+- 10 migracji Supabase ze schematem SPEC 1.3: enumy, `CHECK`, `unique nulls not distinct`, indeksy, triggery `updated_at`, RLS na każdej tabeli, odcięte role `anon`/`authenticated`, cztery prywatne buckety. `supabase/config.toml` z wyłączoną rejestracją publiczną i OTP 10 min.
+- `src/lib/krypto.ts` (HKDF z `SESSION_SECRET`, AES-256-GCM, HMAC, porównanie w stałym czasie), `src/lib/auth-klient.ts` (token 128 bit, PIN bez błędu modulo, argon2id), `src/lib/env.ts` (walidacja zod, leniwa).
+- Seed `supabase/seed/`: 3 klientów (kat1 z dwiema restauracjami, kat2 z pięcioma lokalami, kat3 z trzema lokalami i DWIEMA kampaniami) + klient demonstracyjny dla `sales`, zespół 5 osób z kontami Auth, 7 usług, faktury, raporty, grafiki zastępcze z `sharp` w trzech wariantach.
+- Testy: Vitest 18 zielonych (copy, krypto, auth-klient) + test RLS gotowy na lokalną bazę; Playwright 8 zielonych na 390 px i 1440 px ze wzorcami zrzutów strony startowej. CI w GitHub Actions.
+- `pnpm typecheck && pnpm lint && pnpm test && pnpm build` zielone.
+
+**Nie sprawdzone, bo zablokowane na maszynie (do domknięcia fazy 0):**
+- Migracje nie były jeszcze uruchomione na żadnej bazie: brak Dockera (lokalny stack) i brak `SUPABASE_ACCESS_TOKEN` (projekt w chmurze). Po odblokowaniu: `pnpm db:start && pnpm db:reset && pnpm db:types && pnpm db:seed`, potem `pnpm db:migrate` na projekt testowy; `src/lib/db-types.ts` i generyk `Database` w `src/lib/supabase/server.ts` dochodzą wtedy.
+- Push na GitHub: brak poświadczeń (SSH/token) na maszynie.
+- Wdrożenie na Vercel: czeka na push i `VERCEL_TOKEN` (albo integrację Git w Vercelu).
 
 **Odłożone:**
-- Pełne CSP z nonce: faza 6 (SPEC rozdz. 16.6); w fazie 0 są HSTS, nosniff, Referrer-Policy, X-Frame-Options, X-Robots-Tag.
+- Pełne CSP z nonce: faza 6 (SPEC rozdz. 16.6).
 - Placeholdery wideo w seedzie (relacje wideo, Reels): faza 2, razem z podglądami.
 
 **Wymaga decyzji Szymona:**
