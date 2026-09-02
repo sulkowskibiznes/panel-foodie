@@ -51,9 +51,9 @@ Stan na 2026-09-02, gałąź `faza/0-fundament`.
 - Projekt testowy w chmurze (`eu-central-1`, PG 17): 10 migracji wypchniętych przez `pnpm db:migrate`, seed przeszedł (4 klientów, 5 osób zespołu z kontami Auth, 7 usług, pliki w Storage).
 - Wdrożenie produkcyjne z CLI na Vercelu (team `foodie-panel`, projekt `panel-foodie`, region `fra1`, Node 24): https://panel-foodie.vercel.app odpowiada 200 ze wszystkimi nagłówkami bezpieczeństwa; zmienne środowiskowe ustawione dla production i preview.
 
-**Nadal do zrobienia:**
-- Push na GitHub: czeka na dodanie klucza SSH (`~/.ssh/panel-foodie_ed25519.pub`) jako Deploy key z prawem zapisu; potem `vercel git connect`, żeby wdrożenia szły z gałęzi.
-- Deployment Protection w Vercelu (Settings → Deployment Protection) do włączenia ręcznie, dopóki w bazie testowej są klienci z seedu.
+**Repo i wdrożenia:**
+- GitHub: `main` i `faza/0-fundament` wypchnięte (klucz SSH jako Deploy key z zapisem). CI w GitHub Actions uruchamia się na push.
+- Vercel: Deployment Protection = Standard (podglądy chronione, produkcja publiczna; „All Deployments" płatne). Repo trzeba jeszcze podpiąć w panelu Vercela (Settings → Git → Connect), bo team `foodie-panel` nie ma autoryzowanej aplikacji GitHub dla organizacji `sulkowskibiznes`; do tego czasu wdrożenia idą z CLI (`pnpm exec vercel deploy --prod --yes --scope foodie-panel`).
 
 **Odłożone:**
 - Pełne CSP z nonce: faza 6 (SPEC rozdz. 16.6).
