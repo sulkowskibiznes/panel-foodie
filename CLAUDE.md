@@ -36,7 +36,8 @@ pnpm test             # vitest
 pnpm test:e2e         # playwright (wymaga pnpm db:start; sam podnosi next dev na porcie 3100)
 pnpm db:start         # lokalny Supabase w Dockerze (testy E2E, db:types)
 pnpm db:migrate       # supabase db push
-pnpm db:seed          # dane testowe: 3 klienci, po jednym z każdej kategorii
+pnpm db:seed          # dane testowe: 3 klienci, po jednym z każdej kategorii, plus klient demo
+pnpm db:seed:demo     # tylko klient demonstracyjny (także na produkcji); zespół i usługi bez zmian
 pnpm db:types         # regeneracja typów z bazy do src/lib/db-types.ts
 ```
 

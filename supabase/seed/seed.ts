@@ -6,6 +6,10 @@
  * Idempotentny: usuwa klientów seedu (kaskada + pliki w Storage) i tworzy ich od nowa.
  * Tokeny i PIN-y WYŁĄCZNIE z generatorów w src/lib/auth-klient.ts (crypto.randomBytes);
  * wypisywane raz na stdout, nigdzie nie zapisywane.
+ *
+ * `--tylko=<slug>` (skrypt `pnpm db:seed:demo` = `--tylko=demo-bistro`): seed JEDNEGO klienta bez
+ * ruszania zespołu i usług. Tak klient demonstracyjny trafia na produkcję (SPEC 1.4, poz. 21):
+ * opiekun i przypisania biorą się z istniejących wierszy team_members, nic nie jest nadpisywane.
  */
 import { randomUUID } from "node:crypto";
 import { config as wczytajEnv } from "dotenv";
@@ -23,6 +27,7 @@ function wymagane(nazwa: string): string {
   return wartosc;
 }
 
+const TYLKO_KLIENT = process.argv.find((a) => a.startsWith("--tylko="))?.slice("--tylko=".length) ?? null;
 const SUPABASE_URL = wymagane("SUPABASE_URL");
 const SUPABASE_SECRET_KEY = wymagane("SUPABASE_SECRET_KEY");
 const APP_URL = (process.env.NEXT_PUBLIC_APP_URL ?? "http://localhost:3000").replace(/\/$/, "");
@@ -167,6 +172,13 @@ async function seedZespolu(): Promise<Map<string, string>> {
     mapa.set(osoba.email.toLowerCase(), wiersz.id);
   }
   return mapa;
+}
+
+/** Tryb `--tylko`: istniejący zespół po e-mailu, bez tworzenia kont i bez nadpisywania ról. */
+async function istniejacyZespol(): Promise<Map<string, string>> {
+  const wynik = await db.from("team_members").select("id, email");
+  const wiersze = sprawdz(wynik, "select team_members") as Array<{ id: string; email: string }>;
+  return new Map(wiersze.map((w) => [w.email.toLowerCase(), w.id]));
 }
 
 async function seedUslug(): Promise<void> {
@@ -468,19 +480,29 @@ async function main(): Promise<void> {
   console.log(`Seed → ${SUPABASE_URL}`);
   const start = Date.now();
 
-  const zespol = await seedZespolu();
-  console.log(`Zespół: ${zespol.size} osób`);
-  await seedUslug();
-  console.log(`Usługi: ${USLUGI.length}`);
+  const klienci = TYLKO_KLIENT ? KLIENCI.filter((k) => k.slug === TYLKO_KLIENT) : KLIENCI;
+  if (klienci.length === 0) throw new Error(`Nie ma klienta seedu o slugu ${TYLKO_KLIENT}.`);
+
+  let zespol: Map<string, string>;
+  if (TYLKO_KLIENT) {
+    zespol = await istniejacyZespol();
+    console.log(`Tryb --tylko=${TYLKO_KLIENT}: zespół (${zespol.size} osób) i usługi bez zmian`);
+  } else {
+    zespol = await seedZespolu();
+    console.log(`Zespół: ${zespol.size} osób`);
+    await seedUslug();
+    console.log(`Usługi: ${USLUGI.length}`);
+  }
 
   const dostepy: Dostep[] = [];
-  for (const klient of KLIENCI) {
+  for (const klient of klienci) {
     await sprzatajKlienta(klient.slug);
     await seedKlienta(klient, zespol, dostepy);
     console.log(`Klient: ${klient.name} (${klient.category}, ${klient.lokale.length} lokali, ${klient.pakiety.length} pakiet/y)`);
   }
 
   console.log(`\nGotowe w ${Math.round((Date.now() - start) / 1000)} s.\n`);
+  if (dostepy.length === 0) return;
   console.log("Linki dostępu (pokazane tylko teraz, nigdzie nie zapisane w jawnej postaci):");
   for (const d of dostepy) {
     console.log(`  ${d.klient} · ${d.label}\n    ${d.link}\n    PIN: ${d.pin}`);

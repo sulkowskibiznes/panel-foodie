@@ -5,6 +5,7 @@ import type { Database } from "@/lib/db-types";
 import { env } from "@/lib/env";
 import { sha256Hex } from "@/lib/krypto";
 import { dodajDoOutbox } from "@/lib/outbox";
+import type { ZaleznosciCrona } from "@/lib/pakiety/cron-auto-akceptacji";
 import { wykonajPrzejscie, type Aktor, type KontrolaWysylki, type PakietDoPrzejscia, type Przejscie, type WynikPrzejscia, type ZaleznosciPrzejsc } from "@/lib/pakiety/przejscia";
 import { supabaseSerwer } from "@/lib/supabase/server";
 
@@ -13,23 +14,40 @@ type Json = Database["public"]["Tables"]["package_events"]["Insert"]["payload"];
 const KOLUMNY_PAKIETU =
   "id, client_id, status, round, title, period_year, period_month, auto_approve_enabled, auto_approve_at, submitted_at, clients!inner(slug, name, slack_channel, auto_approve_hours, auto_approve_default)";
 
+type WierszPakietu = {
+  id: string;
+  client_id: string;
+  status: PakietDoPrzejscia["status"];
+  round: number;
+  title: string | null;
+  period_year: number;
+  period_month: number;
+  auto_approve_enabled: boolean;
+  auto_approve_at: string | null;
+  submitted_at: string | null;
+  clients: { slug: string; name: string; slack_channel: string | null; auto_approve_hours: number | null; auto_approve_default: boolean };
+};
+
+function naPakietDoPrzejscia(w: WierszPakietu): PakietDoPrzejscia {
+  const k = w.clients;
+  return {
+    id: w.id,
+    clientId: w.client_id,
+    status: w.status,
+    round: w.round,
+    tytul: w.title ?? "",
+    okres: { rok: w.period_year, miesiac: w.period_month },
+    autoApproveEnabled: w.auto_approve_enabled,
+    autoApproveAt: w.auto_approve_at,
+    submittedAt: w.submitted_at,
+    klient: { slug: k.slug, name: k.name, slackChannel: k.slack_channel, autoApproveHours: k.auto_approve_hours, autoApproveDefault: k.auto_approve_default },
+  };
+}
+
 export async function pobierzPakietDoPrzejscia(id: string): Promise<PakietDoPrzejscia | null> {
   const { data, error } = await supabaseSerwer().from("packages").select(KOLUMNY_PAKIETU).eq("id", id).maybeSingle();
   if (error) throw new Error(`pobierzPakietDoPrzejscia: ${error.message}`);
-  if (!data) return null;
-  const k = data.clients;
-  return {
-    id: data.id,
-    clientId: data.client_id,
-    status: data.status,
-    round: data.round,
-    tytul: data.title ?? "",
-    okres: { rok: data.period_year, miesiac: data.period_month },
-    autoApproveEnabled: data.auto_approve_enabled,
-    autoApproveAt: data.auto_approve_at,
-    submittedAt: data.submitted_at,
-    klient: { slug: k.slug, name: k.name, slackChannel: k.slack_channel, autoApproveHours: k.auto_approve_hours, autoApproveDefault: k.auto_approve_default },
-  };
+  return data ? naPakietDoPrzejscia(data) : null;
 }
 
 /** Walidacja przed wysyłką (SPEC rozdz. 8): każdy post i relacja z datą; brak kampanii to tylko ostrzeżenie (poz. 29). */
@@ -112,4 +130,31 @@ export function zaleznosciPrzejsc(): ZaleznosciPrzejsc {
  */
 export function zmienStatusPakietu(pakietId: string, przejscie: Przejscie, aktor: Aktor): Promise<WynikPrzejscia> {
   return wykonajPrzejscie(pakietId, przejscie, aktor, zaleznosciPrzejsc());
+}
+
+/** Zależności crona auto-akceptacji: pakiety w `do_akceptacji` i deduplikacja po tabeli `outbox`. */
+export function zaleznosciCrona(): ZaleznosciCrona {
+  const db = supabaseSerwer();
+  return {
+    async pobierzDoAkceptacji() {
+      const { data, error } = await db.from("packages").select(`${KOLUMNY_PAKIETU}, first_opened_at`).eq("status", "do_akceptacji").order("auto_approve_at", { ascending: true, nullsFirst: false });
+      if (error) throw new Error(`pobierzDoAkceptacji: ${error.message}`);
+      return (data ?? []).map((w) => ({ ...naPakietDoPrzejscia(w), firstOpenedAt: w.first_opened_at }));
+    },
+    autoAkceptuj: (pakietId, aktor) => zmienStatusPakietu(pakietId, { typ: "auto_akceptuj" }, aktor),
+    async czyWyslano(event, pakietId, runda) {
+      const { count, error } = await db
+        .from("outbox")
+        .select("id", { count: "exact", head: true })
+        .eq("event", event)
+        .eq("payload->>package_id", pakietId)
+        .eq("payload->>round", String(runda));
+      if (error) throw new Error(`czyWyslano: ${error.message}`);
+      return (count ?? 0) > 0;
+    },
+    dodajDoOutbox,
+    dodajZdarzenie: zaleznosciPrzejsc().dodajZdarzenie,
+    adresPakietu: (p) => adresPakietuZespolu(p.klient.slug, p.id),
+    teraz: () => new Date(),
+  };
 }

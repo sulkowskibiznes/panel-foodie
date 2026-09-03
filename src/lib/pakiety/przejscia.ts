@@ -80,7 +80,7 @@ export type PakietDoPrzejscia = {
 export type ZmianyPakietu = Partial<
   Pick<
     Database["public"]["Tables"]["packages"]["Update"],
-    "status" | "round" | "submitted_at" | "auto_approve_enabled" | "auto_approve_at" | "approved_at" | "approved_by_contact_id" | "approval_kind" | "changed_after_approval"
+    "status" | "round" | "submitted_at" | "first_opened_at" | "auto_approve_enabled" | "auto_approve_at" | "approved_at" | "approved_by_contact_id" | "approval_kind" | "changed_after_approval"
   >
 >;
 
@@ -217,6 +217,7 @@ export async function wykonajPrzejscie(pakietId: string, przejscie: Przejscie, a
       Object.assign(zmiany, {
         round: runda,
         submitted_at: teraz.toISOString(),
+        first_opened_at: null,
         auto_approve_enabled: autoWlaczona,
         auto_approve_at: termin,
         approved_at: null,

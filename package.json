@@ -16,6 +16,7 @@
     "db:reset": "supabase db reset",
     "db:migrate": "supabase db push",
     "db:seed": "tsx supabase/seed/seed.ts",
+    "db:seed:demo": "tsx supabase/seed/seed.ts --tylko=demo-bistro",
     "db:types": "supabase gen types typescript --local --schema public > src/lib/db-types.tmp && mv src/lib/db-types.tmp src/lib/db-types.ts"
   },
   "dependencies": {
