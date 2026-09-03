@@ -162,3 +162,19 @@ export async function usunCzlonkaTestowego(c: CzlonekTestowy): Promise<void> {
   await zBaza((s) => s`delete from public.team_members where id = ${c.id}`);
   await adminAuth().auth.admin.deleteUser(c.authUserId);
 }
+
+/** Liczba wpisów audytu danej akcji dla encji (np. linku). Kryterium 27: każde „Pokaż link" = osobny wpis. */
+export async function wpisyAudytu(entityId: string, action: string): Promise<number> {
+  return zBaza(async (s) => {
+    const [w] = await s<{ n: number }[]>`select count(*)::int as n from public.audit_log where entity_id = ${entityId}::uuid and action = ${action}`;
+    return w?.n ?? 0;
+  });
+}
+
+/** Przypisanie członka zespołu do klienta z seedu (client_assignments). */
+export async function przypiszDoKlienta(teamMemberId: string, slug: string): Promise<void> {
+  await zBaza((s) => s`
+    insert into public.client_assignments (client_id, team_member_id)
+    select c.id, ${teamMemberId}::uuid from public.clients c where c.slug = ${slug}
+    on conflict do nothing`);
+}

@@ -7,7 +7,8 @@ import { zapiszAudyt } from "@/lib/audyt";
 import { assertTeamClientAccess, wymagajCzlonka, wymagajUprawnienia, type CzlonekZespolu } from "@/lib/auth-zespol";
 import { copy } from "@/lib/copy";
 import { pobierzKlientaPoSlugu, type KartaKlienta } from "@/lib/dane/klienci-zespolu";
-import { adresLinku, utworzLinkDostepu, wygasLinkDostepu, wylogujUrzadzeniaLinku, zresetujPinLinku } from "@/lib/dane/linki";
+import { adresLinku, odszyfrujAdresLinku, utworzLinkDostepu, wygasLinkDostepu, wylogujUrzadzeniaLinku, zresetujPinLinku } from "@/lib/dane/linki";
+import { MOZE_ODSZYFROWAC_TOKEN } from "@/lib/uprawnienia";
 import { czyUuid } from "@/lib/walidacja";
 import { infoZadania } from "@/lib/zadanie";
 
@@ -37,6 +38,7 @@ export type WynikNowegoLinku = { ok: true; linkId: string; adres: string; pin: s
 /** „Utwórz link": PIN wraca tylko tym jednym wynikiem, nigdzie indziej nie jest widoczny. */
 export async function utworzLink(slug: string, dane: z.input<typeof schematNowegoLinku>): Promise<WynikNowegoLinku> {
   const { czlonek, klient } = await autoryzuj(slug);
+  if (klient.demo) return { ok: false, blad: copy.zespol.dostep.bledy.klientDemo };
   const parsed = schematNowegoLinku.safeParse(dane);
   if (!parsed.success) return { ok: false, blad: copy.zespol.dostep.bledy.brakEtykiety };
   const { contactId, pinKind, canApprove } = parsed.data;
@@ -90,8 +92,27 @@ export async function zresetujPin(slug: string, linkId: string): Promise<WynikRe
   if (!wynik) return { ok: false, blad: copy.zespol.dostep.bledy.ogolny };
   const { ipHash } = await infoZadania();
   await zapiszAudyt({ actor_kind: "zespol", actor_id: czlonek.id, actor_label: czlonek.name, action: "link.pin_zresetowany", entity: "access_link", entity_id: linkId, client_id: klient.id, ip_hash: ipHash });
+  // Okno po resecie pokazuje link, więc to też odszyfrowanie tokenu (SPEC rozdz. 16 pkt 12).
+  await zapiszAudyt({ actor_kind: "zespol", actor_id: czlonek.id, actor_label: czlonek.name, action: "link.odszyfrowany", entity: "access_link", entity_id: linkId, client_id: klient.id, ip_hash: ipHash, meta: { powod: "reset_pin" } });
   odswiez(slug);
   return { ok: true, adres: adresLinku(wynik.token), pin: wynik.pin };
+}
+
+export type WynikPokazania = { ok: true; adres: string } | { ok: false; blad: string };
+
+/**
+ * „Pokaż link" (SPEC rozdz. 16 pkt 12, kryterium 27): jedyna droga do odszyfrowanego tokenu poza oknem
+ * tworzenia i resetu. Tylko admin i csm (reszta dostaje 404), każde kliknięcie = osobny wpis w audycie.
+ */
+export async function pokazLink(slug: string, linkId: string): Promise<WynikPokazania> {
+  const { czlonek, klient } = await autoryzuj(slug);
+  if (!MOZE_ODSZYFROWAC_TOKEN.includes(czlonek.role)) notFound();
+  if (!czyUuid(linkId)) return { ok: false, blad: copy.zespol.dostep.bledy.ogolny };
+  const adres = await odszyfrujAdresLinku(linkId, klient.id);
+  if (!adres) return { ok: false, blad: copy.zespol.dostep.bledy.ogolny };
+  const { ipHash } = await infoZadania();
+  await zapiszAudyt({ actor_kind: "zespol", actor_id: czlonek.id, actor_label: czlonek.name, action: "link.odszyfrowany", entity: "access_link", entity_id: linkId, client_id: klient.id, ip_hash: ipHash, meta: { powod: "pokaz_link" } });
+  return { ok: true, adres };
 }
 
 /** Skopiowanie linku albo PIN-u odnotowujemy w audycie (SPEC rozdz. 12.4). */

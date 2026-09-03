@@ -186,6 +186,14 @@ async function sprzatajKlienta(slug: string): Promise<void> {
   const id = (wynik.data as { id: string }).id;
   await usunFolder("materialy", id);
   await usunFolder("awatary", id);
+  // Komentarze wskazują osoby kontaktowe bez kaskady (comments.author_contact_id), więc idą pierwsze.
+  const pakiety = await db.from("packages").select("id").eq("client_id", id);
+  if (pakiety.error) throw new Error(`select packages ${slug}: ${pakiety.error.message}`);
+  const idsPakietow = (pakiety.data ?? []).map((p) => p.id);
+  if (idsPakietow.length > 0) {
+    const komentarze = await db.from("comments").delete().in("package_id", idsPakietow);
+    if (komentarze.error) throw new Error(`delete comments ${slug}: ${komentarze.error.message}`);
+  }
   const usun = await db.from("clients").delete().eq("id", id);
   if (usun.error) throw new Error(`delete clients ${slug}: ${usun.error.message}`);
 }
@@ -196,6 +204,7 @@ async function seedKlienta(k: KlientSeed, zespol: Map<string, string>, dostepy: 
   const opiekunId = zespol.get("gosia@foodiemedia.pl");
   const adminId = zespol.get("kontakt@foodiemedia.pl");
   const klient = await wstawJeden<{ id: string }>("clients", {
+    demo: k.demo ?? false,
     name: k.name,
     slug: k.slug,
     category: k.category,
@@ -244,8 +253,8 @@ async function seedKlienta(k: KlientSeed, zespol: Map<string, string>, dostepy: 
     await seedPakietu(k, p, clientId, idLokali, tworca, glownyKontakt?.id ?? null);
   }
 
-  // Linki dostępu: osobny link i PIN na każdą osobę kontaktową (SPEC rozdz. 4)
-  for (const kontakt of kontakty) {
+  // Linki dostępu: osobny link i PIN na każdą osobę kontaktową (SPEC rozdz. 4). Klient demo bez linków (trigger w bazie).
+  for (const kontakt of k.demo ? [] : kontakty) {
     const token = generujToken();
     const pin = generujPin("pin4");
     const label = `${kontakt.name} - ${kontakt.role_label ?? "kontakt"}`;
@@ -266,7 +275,7 @@ async function seedKlienta(k: KlientSeed, zespol: Map<string, string>, dostepy: 
 
   await wstaw(
     "invoices",
-    k.faktury.map((f) => ({
+    (k.demo ? [] : k.faktury).map((f) => ({
       client_id: clientId,
       number: f.number,
       issue_date: f.issue_date,

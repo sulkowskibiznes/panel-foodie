@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { MACIERZ_UPRAWNIEN, maUprawnienie, MOZE_IMPERSONOWAC, poziomUprawnienia, WIDZI_WSZYSTKICH_KLIENTOW } from "@/lib/uprawnienia";
+import { MACIERZ_UPRAWNIEN, maUprawnienie, MOZE_IMPERSONOWAC, MOZE_ODSZYFROWAC_TOKEN, poziomUprawnienia, WIDZI_WSZYSTKICH_KLIENTOW } from "@/lib/uprawnienia";
 
 describe("macierz uprawnień (SPEC rozdz. 2)", () => {
   it("content_creator nie ma dostępu do faktur (kryterium 23)", () => {
@@ -19,6 +19,9 @@ describe("macierz uprawnień (SPEC rozdz. 2)", () => {
     expect([...WIDZI_WSZYSTKICH_KLIENTOW].sort()).toEqual(["admin", "sales"]);
     expect(MOZE_IMPERSONOWAC).not.toContain("sales");
     expect(MOZE_IMPERSONOWAC).toContain("csm");
+  });
+  it("tylko admin i csm odszyfrowują token linku (SPEC rozdz. 16 pkt 12)", () => {
+    expect([...MOZE_ODSZYFROWAC_TOKEN].sort()).toEqual(["admin", "csm"]);
   });
   it("tylko admin i csm zarządzają linkami dostępu", () => {
     const zDostepem = (Object.keys(MACIERZ_UPRAWNIEN) as Array<keyof typeof MACIERZ_UPRAWNIEN>).filter((r) => maUprawnienie(r, "dostep", "pelne"));

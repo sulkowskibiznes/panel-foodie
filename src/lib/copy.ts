@@ -121,6 +121,7 @@ export const copy = {
       miesiecznie: "mies. netto",
     },
     karta: {
+      demo: "klient demonstracyjny",
       lokale: "Lokale",
       kontakty: "Osoby kontaktowe",
       slack: "Slack",
@@ -147,7 +148,10 @@ export const copy = {
       kolumny: { osoba: "Osoba", utworzono: "Utworzono", ostatnieWejscie: "Ostatnie wejście", status: "Status", urzadzenia: "Urządzenia" },
       status: { aktywny: "Aktywny", wygaszony: "Wygaszony", zablokowany: "Zablokowany do", tylkoPodglad: "tylko podgląd" },
       nigdy: "jeszcze nie",
+      demo: "To klient demonstracyjny do pokazywania panelu. Nie wystawiamy mu linków dostępu ani faktur. Zespół ogląda go przez „Zobacz jak klient\".",
       akcje: {
+        pokazLink: "Pokaż link",
+        ukryjLink: "Ukryj",
         kopiujLink: "Kopiuj link",
         wygas: "Wygaś link",
         wygasPotwierdz: "Wygasić ten link? Osoba straci dostęp przy następnym wejściu. Tego nie da się cofnąć.",
@@ -199,9 +203,11 @@ export const copy = {
           "link.pin_zresetowany": "Zresetowano PIN",
           "link.urzadzenia_wylogowane": "Wylogowano wszystkie urządzenia",
           "link.skopiowany": "Skopiowano dostęp",
+          "link.odszyfrowany": "Pokazano link (odszyfrowano token)",
         },
       },
       bledy: {
+        klientDemo: "Klient demonstracyjny nie dostaje linków dostępu.",
         brakEtykiety: "Wpisz opis linku albo wybierz osobę kontaktową.",
         ogolny: "Nie udało się wykonać tej operacji. Odśwież stronę i spróbuj ponownie.",
       },

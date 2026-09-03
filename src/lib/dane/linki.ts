@@ -18,8 +18,7 @@ export type LinkDostepu = {
   canApprove: boolean;
   pinKind: RodzajPinu;
   aktywneUrzadzenia: number;
-  /** Pełny adres do skopiowania (token odszyfrowany po stronie serwera, tylko dla zespołu z prawem do zakładki Dostęp). */
-  adres: string;
+  /** Bez adresu: lista nigdy nie niesie odszyfrowanego tokenu (SPEC rozdz. 16 pkt 12). Adres daje odszyfrujAdresLinku() po kliknięciu „Pokaż link". */
 };
 
 function kluczTokenu() {
@@ -34,7 +33,7 @@ export async function pobierzLinkiKlienta(clientId: string): Promise<LinkDostepu
   const db = supabaseSerwer();
   const { data, error } = await db
     .from("access_links")
-    .select("id, label, created_at, last_used_at, revoked_at, locked_until, can_approve, pin_kind, token_enc, client_contacts(name)")
+    .select("id, label, created_at, last_used_at, revoked_at, locked_until, can_approve, pin_kind, client_contacts(name)")
     .eq("client_id", clientId)
     .order("created_at", { ascending: false });
   if (error) throw new Error(`pobierzLinkiKlienta: ${error.message}`);
@@ -42,7 +41,6 @@ export async function pobierzLinkiKlienta(clientId: string): Promise<LinkDostepu
   const { data: sesje } = ids.length
     ? await db.from("client_sessions").select("access_link_id").in("access_link_id", ids).is("revoked_at", null).gt("expires_at", new Date().toISOString())
     : { data: [] as { access_link_id: string }[] };
-  const klucz = kluczTokenu();
   return (data ?? []).map((l) => {
     const kontakt = l.client_contacts as unknown as { name: string } | null;
     return {
@@ -56,9 +54,18 @@ export async function pobierzLinkiKlienta(clientId: string): Promise<LinkDostepu
       canApprove: l.can_approve,
       pinKind: l.pin_kind,
       aktywneUrzadzenia: (sesje ?? []).filter((s) => s.access_link_id === l.id).length,
-      adres: adresLinku(odszyfruj(klucz, l.token_enc)),
     };
   });
+}
+
+/**
+ * Odszyfrowanie tokenu na wyraźne żądanie („Pokaż link"). Wywołujący sprawdza rolę (MOZE_ODSZYFROWAC_TOKEN)
+ * i zapisuje `link.odszyfrowany` w audycie. Link wygaszony nie ma adresu do pokazania.
+ */
+export async function odszyfrujAdresLinku(linkId: string, clientId: string): Promise<string | null> {
+  const { data } = await supabaseSerwer().from("access_links").select("token_enc, revoked_at").eq("id", linkId).eq("client_id", clientId).maybeSingle();
+  if (!data || data.revoked_at) return null;
+  return adresLinku(odszyfruj(kluczTokenu(), data.token_enc));
 }
 
 export type NowyLink = { clientId: string; contactId: string | null; label: string; pinKind: RodzajPinu; canApprove: boolean; createdBy: string };
@@ -141,6 +148,7 @@ const AKCJE_HISTORII: AkcjaAudytu[] = [
   "link.pin_zresetowany",
   "link.urzadzenia_wylogowane",
   "link.skopiowany",
+  "link.odszyfrowany",
 ];
 
 /** Historia logowań i zmian dostępu klienta z audit_log (SPEC rozdz. 4.4). */

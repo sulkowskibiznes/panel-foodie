@@ -1,6 +1,6 @@
 # SPEC — Panel Klienta Foodie Media (panel.foodiemedia.pl)
 
-Wersja 1.3 · 2 września 2026 · autor specyfikacji: Szymon Sułkowski + Claude
+Wersja 1.4 · 3 września 2026 · autor specyfikacji: Szymon Sułkowski + Claude
 Ten plik jest **jedynym źródłem prawdy** o zakresie. Zmieniasz zakres → zmieniasz ten plik.
 
 **Zmiany w 1.1:** Fakturowo zamiast Fakturowni · import materiałów przez wklejane linki do
@@ -21,6 +21,15 @@ pakietu z nierozwiązanymi uwagami klienta · nowe przejścia statusów (Wycofaj
 link „tylko do podglądu" (`can_approve`) · sesja 30 dni **przesuwnie** · raporty per lokal w kat1 ·
 poprawki błędów w SQL (unikalność pakietu przy `location_id = null`, brakujące enumy, `CHECK`, indeksy) ·
 podglądy bez `next/image` · Next.js 16.
+
+**Zmiany w 1.4 (przegląd rozdz. 20 poz. 15–34 przez Szymona, 2026-09-03):** dni robocze to
+**poniedziałek–sobota** (poz. 30) · odszyfrowanie `token_enc` tylko dla `admin` i `csm`, każde jako osobny
+wpis w `audit_log`, nigdy w widoku listy, wyłącznie po kliknięciu „Pokaż link" (poz. 16, rozdz. 16 pkt 12,
+kryterium 27) · pakiet z **wstrzymaną auto-akceptacją** jako osobny, wyróżniony stan na pulpicie z liczbą
+nieprzeczytanych uwag i akcją (poz. 26) · **przełącznik lokalu** w podglądzie reklamy kat2/kat3 i nazwa lokalu
+przy wariantach w widoku „wszystkie warianty" (poz. 15) · klient demonstracyjny **także na produkcji**, z flagą
+`clients.demo`, która blokuje linki dostępu i faktury (poz. 21, kryterium 28) · cofnięcie do poprawek po
+akceptacji **powiadamia klienta**: baner i `pakiet.cofniety_do_poprawek` w `outbox` (poz. 31).
 
 ---
 
@@ -90,7 +99,10 @@ CSM **ma** dostęp do faktur i kwot **swoich** klientów — bez tego nie zrobi 
 
 **Podgląd oczami klienta (impersonacja)** — dla `admin` i `csm`. `sales` nie ma impersonacji (nie ma
 prawa do faktur, które są częścią widoku klienta); do pokazywania panelu potencjalnym klientom dostaje
-**klienta demonstracyjnego** z seedu.
+**klienta demonstracyjnego**. Klient demonstracyjny istnieje **także na produkcji** (seed produkcyjny), ma
+`clients.demo = true` i tej flagi nie da się obejść z interfejsu: baza odrzuca wstawienie linku dostępu
+i faktury dla takiego klienta (trigger), a panel zespołu nie pokazuje przycisku „Utwórz link" ani wystawiania
+faktur, tylko notkę „klient demonstracyjny". Zespół ogląda go przez „Zobacz jak klient".
 - wejście przyciskiem „Zobacz jak klient" z karty klienta,
 - tryb **wyłącznie do odczytu** — akceptacja i komentarze zablokowane, przycisk pokazuje tooltip „niedostępne w podglądzie",
 - stały pasek u góry ekranu: „PODGLĄD KLIENTA — {nazwa}. Wyjdź",
@@ -133,6 +145,8 @@ create type outbox_status as enum ('pending','sent','failed');
 
 create table clients (
   id uuid primary key default gen_random_uuid(),
+  demo boolean not null default false,       -- 1.4: klient demonstracyjny dla sales; bez linków dostępu i faktur (trigger),
+                                             -- istnieje też na produkcji
   name text not null,
   slug text not null unique,
   category client_category not null,
@@ -396,6 +410,7 @@ create table comments (
   round int not null,                        -- runda, w której powstał
   after_approval boolean not null default false,
   seen_by_client_at timestamptz,             -- odpowiedzi zespołu: do plakietek „nieprzeczytane"
+  seen_by_team_at timestamptz,               -- 1.4: uwagi klienta: licznik „nieprzeczytane" na pulpicie zespołu
   resolved_at timestamptz,
   resolved_by uuid references team_members(id),
   created_at timestamptz not null default now(),
@@ -565,7 +580,8 @@ create index on invoices (client_id, status);
 | **kat3** — identyczne lokale, osobne profile | 1..n | osobne | **jeden pakiet contentu** (`location_id = null`), `package_items.location_ids` mówi, na które profile idzie post | jeden materiał `reklama` na kampanię; podgląd przełącza nazwę strony per lokal, warianty per lokal jak w kat2 |
 
 Podgląd posta w kat3 pokazuje przełącznik profilu (nazwa strony z `locations.fb_page_name`).
-Podgląd reklamy w kat2 i kat3 pokazuje listę „Lokal" tylko wtedy, gdy istnieją warianty per lokal.
+Podgląd reklamy w kat2 i kat3 ma **przełącznik lokalu** (1.4, poz. 15): klient widzi, która wersja idzie na
+który lokal, a w widoku „wszystkie warianty" przy wariantach z `location_id` stoi nazwa lokalu.
 Klient z pięcioma identycznymi lokalami widzi **jedną** sekcję reklamy, nie pięć.
 
 ---
@@ -580,8 +596,14 @@ daje dostęp), ale sam link nie wystarczy.
 - `token` = 32 znaki hex z `crypto.randomBytes(16)` (128 bit). **Nigdy nie generowany przez model językowy.**
 - W bazie: `token_lookup` = pierwsze 8 znaków (indeks), `token_hash` = sha256 całości,
   `token_enc` = token zaszyfrowany AES-256-GCM kluczem wyprowadzonym (HKDF) z `SESSION_SECRET`.
-  Weryfikacja zawsze po `token_hash`; `token_enc` służy wyłącznie do „Kopiuj dostęp" w panelu zespołu.
+  Weryfikacja zawsze po `token_hash`; `token_enc` służy wyłącznie do pokazania linku w panelu zespołu.
   Wyciek samej bazy nie ujawnia tokenów, bo klucz żyje tylko w zmiennych Vercela.
+- **Odszyfrowanie `token_enc` (1.4, wymóg twardy z rozdz. 16 pkt 12):** tylko role `admin` i `csm`; tylko
+  osobną akcją serwerową po świadomym kliknięciu „Pokaż link"; każde odszyfrowanie to osobny wpis
+  `link.odszyfrowany` w `audit_log` (kto, który link, IP). Lista linków nigdy nie zawiera odszyfrowanego
+  tokenu, ani w HTML, ani w danych strony. Wyjątki, w których token pokazuje się bez odszyfrowania z bazy:
+  okno „Link i PIN gotowe" tuż po utworzeniu (token świeżo wygenerowany, audyt `link.utworzony`) i okno po
+  resecie PIN-u (odszyfrowanie zapisane jako `link.odszyfrowany` obok `link.pin_zresetowany`).
 - Link **nie wygasa** sam; wygaszany ręcznie (`revoked_at`) lub przy offboardingu klienta.
 - Każda osoba kontaktowa może mieć własny link → widać, **kto** zaakceptował.
 - `can_approve = false` daje link **tylko do podglądu** (np. dla menedżera zmiany): komentarze tak,
@@ -733,7 +755,8 @@ To jest funkcja, która rozwiązuje problem z 52% kampanii po terminie. Musi by�
 - **3 dni kalendarzowe, czyli równo 72 godziny.** Zaokrąglenie **w górę** do pełnej godziny
   (klient nigdy nie dostaje mniej niż 72 h). Cron auto-akceptacji biegnie co godzinę.
   Ustawienie `auto_approve_business_days` istnieje w `settings` i przełącza na dni robocze
-  (poniedziałek–piątek w `Europe/Warsaw`, bez świąt), gdyby okazało się, że weekendy zjadają
+  (**poniedziałek–sobota** w `Europe/Warsaw`, bez świąt; agencja i restauracje pracują sześć dni
+  w tygodniu, zgodnie z Procesem Obsługi Klienta), gdyby okazało się, że niedziele zjadają
   za dużo — domyślnie **wyłączone**. Zmiana ustawień dotyczy pakietów wysłanych po zmianie;
   istniejących `auto_approve_at` nie przeliczamy.
 - Liczbę godzin można nadpisać per klient (`clients.auto_approve_hours`); domyślnie globalne
@@ -748,8 +771,10 @@ To jest funkcja, która rozwiązuje problem z 52% kampanii po terminie. Musi by�
   zostać auto-zaakceptowany na materiałach, których nie zdążył zobaczyć.
 - **Nierozwiązane uwagi klienta z bieżącej rundy wstrzymują auto-akceptację**: licznik biegnie
   dalej, ale cron nie zatwierdza takiego pakietu; zapisuje `auto_wstrzymana` i wysyła
-  `pakiet.auto_wstrzymana_uwagi` do zespołu. CSM odpowiada i oznacza „Załatwione" (cron zatwierdzi
-  przy następnym przebiegu, jeśli termin minął) albo cofa do poprawek.
+  `pakiet.auto_wstrzymana_uwagi` do zespołu. Taki pakiet pokazuje się na pulpicie zespołu jako **osobny,
+  wyróżniony stan** z liczbą nieprzeczytanych uwag i akcją obok (rozdz. 12.1), widoczny bez wchodzenia
+  w pakiet. CSM odpowiada i oznacza „Załatwione" (cron zatwierdzi przy następnym przebiegu, jeśli termin
+  minął) albo cofa do poprawek.
 - CSM może **wyłączyć** auto-akceptację dla konkretnego pakietu (checkbox przy wysyłce)
   albo dla konkretnego klienta (`clients.auto_approve_default` na karcie klienta).
 - Auto-akceptacja zapisuje `approval_kind = 'automatyczna'`, `approved_by_contact_id = null`,
@@ -777,6 +802,10 @@ To jest funkcja, która rozwiązuje problem z 52% kampanii po terminie. Musi by�
 - Komentarz po akceptacji ma `after_approval = true`, wyświetla się zespołowi jako
   **„Uwaga po akceptacji"** z wyższym priorytetem i osobnym zdarzeniem w `outbox`.
 - Status pakietu **nie cofa się automatycznie** — decyduje zespół (przycisk „Cofnij do poprawek").
+  Klient widział zielony baner „Zaakceptowano", więc **musi się dowiedzieć o cofnięciu** (1.4, poz. 31):
+  zielony baner znika, w jego miejsce pojawia się bursztynowy „Cofnęliśmy akceptację {data}: {powód od
+  zespołu}. Sprawdź poprawione materiały", a do `outbox` idzie `pakiet.cofniety_do_poprawek`
+  (Zapier przekazuje na kanał klienta, wiadomość do klienta pisze człowiek).
 - Jeśli zespół podmieni materiał po akceptacji (rozdz. 12.6), klient widzi baner:
   „Po akceptacji podmieniliśmy 1 materiał — jest oznaczony plakietką."
 
@@ -817,9 +846,9 @@ Pełna lista dozwolonych przejść (wszystko inne maszyna stanów w `lib/pakiety
 | `do_akceptacji` | `zaakceptowany` | system | cron po upływie `auto_approve_at`; `approval_kind = 'automatyczna'`; pomija pakiety z wyłączoną flagą i z nierozwiązanymi uwagami klienta |
 | `do_akceptacji` | `poprawki` | klient | „Zgłaszam uwagi" (wymaga co najmniej jednego komentarza); licznik zatrzymany |
 | `poprawki` | `do_akceptacji` | zespół | „Wyślij v2"; `round += 1`, nowy `submitted_at` i `auto_approve_at` |
-| `zaakceptowany` | `poprawki` | zespół | „Cofnij do poprawek" |
+| `zaakceptowany` | `poprawki` | zespół | „Cofnij do poprawek" z obowiązkowym powodem; klient dostaje baner w panelu i zdarzenie `pakiet.cofniety_do_poprawek` (1.4) |
 | `zaakceptowany` | `zaplanowany` | zespół | „Zaplanowano" po ustawieniu publikacji w Meta Business Suite |
-| `zaplanowany` | `poprawki` | zespół | „Cofnij do poprawek" (np. po uwadze po akceptacji) |
+| `zaplanowany` | `poprawki` | zespół | „Cofnij do poprawek" (np. po uwadze po akceptacji) z obowiązkowym powodem; baner dla klienta i `pakiet.cofniety_do_poprawek` (1.4) |
 
 `round` rośnie wyłącznie na `poprawki → do_akceptacji`. `zaplanowany` to status końcowy w normalnym
 przebiegu — panel nie publikuje sam. Każde przejście zapisuje `package_events` i, gdy rozdz. 15 tego
@@ -879,8 +908,13 @@ Grafika:  [Wariant 1 ▾ z 6]     Tekst:  [Wariant A ▾ z 3]     Nagłówek: [W
 
 - Zmiana dowolnej listy przerysowuje podgląd natychmiast. Klient może obejrzeć **każdą
   kombinację** — a jest ich do 6 × 3 × 3 = 54.
-- Czwarta lista **Lokal** pojawia się tylko w kat2/kat3, gdy istnieją warianty per lokal
-  (`ad_variants.location_id`): przełącza nazwę strony (kat3) oraz link i CTA (kat2).
+- Czwarta lista **Lokal** to przełącznik lokalu w kat2/kat3 (1.4, poz. 15): zawsze widoczny, gdy klient ma
+  więcej niż jeden lokal, z pozycją „Wszystkie lokale (wersja wspólna)" i po jednej pozycji na lokal.
+  Wybór lokalu przerysowuje podgląd wariantami z jego `location_id` (nazwa strony w kat3, link i CTA
+  w kat2, czasem tekst), a resztę bierze z wariantów wspólnych. Klient musi widzieć, **która wersja idzie
+  na który lokal**. To wymaganie wchodzi do projektu komponentów podglądu, zanim powstaną.
+- W widoku „Zobacz wszystkie warianty" każdy wariant z `location_id` ma przy sobie **nazwę lokalu**
+  (`locations.name`), warianty wspólne mają podpis „wszystkie lokale".
 - Grafika 1:1 lub 4:5 w placementach 9:16 (relacje, Reels): wyśrodkowana na tle z rozmytej kopii
   grafiki, tekst reklamy pod spodem, tak jak robi to Meta. Lista CTA jest zamknięta (`copy.ts`),
   żeby podgląd pokazywał dokładnie ten przycisk, który pokaże Facebook.
@@ -972,8 +1006,15 @@ Jedna tabela, którą Gosia otwiera rano:
 
 | Klient | Miesiąc | Status | Wysłano | Czeka | Auto-akcept za | Uwagi | Akcja |
 |---|---|---|---|---|---|---|---|
-| Nova Sushi | wrzesień | Do akceptacji v1 | 3 dni temu | 3 dni | **za 6 godz.** | 0 | Kopiuj dostęp |
-| HipHipKura | wrzesień | Poprawki | — | — | wstrzymane | 3 | Zobacz uwagi |
+| Nova Sushi | wrzesień | Do akceptacji v1 | 3 dni temu | 3 dni | **za 6 godz.** | 0 | Pokaż link |
+| HipHipKura | wrzesień | Poprawki | — | — | zatrzymane | 3 | Zobacz uwagi |
+| Bao Bar | wrzesień | **Auto-akceptacja wstrzymana** | 4 dni temu | 4 dni | minął | **2 nieprzeczytane** | Odpowiedz na uwagi |
+
+**Auto-akceptacja wstrzymana to osobny, wyróżniony stan na pulpicie (1.4, poz. 26):** pakiet w `do_akceptacji`,
+którego termin minął, a cron go nie zatwierdził z powodu nierozwiązanych uwag klienta, dostaje własny wiersz
+w kolorze bursztynowym, z liczbą **nieprzeczytanych** uwag klienta (komentarze bez `seen_by_team_at`)
+i akcją „Odpowiedz na uwagi" prowadzącą prosto do wątków. Zespół ma to widzieć bez wchodzenia w pakiet;
+samo zdarzenie `pakiet.auto_wstrzymana_uwagi` w Slacku to za mało.
 
 Kolorystyka terminów **taka sama jak w Bazie Klientów** (niebieski 6–7 dni, żółty 4–5,
 pomarańczowy 1–3, czerwony dziś, szary po terminie) — zespół zna ten kod.
@@ -1014,7 +1055,10 @@ PIN:   4821                                      [Kopiuj]
 - Wiadomość na WhatsAppie pisze człowiek. Panel nie generuje treści i nie otwiera WhatsAppa.
 - **PIN pokazywany tylko przy pierwszym wygenerowaniu.** Potem widoczny jest wyłącznie
   przycisk „Zresetuj PIN" (reset wylogowuje wszystkie sesje tego linku).
-- Skopiowanie i reset odnotowujemy w `audit_log`.
+- **Link nie leży na liście.** Lista linków pokazuje etykietę, daty i status; adres pojawia się dopiero po
+  kliknięciu „Pokaż link" w wierszu (akcja serwerowa, tylko `admin` i `csm`, wpis `link.odszyfrowany`
+  w `audit_log`), z przyciskiem „Kopiuj" i „Ukryj". Ten sam mechanizm obsługuje kolumnę Akcja na pulpicie.
+- Skopiowanie, pokazanie linku i reset odnotowujemy w `audit_log`.
 
 ### 12.5 Skrzynka uwag
 Jedna lista wszystkich nierozwiązanych komentarzy klientów ze wszystkich pakietów, z filtrem
@@ -1179,6 +1223,7 @@ Zdarzenia:
 | `pakiet.auto_za_24h` | do auto-akceptacji zostały 24 godziny |
 | `pakiet.auto_wstrzymana_uwagi` | termin auto-akceptacji minął, ale klient ma nierozwiązane uwagi; cron czeka na zespół |
 | `pakiet.wycofany` | zespół wycofał pakiet do szkicu po wysyłce |
+| `pakiet.cofniety_do_poprawek` | zespół cofnął zaakceptowany albo zaplanowany pakiet do poprawek; klient widzi baner, wiadomość do klienta pisze człowiek (1.4) |
 | `komentarz.po_akceptacji` | uwaga po akceptacji |
 | `material.podmieniony_po_akceptacji` | zespół podmienił materiał w zaakceptowanym pakiecie |
 | `usluga.zainteresowanie` | klient kliknął „Chcę wiedzieć więcej" |
@@ -1218,6 +1263,10 @@ Wysyłka przez tabelę `outbox` + cron co minutę, 5 prób z narastającym odst�
 9. **Sekrety** wyłącznie w zmiennych środowiskowych Vercela. `.env.local` w `.gitignore`.
 10. **`robots.txt`**: `Disallow: /p/`, `Disallow: /zespol/`. Meta `noindex` na wszystkich trasach.
 11. Upload plików: sprawdzanie **magic bytes**, nie tylko rozszerzenia; strip EXIF.
+12. **Odszyfrowanie tokenu linku (`token_enc`)** wyłącznie dla ról `admin` i `csm`, wyłącznie osobną akcją
+    serwerową po kliknięciu „Pokaż link", z osobnym wpisem `link.odszyfrowany` w `audit_log` za każdym
+    razem. Odszyfrowany token nigdy nie trafia do widoku listy linków ani do żadnego DTO poza odpowiedzią
+    na tę akcję. Pokrywa to kryterium 27.
 
 ---
 
@@ -1257,7 +1306,8 @@ Panel jest gotowy, gdy przechodzą wszystkie poniższe testy E2E:
 10. Zgłoszenie uwag zatrzymuje licznik auto-akceptacji.
 11. Cron auto-akceptacji po 72 godzinach ustawia `approval_kind = 'automatyczna'`
     i **nie rusza** pakietu z wyłączoną flagą ani pakietu w statusie `poprawki`.
-    Przełączenie `auto_approve_business_days` na `true` zmienia liczenie na dni robocze.
+    Przełączenie `auto_approve_business_days` na `true` zmienia liczenie na dni robocze
+    (poniedziałek–sobota: niedziela nie liczy się do terminu).
 12. Wysłanie v2 podbija `round`, restartuje licznik, pokazuje plakietki „Poprawione".
 13. Komentarz po akceptacji nie zmienia statusu, ale wysyła zdarzenie.
 
@@ -1287,6 +1337,13 @@ Panel jest gotowy, gdy przechodzą wszystkie poniższe testy E2E:
 **Wygląd**
 26. Zrzuty podglądów zgodne ze wzorcami w obu szerokościach: post, relacja i Reels na
     Facebooku oraz reklama w sześciu placementach (cztery FB, dwa IG).
+
+**Dostęp (dopisane w 1.4)**
+27. Lista linków nie zawiera tokenu (ani w HTML, ani w danych strony). „Pokaż link" działa dla `admin`
+    i `csm`, każde kliknięcie zapisuje `link.odszyfrowany` w `audit_log`; `content_creator` nie widzi
+    zakładki Dostęp (404).
+28. Klient demonstracyjny (`clients.demo`) nie dostaje linku dostępu ani faktury: baza odrzuca wstawienie,
+    a zakładka Dostęp pokazuje notkę zamiast przycisku „Utwórz link".
 
 ---
 
@@ -1326,24 +1383,24 @@ Każda faza kończy się **działającym wdrożeniem na Vercelu**, nie tylko kod
 | 12 | Awatar w podglądach | **Zdjęcie profilowe strony klienta, wyłącznie wewnątrz ramki podglądu.** Poza ramką logo klienta nie występuje | **potwierdzone** |
 | 13 | Podglądy contentu | Wyłącznie Facebook — post, relacja, Reels | **potwierdzone** |
 | 14 | Placementy reklam | **Sześć: FB kanał (telefon), FB kanał (komputer), FB relacje, FB Reels, IG kanał, IG relacje i Reels** | **potwierdzone** |
-| 15 | Warianty reklam per lokal (kat2/kat3) | **Jeden materiał `reklama` na kampanię**, warianty wspólne + warianty per lokal (`ad_variants.location_id`), czwarta lista „Lokal" w podglądzie | **potwierdzone** (2026-09-02) |
-| 16 | Token linku w bazie | `token_hash` do weryfikacji + `token_enc` (AES-256-GCM, klucz z `SESSION_SECRET`) do „Kopiuj dostęp" | **potwierdzone** (2026-09-02) |
+| 15 | Warianty reklam per lokal (kat2/kat3) | **Jeden materiał `reklama` na kampanię**, warianty wspólne + warianty per lokal (`ad_variants.location_id`). **1.4:** w podglądzie **przełącznik lokalu** (klient widzi, która wersja idzie na który lokal), w widoku „wszystkie warianty" nazwa lokalu przy wariantach z `location_id`; uwzględnione w projekcie komponentów przed ich napisaniem | **zmienione** (2026-09-03) |
+| 16 | Token linku w bazie | `token_hash` do weryfikacji + `token_enc` (AES-256-GCM, klucz z `SESSION_SECRET`). **1.4:** odszyfrowanie tylko `admin` i `csm`, każde jako osobny wpis `link.odszyfrowany` w `audit_log`, nigdy w widoku listy, tylko po kliknięciu „Pokaż link" (rozdz. 16 pkt 12, kryterium 27) | **zmienione** (2026-09-03) |
 | 17 | Link tylko do podglądu | `access_links.can_approve`, domyślnie `true` | **potwierdzone** (2026-09-02) |
 | 18 | Opiekun klienta | `clients.opiekun_id`; reszta przypisań w `client_assignments` | **potwierdzone** (2026-09-02) |
 | 19 | Godziny auto-akceptacji per klient | `clients.auto_approve_hours`, null = globalne 72 h | **potwierdzone** (2026-09-02) |
 | 20 | Raporty w kat1 z kilkoma restauracjami | Raport per lokal (`reports.location_id`) | **potwierdzone** (2026-09-02) |
-| 21 | Impersonacja dla `sales` | **Nie.** `sales` dostaje klienta demonstracyjnego z seedu | **potwierdzone** (2026-09-02) |
+| 21 | Impersonacja dla `sales` | **Nie.** `sales` dostaje klienta demonstracyjnego. **1.4:** klient demo powstaje **także na produkcji**, ma `clients.demo = true`, a flaga blokuje link dostępu i fakturę (trigger w bazie + interfejs, kryterium 28) | **zmienione** (2026-09-03) |
 | 22 | Allowlista zespołu | `team_members.active` jako prawdziwa lista, `TEAM_EMAIL_ALLOWLIST` (domeny lub adresy) jako filtr wstępny, rejestracja publiczna wyłączona | **potwierdzone** (2026-09-02) |
 | 23 | Sesja klienta | 30 dni **przesuwnie** od ostatniej aktywności; rotacja tokenu raz na 24 h | **potwierdzone** (2026-09-02) |
 | 24 | Projekty Supabase | Jeden testowy teraz, drugi produkcyjny przed pilotażem | **potwierdzone** (2026-09-02) |
 | 25 | Zmiana materiałów w `do_akceptacji` | Przesuwa `auto_approve_at` na co najmniej 24 h od zmiany | **potwierdzone** (2026-09-02) |
-| 26 | Nierozwiązane uwagi a cron | Cron nie auto-akceptuje, powiadamia zespół (`pakiet.auto_wstrzymana_uwagi`) | **potwierdzone** (2026-09-02) |
+| 26 | Nierozwiązane uwagi a cron | Cron nie auto-akceptuje, powiadamia zespół (`pakiet.auto_wstrzymana_uwagi`). **1.4:** to za mało; pakiet z wstrzymaną auto-akceptacją to **osobny, wyróżniony stan na pulpicie** z liczbą nieprzeczytanych uwag (`comments.seen_by_team_at`) i akcją obok, widoczny bez wchodzenia w pakiet (rozdz. 12.1) | **zmienione** (2026-09-03) |
 | 27 | Akceptacja w statusie `poprawki` | Klient nie akceptuje; „Wyślij v2" działa bez zmian w materiałach | **potwierdzone** (2026-09-02) |
 | 28 | Reels | W zakładce Posty z plakietką | **potwierdzone** (2026-09-02) |
 | 29 | Pakiet bez kampanii | Ostrzeżenie przy wysyłce, nie blokada | **potwierdzone** (2026-09-02) |
-| 30 | Dni robocze | Poniedziałek–piątek w `Europe/Warsaw`, bez świąt | **potwierdzone** (2026-09-02) |
-| 31 | Przejścia statusów | Dopisane: `do_akceptacji → szkic`, `zaakceptowany → poprawki`, `zaplanowany → poprawki` | **potwierdzone** (2026-09-02) |
-| 32 | Zdarzenia dla zespołu | Dopisane: `pakiet.nieotwarty_po_24h`, `pakiet.auto_za_24h`, `pakiet.auto_wstrzymana_uwagi`, `pakiet.wycofany` | **potwierdzone** (2026-09-02) |
+| 30 | Dni robocze | **Poniedziałek–sobota** w `Europe/Warsaw`, bez świąt (agencja i restauracje pracują sześć dni w tygodniu, zgodnie z Procesem Obsługi Klienta). Kod liczący `auto_approve_at` w dniach roboczych pomija wyłącznie niedziele | **zmienione** (2026-09-03) |
+| 31 | Przejścia statusów | Dopisane: `do_akceptacji → szkic`, `zaakceptowany → poprawki`, `zaplanowany → poprawki`. **1.4:** oba cofnięcia do poprawek **powiadamiają klienta**: bursztynowy baner w panelu w miejsce zielonego „Zaakceptowano" i zdarzenie `pakiet.cofniety_do_poprawek` w `outbox` | **zmienione** (2026-09-03) |
+| 32 | Zdarzenia dla zespołu | Dopisane: `pakiet.nieotwarty_po_24h`, `pakiet.auto_za_24h`, `pakiet.auto_wstrzymana_uwagi`, `pakiet.wycofany`; w 1.4 także `pakiet.cofniety_do_poprawek` (poz. 31) | **potwierdzone** (2026-09-02) |
 | 33 | Obrazy | Bez `next/image` dla materiałów; warianty z importu + signed URL przez własną trasę | **potwierdzone** (2026-09-02) |
 | 34 | Next.js | 16.x (spec mówił „15+") | **potwierdzone** (2026-09-02) |
 

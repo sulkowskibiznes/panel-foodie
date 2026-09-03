@@ -26,10 +26,10 @@ export default async function DostepKlienta({ params }: { params: Promise<{ slug
             <h2 className="font-naglowek text-xl text-foodie-czern">{d.tytul}</h2>
             <p className="mt-1 max-w-prose text-sm text-szary-600">{d.opis}</p>
           </div>
-          <DialogNowegoLinku slug={slug} kontakty={klient.client_contacts} />
+          {klient.demo ? null : <DialogNowegoLinku slug={slug} kontakty={klient.client_contacts} />}
         </div>
         <div className="mt-5">
-          <ListaLinkow slug={slug} linki={linki} />
+          {klient.demo ? <p className="rounded-lg bg-fiolet-050 px-3 py-2 text-sm leading-6 text-fiolet-700">{d.demo}</p> : <ListaLinkow slug={slug} linki={linki} />}
         </div>
       </section>
       <HistoriaLogowan wpisy={historia} />

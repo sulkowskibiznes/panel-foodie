@@ -30,6 +30,8 @@ Zaznaczamy kryterium, gdy przechodzi jako test E2E (CLAUDE.md, „Jak pracujemy"
 | 24 | csm widzi tylko przypisanych klientów | 3 | ☐ |
 | 25 | Impersonacja blokuje decyzje i zapisuje wejście do audit_log | 3 | ☐ |
 | 26 | Zrzuty podglądów zgodne ze wzorcami w obu szerokościach | 2 | ☐ |
+| 27 | Lista linków bez tokenu; „Pokaż link" tylko admin/csm, każde kliknięcie w audit_log; content_creator 404 na Dostępie | 1 | ✅ 2026-09-03 |
+| 28 | Klient demonstracyjny bez linku dostępu i faktury (trigger + notka w zakładce Dostęp) | 1 | ✅ 2026-09-03 |
 
 ## Faza 0: Fundament
 
@@ -85,6 +87,12 @@ Ukończona 2026-09-03, gałąź `faza/1-dostep`. Kryteria 1-6 zielone w Playwrig
 - `main` = `faza/1-dostep`, wdrożenie produkcyjne z GitHuba.
 
 **Poprawka po pierwszym realnym logowaniu (2026-09-03, późny wieczór):** projekt w chmurze wysyła kod 8-cyfrowy (`mailer_otp_length = 8`), a panel wymagał dokładnie 6 cyfr i ucinał pole na 7 znakach. Panel przyjmuje teraz 6-10 cyfr (długość ustawia Supabase Auth), teksty nie podają liczby cyfr, lokalny `config.toml` ma `otp_length = 8` dla zgodności z chmurą, helper E2E czyta kod 6-10 cyfr. Test logowania zespołu zielony z kodem 8-cyfrowym.
+
+**SPEC 1.4 (2026-09-03, przegląd rozdz. 20 poz. 15-34 przez Szymona):** sześć poprawek wpisanych do SPEC-a (nagłówek „Zmiany w 1.4"). Dwie dotknęły kodu fazy 1:
+- Poz. 16: lista linków nie niesie już odszyfrowanego tokenu. Adres pokazuje osobna akcja `pokazLink` („Pokaż link" w wierszu, tylko `admin` i `csm` przez `MOZE_ODSZYFROWAC_TOKEN`), każde odszyfrowanie to wpis `link.odszyfrowany` w `audit_log` (także po resecie PIN-u). Kryterium 27, test `tests/e2e/dostep-zespol.spec.ts`.
+- Poz. 21: migracja `20260903210001_klient_demo.sql` dodaje `clients.demo` i triggery odrzucające link dostępu i fakturę dla klienta demo. Seed ustawia flagę dla `demo-bistro` i nie tworzy mu linków ani faktur; zakładka Dostęp pokazuje notkę zamiast „Utwórz link", karta klienta plakietkę. Kryterium 28, test jednostkowy na bazie `tests/unit/klient-demo.test.ts` i E2E. Migracja wypchnięta do projektu chmurowego.
+- Poz. 15, 26, 30, 31 (przełącznik lokalu, wstrzymana auto-akceptacja na pulpicie, dni robocze pon-sob, powiadomienie klienta o cofnięciu do poprawek) dotyczą fazy 2 i 3; w kodzie nie ma jeszcze nic, co trzeba by zmienić.
+- Przy okazji: seed sprząta komentarze przed usunięciem klienta (klucz `comments.author_contact_id` nie kaskaduje), więc `pnpm db:seed` da się uruchomić ponownie na zapełnionej bazie.
 
 **Do sprawdzenia przez Szymona (jedyna rzecz, której Claude nie może zrobić sam):** realne logowanie na produkcji kodem z Resenda i sesja po odświeżeniu; kroki w rozmowie z 2026-09-03. Po logowaniu w `audit_log` powinien pojawić się wpis `zespol.logowanie_ok`.
 

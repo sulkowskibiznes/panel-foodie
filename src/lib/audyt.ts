@@ -13,6 +13,7 @@ export type AkcjaAudytu =
   | "link.pin_zresetowany"
   | "link.urzadzenia_wylogowane"
   | "link.skopiowany"
+  | "link.odszyfrowany"
   | "zespol.logowanie_ok"
   | "zespol.logowanie_blad"
   | "zespol.wylogowanie"

@@ -21,6 +21,9 @@ export const WIDZI_WSZYSTKICH_KLIENTOW: readonly Rola[] = ["admin", "sales"];
 /** Role z prawem do impersonacji („Zobacz jak klient"). `sales` dostaje klienta demo, nie impersonację. */
 export const MOZE_IMPERSONOWAC: readonly Rola[] = ["admin", "csm"];
 
+/** Role z prawem do odszyfrowania tokenu linku (`token_enc`), SPEC rozdz. 16 pkt 12. Każde odszyfrowanie = wpis `link.odszyfrowany`. */
+export const MOZE_ODSZYFROWAC_TOKEN: readonly Rola[] = ["admin", "csm"];
+
 export function poziomUprawnienia(rola: Rola, zasob: Zasob): Poziom {
   return MACIERZ_UPRAWNIEN[rola][zasob];
 }

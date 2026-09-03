@@ -372,6 +372,7 @@ export type Database = {
           category: Database["public"]["Enums"]["client_category"]
           cooperation_started_on: string | null
           created_at: string
+          demo: boolean
           drive_folder_url: string | null
           extra_locations_count: number
           id: string
@@ -391,6 +392,7 @@ export type Database = {
           category: Database["public"]["Enums"]["client_category"]
           cooperation_started_on?: string | null
           created_at?: string
+          demo?: boolean
           drive_folder_url?: string | null
           extra_locations_count?: number
           id?: string
@@ -410,6 +412,7 @@ export type Database = {
           category?: Database["public"]["Enums"]["client_category"]
           cooperation_started_on?: string | null
           created_at?: string
+          demo?: boolean
           drive_folder_url?: string | null
           extra_locations_count?: number
           id?: string

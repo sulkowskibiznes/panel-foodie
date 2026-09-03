@@ -14,6 +14,7 @@ export type KlientNaPulpicie = {
   category: Kategoria;
   tier: Tier;
   monthly_amount_net: number | null;
+  demo: boolean;
   doAkceptacji: number;
   aktywneLinki: number;
 };
@@ -21,7 +22,7 @@ export type KlientNaPulpicie = {
 /** Klienci widoczni dla członka zespołu: admin i sales wszyscy aktywni, reszta przypisani albo pod opieką. */
 export async function pobierzKlientowDla(czlonek: CzlonekZespolu): Promise<KlientNaPulpicie[]> {
   const db = supabaseSerwer();
-  let zapytanie = db.from("clients").select("id, slug, name, category, tier, monthly_amount_net").eq("status", "aktywny").order("name");
+  let zapytanie = db.from("clients").select("id, slug, name, category, tier, monthly_amount_net, demo").eq("status", "aktywny").order("name");
   if (!WIDZI_WSZYSTKICH_KLIENTOW.includes(czlonek.role)) {
     const { data: przypisania } = await db.from("client_assignments").select("client_id").eq("team_member_id", czlonek.id);
     const { data: podOpieka } = await db.from("clients").select("id").eq("opiekun_id", czlonek.id);
@@ -48,6 +49,8 @@ export type KartaKlienta = {
   category: Kategoria;
   tier: Tier;
   monthly_amount_net: number | null;
+  /** Klient demonstracyjny: bez linków dostępu i faktur (SPEC rozdz. 20 poz. 21). */
+  demo: boolean;
   slack_channel: string | null;
   cooperation_started_on: string | null;
   opiekun: { name: string } | null;
@@ -60,7 +63,7 @@ export async function pobierzKlientaPoSlugu(slug: string): Promise<KartaKlienta 
   const { data } = await supabaseSerwer()
     .from("clients")
     .select(
-      "id, slug, name, category, tier, monthly_amount_net, slack_channel, cooperation_started_on, opiekun:team_members!clients_opiekun_id_fkey(name), locations(id, name, city, fb_page_name, position), client_contacts(id, name, role_label, is_primary)",
+      "id, slug, name, category, tier, monthly_amount_net, demo, slack_channel, cooperation_started_on, opiekun:team_members!clients_opiekun_id_fkey(name), locations(id, name, city, fb_page_name, position), client_contacts(id, name, role_label, is_primary)",
     )
     .eq("slug", slug)
     .maybeSingle();
@@ -73,6 +76,7 @@ export async function pobierzKlientaPoSlugu(slug: string): Promise<KartaKlienta 
     category: data.category,
     tier: data.tier,
     monthly_amount_net: data.monthly_amount_net,
+    demo: data.demo,
     slack_channel: data.slack_channel,
     cooperation_started_on: data.cooperation_started_on,
     opiekun: Array.isArray(opiekun) ? (opiekun[0] ?? null) : opiekun,

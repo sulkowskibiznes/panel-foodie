@@ -69,6 +69,8 @@ export type KlientSeed = {
   monthly_amount_net: number;
   slack_channel: string;
   cooperation_started_on: string;
+  /** Klient demonstracyjny (SPEC rozdz. 20 poz. 21): flaga clients.demo, bez linków dostępu i faktur. */
+  demo?: boolean;
   lokale: Lokal[];
   kontakty: Kontakt[];
   pakiety: PakietSeed[];
@@ -278,6 +280,7 @@ export const KLIENCI: KlientSeed[] = [
   {
     slug: "demo-bistro",
     name: "Demo Bistro",
+    demo: true,
     category: "kat1",
     tier: "foodie_one",
     monthly_amount_net: 2000,

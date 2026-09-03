@@ -18,7 +18,10 @@ export default async function UkladKartyKlienta({ children, params }: { children
   return (
     <div>
       <header className="rounded-xl bg-white p-5 shadow-miekki sm:p-6">
-        <h1 className="font-naglowek text-2xl text-foodie-czern sm:text-3xl">{klient.name}</h1>
+        <h1 className="font-naglowek text-2xl text-foodie-czern sm:text-3xl">
+          {klient.name}
+          {klient.demo ? <span className="ml-3 align-middle rounded-full bg-fiolet-050 px-2 py-0.5 text-xs font-medium text-fiolet-700">{k.demo}</span> : null}
+        </h1>
         <p className="mt-1 text-sm text-szary-600">
           {copy.zespol.kategorie[klient.category]} · {copy.zespol.pakiety[klient.tier]}
           {klient.monthly_amount_net ? ` · ${formatujKwote(klient.monthly_amount_net)} ${copy.zespol.pulpit.miesiecznie}` : ""}

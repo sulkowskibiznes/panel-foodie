@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useTransition } from "react";
-import { odnotujSkopiowanie, wygasLink, wylogujUrzadzenia, zresetujPin, type WynikResetu } from "@/app/zespol/(panel)/klienci/[slug]/dostep/akcje";
+import { odnotujSkopiowanie, pokazLink, wygasLink, wylogujUrzadzenia, zresetujPin, type WynikResetu } from "@/app/zespol/(panel)/klienci/[slug]/dostep/akcje";
 import { PolaKopiowania } from "@/components/zespol/dostep/pola-kopiowania";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
@@ -11,6 +11,8 @@ import { formatujDateCzas } from "@/lib/format";
 
 export function ListaLinkow({ slug, linki }: { slug: string; linki: LinkDostepu[] }) {
   const [reset, setReset] = useState<(WynikResetu & { ok: true; linkId: string }) | null>(null);
+  /** Adresy odszyfrowane na żądanie („Pokaż link"): lista z serwera nigdy ich nie niesie (SPEC rozdz. 16 pkt 12). */
+  const [pokazane, setPokazane] = useState<Record<string, string>>({});
   const [skopiowany, setSkopiowany] = useState<string | null>(null);
   const [blad, setBlad] = useState<string | null>(null);
   const [trwa, startTransition] = useTransition();
@@ -18,9 +20,28 @@ export function ListaLinkow({ slug, linki }: { slug: string; linki: LinkDostepu[
 
   if (linki.length === 0) return <p className="text-sm text-szary-600">{d.brakLinkow}</p>;
 
+  function pokaz(l: LinkDostepu) {
+    setBlad(null);
+    startTransition(async () => {
+      const r = await pokazLink(slug, l.id);
+      if (r.ok) setPokazane((p) => ({ ...p, [l.id]: r.adres }));
+      else setBlad(r.blad);
+    });
+  }
+
+  function ukryj(id: string) {
+    setPokazane((p) => {
+      const kopia = { ...p };
+      delete kopia[id];
+      return kopia;
+    });
+  }
+
   async function kopiujLink(l: LinkDostepu) {
+    const adres = pokazane[l.id];
+    if (!adres) return;
     try {
-      await navigator.clipboard.writeText(l.adres);
+      await navigator.clipboard.writeText(adres);
     } catch {
       // schowek niedostępny
     }
@@ -70,6 +91,13 @@ export function ListaLinkow({ slug, linki }: { slug: string; linki: LinkDostepu[
                 <td className="py-3 pr-4">
                   <p className="font-medium text-foodie-czern">{l.label}</p>
                   {!l.canApprove ? <p className="text-xs text-szary-600">{d.status.tylkoPodglad}</p> : null}
+                  {pokazane[l.id] ? (
+                    <div className="mt-2 flex flex-wrap items-center gap-2">
+                      <input aria-label={d.gotowy.link} readOnly value={pokazane[l.id]} onFocus={(e) => e.currentTarget.select()} className="h-9 min-w-[260px] flex-1 rounded-lg border border-szary-300 bg-szary-050 px-2 font-mono text-xs text-foodie-czern" />
+                      <Button type="button" variant="outline" size="sm" onClick={() => void kopiujLink(l)}>{skopiowany === l.id ? d.gotowy.skopiowano : d.gotowy.kopiuj}</Button>
+                      <Button type="button" variant="ghost" size="sm" onClick={() => ukryj(l.id)}>{d.akcje.ukryjLink}</Button>
+                    </div>
+                  ) : null}
                 </td>
                 <td className="py-3 pr-4 text-szary-600">{formatujDateCzas(l.createdAt)}</td>
                 <td className="py-3 pr-4 text-szary-600">{l.lastUsedAt ? formatujDateCzas(l.lastUsedAt) : d.nigdy}</td>
@@ -86,7 +114,7 @@ export function ListaLinkow({ slug, linki }: { slug: string; linki: LinkDostepu[
                 <td className="py-3">
                   {!l.revokedAt ? (
                     <div className="flex flex-wrap justify-end gap-1">
-                      <Button type="button" variant="outline" size="sm" onClick={() => void kopiujLink(l)}>{skopiowany === l.id ? d.gotowy.skopiowano : d.akcje.kopiujLink}</Button>
+                      {!pokazane[l.id] ? <Button type="button" variant="outline" size="sm" disabled={trwa} onClick={() => pokaz(l)}>{d.akcje.pokazLink}</Button> : null}
                       <Button type="button" variant="ghost" size="sm" disabled={trwa} onClick={() => wykonaj(d.akcje.wylogujPotwierdz, () => wylogujUrzadzenia(slug, l.id))}>{d.akcje.wylogujUrzadzenia}</Button>
                       <Button type="button" variant="ghost" size="sm" disabled={trwa} onClick={() => resetuj(l)}>{d.akcje.resetujPin}</Button>
                       <Button type="button" variant="destructive" size="sm" disabled={trwa} onClick={() => wykonaj(d.akcje.wygasPotwierdz, () => wygasLink(slug, l.id))}>{d.akcje.wygas}</Button>
