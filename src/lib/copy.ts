@@ -66,6 +66,47 @@ export const copy = {
       zaplanowany: "Zaplanowany",
     },
   },
+  /** Podsumowania zdarzeń do Zapiera (SPEC rozdz. 15). Zmienne: {klient}, {okres}, {osoba}, {wersja}, {uwagi}, {powod}. */
+  zdarzenia: {
+    system: "panel (automatycznie)",
+    podsumowanie: {
+      "pakiet.wyslany": "Materiały {klient} na {okres} wysłane do akceptacji (wersja {wersja}) przez {osoba}.",
+      "pakiet.otwarty": "{osoba} ({klient}) otworzył(a) materiały na {okres} pierwszy raz.",
+      "pakiet.zaakceptowany": "{osoba} ({klient}) zaakceptował(a) materiały na {okres}.",
+      "pakiet.zaakceptowany_auto": "Materiały {klient} na {okres} zostały zaakceptowane automatycznie po upływie terminu.",
+      "pakiet.poprawki": "{osoba} ({klient}) zgłosił(a) uwagi do materiałów na {okres}. Liczba uwag: {uwagi}.",
+      "pakiet.nieotwarty_po_24h": "{klient} nie otworzył(a) materiałów na {okres} przez 24 godziny od wysyłki.",
+      "pakiet.auto_za_24h": "Do automatycznej akceptacji materiałów {klient} na {okres} zostały 24 godziny.",
+      "pakiet.auto_wstrzymana_uwagi": "Termin auto-akceptacji materiałów {klient} na {okres} minął, ale klient ma nierozwiązane uwagi ({uwagi}). Odpowiedz na nie i oznacz jako załatwione.",
+      "pakiet.wycofany": "Materiały {klient} na {okres} wycofane do szkicu przez {osoba}.",
+      "pakiet.cofniety_do_poprawek": "Zaakceptowane materiały {klient} na {okres} cofnięte do poprawek przez {osoba}. Powód: {powod}",
+      "komentarz.po_akceptacji": "{osoba} ({klient}) dodał(a) uwagę po akceptacji materiałów na {okres}.",
+      "material.podmieniony_po_akceptacji": "W zaakceptowanych materiałach {klient} na {okres} podmieniono materiał ({osoba}).",
+    },
+  },
+  /** Walidacja przed wysyłką do akceptacji (SPEC rozdz. 8): braki blokują, ostrzeżenia nie. */
+  wysylka: {
+    brakDaty: "{tytul}: brak daty publikacji",
+    bezMaterialow: "Pakiet nie ma żadnych materiałów.",
+    bezKampanii: "Pakiet nie ma żadnej kampanii reklamowej. Wysyłka jest możliwa, ale sprawdź, czy to zamierzone.",
+    typ: { post: "Post", relacja: "Relacja", reels: "Reels", reklama: "Reklama" },
+  },
+  /** Odmowy maszyny stanów (SPEC rozdz. 6.8), pokazywane osobie, która kliknęła. */
+  przejscia: {
+    odmowa: {
+      niedozwolone_ze_statusu: "Ta zmiana nie jest możliwa w obecnym statusie pakietu. Odśwież stronę.",
+      niewlasciwy_aktor: "Nie masz uprawnień do tej zmiany.",
+      link_tylko_do_podgladu: "Twój link pozwala oglądać i komentować materiały. Akceptację zostaw osobie z pełnym dostępem.",
+      brak_uwag: "Napisz najpierw, co poprawić - kliknij komentarz przy materiale.",
+      brak_powodu: "Wpisz powód cofnięcia. Klient zobaczy go w panelu.",
+      auto_wylaczona: "Ten pakiet ma wyłączoną automatyczną akceptację.",
+      termin_nie_minal: "Termin automatycznej akceptacji jeszcze nie minął.",
+      nierozwiazane_uwagi: "Klient ma nierozwiązane uwagi. Odpowiedz na nie i oznacz jako załatwione albo cofnij pakiet do poprawek.",
+      braki_w_materialach: "Uzupełnij braki przed wysyłką.",
+      nie_znaleziono: "Nie znaleziono pakietu. Odśwież stronę.",
+      konflikt: "Ktoś w międzyczasie zmienił status pakietu. Odśwież stronę i sprawdź, co się zmieniło.",
+    },
+  },
   stopka: {
     regulamin: "Regulamin",
     prywatnosc: "Polityka prywatności",

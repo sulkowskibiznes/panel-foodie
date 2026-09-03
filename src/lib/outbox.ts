@@ -1,23 +1,11 @@
 import "server-only";
 import type { Database } from "@/lib/db-types";
 import { supabaseSerwer } from "@/lib/supabase/server";
+import type { ZdarzenieOutbox } from "@/lib/zdarzenia";
 
-/** Zdarzenia z SPEC rozdz. 15. Wysyłka cronem (faza 5); tu tylko zapis, nigdy oczekiwanie na webhook. */
-export type ZdarzenieOutbox =
-  | "pakiet.wyslany"
-  | "pakiet.otwarty"
-  | "pakiet.zaakceptowany"
-  | "pakiet.zaakceptowany_auto"
-  | "pakiet.poprawki"
-  | "pakiet.nieotwarty_po_24h"
-  | "pakiet.auto_za_24h"
-  | "pakiet.auto_wstrzymana_uwagi"
-  | "pakiet.wycofany"
-  | "komentarz.po_akceptacji"
-  | "material.podmieniony_po_akceptacji"
-  | "usluga.zainteresowanie"
-  | "bezpieczenstwo.blokada";
+export type { ZdarzenieOutbox } from "@/lib/zdarzenia";
 
+/** Zapis zdarzenia z SPEC rozdz. 15. Wysyłka cronem (faza 5); tu tylko zapis, nigdy oczekiwanie na webhook. */
 export async function dodajDoOutbox(event: ZdarzenieOutbox, payload: Record<string, unknown>): Promise<void> {
   const { error } = await supabaseSerwer()
     .from("outbox")

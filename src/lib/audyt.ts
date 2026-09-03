@@ -8,6 +8,10 @@ export type AkcjaAudytu =
   | "klient.blokada_24h"
   | "klient.wylogowanie"
   | "klient.plik_pobrany"
+  | "klient.pakiet_otwarty"
+  | "klient.akceptacja"
+  | "klient.uwagi"
+  | "klient.komentarz"
   | "link.utworzony"
   | "link.wygaszony"
   | "link.pin_zresetowany"
@@ -18,7 +22,14 @@ export type AkcjaAudytu =
   | "zespol.logowanie_blad"
   | "zespol.wylogowanie"
   | "zespol.czlonek_dodany"
-  | "zespol.czlonek_zmieniony";
+  | "zespol.czlonek_zmieniony"
+  | "zespol.pakiet_wyslany"
+  | "zespol.pakiet_wycofany"
+  | "zespol.pakiet_cofniety"
+  | "zespol.pakiet_zaplanowany"
+  | "zespol.komentarz"
+  | "zespol.uwaga_zalatwiona"
+  | "system.auto_akceptacja";
 
 export type ZdarzenieAudytu = {
   actor_kind: Database["public"]["Enums"]["actor_kind"];

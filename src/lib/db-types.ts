@@ -451,6 +451,7 @@ export type Database = {
           resolved_by: string | null
           round: number
           seen_by_client_at: string | null
+          seen_by_team_at: string | null
           updated_at: string
           variant_id: string | null
         }
@@ -468,6 +469,7 @@ export type Database = {
           resolved_by?: string | null
           round: number
           seen_by_client_at?: string | null
+          seen_by_team_at?: string | null
           updated_at?: string
           variant_id?: string | null
         }
@@ -485,6 +487,7 @@ export type Database = {
           resolved_by?: string | null
           round?: number
           seen_by_client_at?: string | null
+          seen_by_team_at?: string | null
           updated_at?: string
           variant_id?: string | null
         }
