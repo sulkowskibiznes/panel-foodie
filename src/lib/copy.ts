@@ -79,7 +79,7 @@ export const copy = {
   zespol: {
     logowanie: {
       tytul: "Panel zespołu",
-      opis: "Zaloguj się adresem e-mail. Wyślemy Ci sześciocyfrowy kod.",
+      opis: "Zaloguj się adresem e-mail. Wyślemy Ci kod, który wpiszesz poniżej.",
       email: "Adres e-mail",
       wyslijKod: "Wyślij kod",
       wysylanie: "Wysyłamy...",
@@ -87,7 +87,7 @@ export const copy = {
       kod: "Kod z e-maila",
       zaloguj: "Zaloguj się",
       sprawdzanie: "Sprawdzamy...",
-      zlyKod: "Kod się nie zgadza albo wygasł. Wyślij nowy kod i spróbuj ponownie.",
+      zlyKod: "Kod się nie zgadza albo wygasł. Przepisz wszystkie cyfry z maila albo wyślij nowy kod.",
       innyAdres: "Użyj innego adresu",
       zbytWiele: "Za dużo prób. Odczekaj chwilę i spróbuj ponownie.",
       brakDostepu: "Ten adres nie ma dostępu do panelu zespołu. Zostałeś wylogowany. Jeśli to pomyłka, poproś admina o dodanie Cię do zespołu.",

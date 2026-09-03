@@ -84,6 +84,8 @@ Ukończona 2026-09-03, gałąź `faza/1-dostep`. Kryteria 1-6 zielone w Playwrig
 - Konfiguracja w chmurze zrobiona przez Szymona: repo podpięte w Vercelu (gałąź produkcyjna `main`, region `fra1`, Deployment Protection), szablon „Magic Link" z `supabase/templates/kod-logowania.html`, OTP 600 s, rejestracja wyłączona, SMTP przez Resend na `powiadomienia.foodiemedia.pl` (instrukcja: `docs/KONFIGURACJA-MAILI.md`).
 - `main` = `faza/1-dostep`, wdrożenie produkcyjne z GitHuba.
 
+**Poprawka po pierwszym realnym logowaniu (2026-09-03, późny wieczór):** projekt w chmurze wysyła kod 8-cyfrowy (`mailer_otp_length = 8`), a panel wymagał dokładnie 6 cyfr i ucinał pole na 7 znakach. Panel przyjmuje teraz 6-10 cyfr (długość ustawia Supabase Auth), teksty nie podają liczby cyfr, lokalny `config.toml` ma `otp_length = 8` dla zgodności z chmurą, helper E2E czyta kod 6-10 cyfr. Test logowania zespołu zielony z kodem 8-cyfrowym.
+
 **Do sprawdzenia przez Szymona (jedyna rzecz, której Claude nie może zrobić sam):** realne logowanie na produkcji kodem z Resenda i sesja po odświeżeniu; kroki w rozmowie z 2026-09-03. Po logowaniu w `audit_log` powinien pojawić się wpis `zespol.logowanie_ok`.
 
 **Odłożone:**

@@ -22,7 +22,7 @@ export async function pobierzKodZMailpita(email: string, od: number): Promise<st
       const pierwsza = swieze[0];
       if (pierwsza) {
         const tresc = (await (await fetch(`${mailpit()}/api/v1/message/${pierwsza.ID}`)).json()) as { Text?: string; HTML?: string };
-        const kod = /\b(\d{6})\b/.exec(tresc.Text ?? tresc.HTML ?? "")?.[1];
+        const kod = /\b(\d{6,10})\b/.exec(tresc.Text ?? tresc.HTML ?? "")?.[1];
         if (kod) {
           await fetch(`${mailpit()}/api/v1/messages`, { method: "DELETE", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ IDs: [pierwsza.ID] }) }).catch(() => undefined);
           return kod;

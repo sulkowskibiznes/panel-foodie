@@ -35,7 +35,8 @@ export async function zweryfikujKod(_poprzedni: StanLogowania, formData: FormDat
   const email = String(formData.get("email") ?? "").trim().toLowerCase();
   const kod = String(formData.get("kod") ?? "").replace(/\s/g, "");
   const { ipHash, ua } = await infoZadania();
-  if (!czyEmail(email) || !/^\d{6}$/.test(kod)) return { etap: "kod", email, blad: copy.zespol.logowanie.zlyKod };
+  // Długość kodu ustawia Supabase Auth (mailer_otp_length, 6-10 cyfr); w chmurze jest 8, lokalnie 6. Nie zakładamy jednej wartości.
+  if (!czyEmail(email) || !/^\d{6,10}$/.test(kod)) return { etap: "kod", email, blad: copy.zespol.logowanie.zlyKod };
 
   const auth = await klientAuthZespolu();
   const { data, error } = await auth.auth.verifyOtp({ email, token: kod, type: "email" });

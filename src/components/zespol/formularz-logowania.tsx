@@ -8,7 +8,7 @@ import { copy } from "@/lib/copy";
 const POLE = "mt-2 h-12 w-full rounded-xl border border-szary-300 bg-white px-4 text-base text-foodie-czern outline-none focus:border-foodie-fiolet focus:ring-2 focus:ring-foodie-fiolet/30";
 const PRZYCISK = "inline-flex h-12 w-full items-center justify-center rounded-xl bg-foodie-fiolet px-6 text-base font-medium text-white hover:bg-fiolet-600 disabled:opacity-60";
 
-/** Dwa kroki: adres e-mail, potem sześciocyfrowy kod. Odpowiedź na krok 1 nie zdradza, czy adres jest na liście. */
+/** Dwa kroki: adres e-mail, potem kod z maila (6-10 cyfr, długość ustawia Supabase Auth). Odpowiedź na krok 1 nie zdradza, czy adres jest na liście. */
 export function FormularzLogowania({ odmowa = false }: { odmowa?: boolean }) {
   const [stanEmail, wyslij, trwaWysylka] = useActionState<StanLogowania, FormData>(wyslijKod, { etap: "email" });
   const [stanKod, zweryfikuj, trwaWeryfikacja] = useActionState<StanLogowania, FormData>(zweryfikujKod, { etap: "kod" });
@@ -44,7 +44,7 @@ export function FormularzLogowania({ odmowa = false }: { odmowa?: boolean }) {
               <p className="rounded-lg bg-fiolet-050 px-3 py-2 text-sm leading-6 text-fiolet-700">{stanEmail.info}</p>
               <div>
                 <label htmlFor="kod" className="block text-sm font-medium text-foodie-czern">{l.kod}</label>
-                <input id="kod" name="kod" inputMode="numeric" autoComplete="one-time-code" pattern="[0-9 ]*" maxLength={7} required autoFocus className={`${POLE} text-center text-2xl tracking-[0.3em]`} />
+                <input id="kod" name="kod" inputMode="numeric" autoComplete="one-time-code" pattern="[0-9 ]*" maxLength={12} required autoFocus className={`${POLE} text-center text-2xl tracking-[0.3em]`} />
               </div>
               {stanKod.blad ? <p role="alert" className="rounded-lg bg-red-50 px-3 py-2 text-sm leading-6 text-czerwony">{stanKod.blad}</p> : null}
               <button type="submit" disabled={trwaWeryfikacja} className={PRZYCISK}>{trwaWeryfikacja ? l.sprawdzanie : l.zaloguj}</button>
