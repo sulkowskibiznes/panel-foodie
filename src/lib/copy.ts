@@ -90,6 +90,7 @@ export const copy = {
       zlyKod: "Kod się nie zgadza albo wygasł. Wyślij nowy kod i spróbuj ponownie.",
       innyAdres: "Użyj innego adresu",
       zbytWiele: "Za dużo prób. Odczekaj chwilę i spróbuj ponownie.",
+      brakDostepu: "Ten adres nie ma dostępu do panelu zespołu. Zostałeś wylogowany. Jeśli to pomyłka, poproś admina o dodanie Cię do zespołu.",
     },
     nawigacja: {
       pulpit: "Pulpit",
@@ -234,30 +235,288 @@ export const copy = {
     },
   },
   regulamin: {
-    tytul: "Regulamin panelu klienta",
-    wstep: "Ten regulamin opisuje zasady korzystania z panelu klienta Foodie Media pod adresem panel.foodiemedia.pl.",
-    doUzupelnienia: "Treść tej sekcji uzupełni Foodie Media przed uruchomieniem panelu dla klientów.",
+    tytul: "Regulamin panelu klienta Foodie Media",
+    obowiazujeOd: "Obowiązuje od 3 września 2026",
     sekcje: [
-      { naglowek: "1. Postanowienia ogólne", tresc: [] },
-      { naglowek: "2. Dostęp do panelu", tresc: ["Dostęp do panelu odbywa się przez indywidualny link i PIN przekazane przez opiekuna. Link i PIN są przeznaczone dla osoby, której zostały przekazane."] },
-      { naglowek: "3. Akceptacja materiałów", tresc: ["Klient akceptuje pakiet materiałów na dany miesiąc jednym przyciskiem albo zgłasza uwagi do poszczególnych materiałów."] },
-      { naglowek: "4. Automatyczna akceptacja", tresc: ["Jeżeli w ciągu 72 godzin od wysłania materiałów do akceptacji klient nie zaakceptuje ich ani nie zgłosi uwag, materiały uznaje się za zaakceptowane automatycznie. Licznik jest widoczny w panelu od chwili wysłania materiałów, a na 24 godziny przed terminem panel wyświetla ostrzeżenie. Zgłoszenie uwag zatrzymuje licznik."] },
-      { naglowek: "5. Komentarze i uwagi", tresc: [] },
-      { naglowek: "6. Dane osobowe", tresc: [] },
-      { naglowek: "7. Postanowienia końcowe", tresc: [] },
+      {
+        naglowek: "§ 1. Kto prowadzi panel",
+        tresc: [
+          {
+            punkty: [
+              "Panel dostępny pod adresem panel.foodiemedia.pl prowadzi **Foodie Media Sp. z o.o.** z siedzibą w Łodzi, ul. Henryka Sienkiewicza 85/87 lok. 8, 90-057 Łódź, NIP 7252349929, REGON 540281469, wpisana do rejestru przedsiębiorców Krajowego Rejestru Sądowego pod numerem KRS 0001140926, dalej: **Agencja**.",
+              "Kontakt w sprawach panelu: kontakt@foodiemedia.pl.",
+            ],
+          },
+        ],
+      },
+      {
+        naglowek: "§ 2. Co znaczą używane pojęcia",
+        tresc: [
+          {
+            punkty: [
+              "**Klient** - przedsiębiorca, z którym Agencja zawarła umowę o świadczenie usług marketingowych.",
+              "**Panel** - narzędzie internetowe, w którym Klient przegląda i akceptuje materiały, ogląda harmonogram publikacji, raporty, faktury i dokumenty.",
+              "**Osoba upoważniona** - osoba wskazana przez Klienta, która otrzymuje dostęp do Panelu i działa w imieniu Klienta.",
+              "**Materiały** - posty, relacje, filmy i kreacje reklamowe wraz z tekstami, przygotowane przez Agencję w ramach umowy.",
+              "**Pakiet** - zestaw Materiałów przygotowany na dany miesiąc współpracy, obejmujący treści organiczne i kampanie reklamowe.",
+              "**Akceptacja** - zgoda Klienta na publikację Materiałów w kształcie przedstawionym w Panelu.",
+            ],
+          },
+        ],
+      },
+      {
+        naglowek: "§ 3. Do czego służy Panel",
+        tresc: [
+          {
+            punkty: [
+              "Panel jest narzędziem roboczym w ramach umowy między Agencją a Klientem. Nie jest odrębną usługą i nie podlega odrębnej opłacie.",
+              "Panel służy do: przeglądania i akceptacji Materiałów, zgłaszania uwag, podglądu harmonogramu publikacji, dostępu do raportów miesięcznych, faktur i dokumentów oraz zapoznania się z dodatkowymi usługami Agencji.",
+              "Panel nie służy do zawierania umów ani do dokonywania płatności.",
+            ],
+          },
+        ],
+      },
+      {
+        naglowek: "§ 4. Dostęp i bezpieczeństwo",
+        tresc: [
+          {
+            punkty: [
+              "Dostęp do Panelu odbywa się przez indywidualny link oraz kod PIN lub hasło, przekazywane Osobie upoważnionej przez opiekuna Klienta.",
+              "Link wraz z kodem stanowią dane dostępowe. Klient odpowiada za to, komu je przekazuje, i zobowiązuje się nie udostępniać ich osobom nieuprawnionym.",
+              "Klient niezwłocznie informuje Agencję o utracie kontroli nad danymi dostępowymi lub o podejrzeniu dostępu osoby nieuprawnionej. Agencja wygasza wtedy dane dostępowe i wydaje nowe.",
+              "Klient może w każdej chwili poprosić o dodanie lub odebranie dostępu konkretnej Osobie upoważnionej.",
+              "Agencja odnotowuje w systemie datę i godzinę logowań, akceptacji i zgłoszonych uwag. Zapisy te służą ustaleniu przebiegu współpracy.",
+            ],
+          },
+        ],
+      },
+      {
+        naglowek: "§ 5. Akceptacja Materiałów",
+        tresc: [
+          {
+            punkty: [
+              "Agencja udostępnia Pakiet w Panelu i informuje o tym Klienta ustalonym kanałem kontaktu.",
+              "Klient akceptuje Pakiet w całości albo zgłasza uwagi do poszczególnych Materiałów.",
+              "Klient zgłasza uwagi w terminie 72 godzin od udostępnienia Pakietu w Panelu.",
+              "Brak zgłoszenia uwag w tym terminie oznacza akceptację Pakietu i uprawnia Agencję do rozpoczęcia publikacji zgodnie z harmonogramem.",
+              "Panel informuje o upływającym terminie w sposób widoczny od chwili udostępnienia Pakietu, w tym o pozostałym czasie i o skutku bezczynności.",
+              "Zgłoszenie uwag wstrzymuje bieg terminu. Termin biegnie od nowa od chwili udostępnienia poprawionej wersji Pakietu.",
+              "Opiekun Klienta może wydłużyć termin lub wyłączyć automatyczną akceptację dla konkretnego Pakietu, na wniosek Klienta złożony przed jego upływem.",
+              "Liczba rund poprawek nie jest ograniczona. Agencja może jednak wskazać, że kolejne poprawki wykraczają poza zakres umowy - wtedy ustala z Klientem odrębne warunki.",
+              "Po akceptacji Klient nadal może zgłaszać uwagi. Agencja rozpatruje je i informuje, czy i kiedy jest w stanie je uwzględnić, przy czym Materiały już opublikowane nie podlegają wycofaniu.",
+            ],
+          },
+        ],
+      },
+      {
+        naglowek: "§ 6. Harmonogram publikacji",
+        tresc: [
+          {
+            punkty: [
+              "Daty publikacji Materiałów Agencja przedstawia w Panelu. Klient widzi je przy każdym Materiale i w widoku kalendarza.",
+              "Harmonogram ma charakter planu. Agencja może przesunąć publikację z przyczyn technicznych lub z powodu ograniczeń platform, informując o tym Klienta.",
+              "Kampanie reklamowe nie mają wskazanej daty publikacji - Agencja uruchamia je po akceptacji, w ramach uzgodnionego okresu rozliczeniowego.",
+            ],
+          },
+        ],
+      },
+      {
+        naglowek: "§ 7. Raporty, faktury i dokumenty",
+        tresc: [
+          {
+            punkty: [
+              "Raport miesięczny Agencja udostępnia w Panelu jako odnośnik do dokumentu pod indywidualnym adresem.",
+              "Faktury w Panelu mają charakter informacyjny. Dokumentem księgowym jest faktura wystawiona i doręczona zgodnie z umową.",
+              "Statusy płatności w Panelu Agencja aktualizuje na podstawie własnych zapisów. Rozbieżność Klient zgłasza opiekunowi.",
+            ],
+          },
+        ],
+      },
+      {
+        naglowek: "§ 8. Dostępność Panelu",
+        tresc: [
+          {
+            punkty: [
+              "Agencja dokłada starań, aby Panel działał bez przerw, ale nie gwarantuje ciągłej dostępności.",
+              "Agencja może wprowadzać przerwy techniczne. O przerwach planowanych informuje z wyprzedzeniem.",
+              "Niedostępność Panelu nie wstrzymuje biegu terminu z § 5 ust. 3, jeżeli trwała krócej niż 6 godzin. Przy dłuższej niedostępności termin ulega przedłużeniu o czas jej trwania.",
+              "Do korzystania z Panelu potrzebne jest urządzenie z dostępem do internetu i aktualna przeglądarka internetowa.",
+            ],
+          },
+        ],
+      },
+      {
+        naglowek: "§ 9. Prawa do Materiałów",
+        tresc: [
+          {
+            punkty: [
+              "Zasady przeniesienia praw do Materiałów oraz zakres licencji określa umowa między Agencją a Klientem. Panel nie zmienia tych zasad.",
+              "Klient nie udostępnia Materiałów osobom trzecim przed publikacją, poza Osobami upoważnionymi.",
+            ],
+          },
+        ],
+      },
+      {
+        naglowek: "§ 10. Reklamacje",
+        tresc: [
+          {
+            punkty: [
+              "Uwagi dotyczące działania Panelu Klient zgłasza na adres kontakt@foodiemedia.pl.",
+              "Agencja odpowiada w terminie 14 dni od otrzymania zgłoszenia.",
+              "Zgłoszenia dotyczące treści Materiałów Klient kieruje przez Panel albo do opiekuna.",
+            ],
+          },
+        ],
+      },
+      {
+        naglowek: "§ 11. Zmiany regulaminu",
+        tresc: [
+          {
+            punkty: [
+              "Agencja może zmienić regulamin z ważnych przyczyn, w szczególności przy zmianie zakresu funkcji Panelu lub przepisów prawa.",
+              "O zmianie Agencja informuje Klienta z co najmniej 14-dniowym wyprzedzeniem, przez Panel lub ustalonym kanałem kontaktu.",
+              "Zmiana § 5 wymaga odrębnej zgody Klienta i nie wchodzi w życie w trybie z ust. 2.",
+            ],
+          },
+        ],
+      },
+      {
+        naglowek: "§ 12. Postanowienia końcowe",
+        tresc: [
+          {
+            punkty: [
+              "W sprawach nieuregulowanych stosuje się umowę między Agencją a Klientem, a w dalszej kolejności przepisy prawa polskiego.",
+              "Regulamin stanowi uzupełnienie umowy. W razie sprzeczności pierwszeństwo ma umowa.",
+              "Zasady przetwarzania danych osobowych opisuje Polityka prywatności panelu.",
+            ],
+          },
+        ],
+      },
     ],
   },
   prywatnosc: {
-    tytul: "Polityka prywatności",
-    wstep: "Panel przetwarza wyłącznie dane osób kontaktowych po stronie klienta: imię i nazwisko, telefon i adres e-mail. Nie zbieramy danych gości restauracji.",
-    doUzupelnienia: "Treść tej sekcji uzupełni Foodie Media przed uruchomieniem panelu dla klientów.",
+    tytul: "Polityka prywatności panelu klienta",
+    obowiazujeOd: "Obowiązuje od 3 września 2026",
     sekcje: [
-      { naglowek: "1. Administrator danych", tresc: [] },
-      { naglowek: "2. Jakie dane przetwarzamy i po co", tresc: [] },
-      { naglowek: "3. Gdzie przechowujemy dane", tresc: ["Dane są przechowywane na serwerach w Unii Europejskiej (Frankfurt)."] },
-      { naglowek: "4. Jak długo przechowujemy dane", tresc: ["Materiały przechowujemy przez 24 miesiące, dziennik zdarzeń przez 12 miesięcy."] },
-      { naglowek: "5. Pliki cookies", tresc: ["Panel używa wyłącznie technicznych plików cookies niezbędnych do utrzymania sesji. Nie używamy analityki zewnętrznej ani cookies marketingowych."] },
-      { naglowek: "6. Twoje prawa", tresc: [] },
+      {
+        naglowek: "1. Kto odpowiada za Twoje dane",
+        tresc: [
+          "Administratorem danych osobowych jest **Foodie Media Sp. z o.o.** z siedzibą w Łodzi, ul. Henryka Sienkiewicza 85/87 lok. 8, 90-057 Łódź, NIP 7252349929, REGON 540281469, wpisana do rejestru przedsiębiorców Krajowego Rejestru Sądowego pod numerem KRS 0001140926.",
+          "W sprawach dotyczących danych osobowych napisz na kontakt@foodiemedia.pl.",
+          "Nie wyznaczyliśmy inspektora ochrony danych - wszystkie sprawy prowadzimy pod tym adresem.",
+        ],
+      },
+      {
+        naglowek: "2. Jakie dane przetwarzamy",
+        tresc: [
+          { podtytul: "Dane osób, które korzystają z panelu:" },
+          { lista: ["imię i nazwisko,", "rola w firmie (np. właściciel, manager),", "numer telefonu,", "adres e-mail, jeśli został podany."] },
+          { podtytul: "Dane, które powstają w trakcie korzystania z panelu:" },
+          {
+            lista: [
+              "data i godzina logowania oraz nieudanych prób logowania,",
+              "data i godzina otwarcia materiałów, akceptacji i zgłoszonych uwag,",
+              "treść uwag zgłoszonych w panelu,",
+              "skrócony, nieodwracalnie przekształcony zapis adresu IP i informacji o przeglądarce.",
+            ],
+          },
+          "**Czego nie zbieramy:** nie zbieramy w panelu danych gości restauracji, nie prowadzimy analityki zewnętrznej, nie stosujemy cookies marketingowych ani śledzących.",
+        ],
+      },
+      {
+        naglowek: "3. Po co i na jakiej podstawie",
+        tresc: [
+          {
+            tabela: {
+              naglowki: ["Cel", "Podstawa prawna"],
+              wiersze: [
+                ["Udostępnienie panelu i realizacja umowy o usługi marketingowe", "art. 6 ust. 1 lit. b RODO - niezbędność do wykonania umowy; wobec osób działających w imieniu klienta: art. 6 ust. 1 lit. f - nasz uzasadniony interes w kontakcie z klientem"],
+                ["Ustalenie, kto i kiedy zaakceptował materiały", "art. 6 ust. 1 lit. f - uzasadniony interes: udokumentowanie przebiegu współpracy"],
+                ["Zabezpieczenie panelu przed nieuprawnionym dostępem (logi, ograniczanie prób logowania)", "art. 6 ust. 1 lit. f - uzasadniony interes: bezpieczeństwo danych"],
+                ["Wystawianie i przechowywanie faktur", "art. 6 ust. 1 lit. c - obowiązek prawny wynikający z przepisów podatkowych i o rachunkowości"],
+                ["Rozpatrywanie reklamacji i obrona przed roszczeniami", "art. 6 ust. 1 lit. f - uzasadniony interes"],
+              ],
+            },
+          },
+        ],
+      },
+      {
+        naglowek: "4. Komu powierzamy dane",
+        tresc: [
+          "Korzystamy z dostawców, którzy przetwarzają dane na nasze zlecenie:",
+          {
+            lista: [
+              "**Supabase** - baza danych i przechowywanie plików; serwery w regionie Europy (Frankfurt, Niemcy),",
+              "**Vercel** - hosting aplikacji; funkcje uruchamiane w regionie Frankfurt,",
+              "**Resend** - wysyłka wiadomości z kodami logowania,",
+              "**Google** - przechowywanie plików źródłowych materiałów na Dysku Google,",
+              "**Zapier** - przekazywanie powiadomień o zdarzeniach w panelu do naszego komunikatora wewnętrznego,",
+              "**Slack** - komunikacja wewnętrzna zespołu obsługującego klienta.",
+            ],
+          },
+          "Supabase, Vercel i Resend są spółkami z siedzibą w Stanach Zjednoczonych, mimo że dane przechowujemy w Unii Europejskiej. Przekazanie danych poza Europejski Obszar Gospodarczy może więc wystąpić w zakresie obsługi technicznej. Odbywa się ono na podstawie standardowych klauzul umownych zatwierdzonych przez Komisję Europejską.",
+          "Danych nie sprzedajemy i nie udostępniamy do celów marketingowych podmiotom trzecim.",
+        ],
+      },
+      {
+        naglowek: "5. Jak długo trzymamy dane",
+        tresc: [
+          {
+            tabela: {
+              naglowki: ["Rodzaj danych", "Okres"],
+              wiersze: [
+                ["Materiały i historia akceptacji", "24 miesiące od udostępnienia"],
+                ["Zapisy logowań i działań w panelu", "12 miesięcy"],
+                ["Dane sesji zalogowanych urządzeń", "30 dni od wygaśnięcia sesji, nie dłużej niż 90 dni"],
+                ["Dane kontaktowe osób upoważnionych", "czas trwania umowy, a po jej zakończeniu do upływu terminu przedawnienia roszczeń"],
+                ["Faktury i dokumenty księgowe", "okres wymagany przepisami podatkowymi"],
+              ],
+            },
+          },
+          "Po zakończeniu współpracy wygaszamy wszystkie dane dostępowe do panelu. Na wniosek Klienta usuwamy materiały wcześniej.",
+        ],
+      },
+      {
+        naglowek: "6. Twoje prawa",
+        tresc: [
+          "Masz prawo do:",
+          {
+            lista: [
+              "dostępu do swoich danych i otrzymania ich kopii,",
+              "sprostowania danych nieprawidłowych lub niekompletnych,",
+              "usunięcia danych,",
+              "ograniczenia przetwarzania,",
+              "przenoszenia danych,",
+              "sprzeciwu wobec przetwarzania opartego na naszym uzasadnionym interesie.",
+            ],
+          },
+          "Żeby skorzystać z któregokolwiek, napisz na kontakt@foodiemedia.pl. Odpowiadamy w ciągu miesiąca.",
+          "Masz też prawo wnieść skargę do **Prezesa Urzędu Ochrony Danych Osobowych**, ul. Stawki 2, 00-193 Warszawa.",
+        ],
+      },
+      {
+        naglowek: "7. Czy podanie danych jest obowiązkowe",
+        tresc: ["Podanie imienia, nazwiska i numeru telefonu jest dobrowolne, ale bez nich nie jesteśmy w stanie wydać dostępu do panelu ani przekazać danych logowania."],
+      },
+      {
+        naglowek: "8. Automatyczne decyzje i profilowanie",
+        tresc: [
+          "Nie profilujemy Cię i nie podejmujemy wobec Ciebie decyzji wyłącznie w sposób zautomatyzowany na podstawie analizy Twoich danych.",
+          "Panel zawiera mechanizm automatycznej akceptacji materiałów po upływie 72 godzin, opisany w regulaminie. Jest to uzgodniony umownie sposób liczenia terminu, a nie decyzja podejmowana na podstawie analizy danych osobowych.",
+        ],
+      },
+      {
+        naglowek: "9. Pliki cookies",
+        tresc: [
+          "Używamy wyłącznie plików niezbędnych do działania panelu: pliku utrzymującego zalogowanie oraz plików związanych z bezpieczeństwem sesji. Nie stosujemy cookies analitycznych ani marketingowych, dlatego nie prosimy o zgodę na ich użycie.",
+        ],
+      },
+      {
+        naglowek: "10. Zmiany polityki",
+        tresc: [
+          "Politykę możemy zmienić, gdy zmienią się funkcje panelu, dostawcy lub przepisy. O zmianie poinformujemy w panelu z co najmniej 14-dniowym wyprzedzeniem. Data u góry dokumentu zawsze wskazuje aktualną wersję.",
+        ],
+      },
     ],
   },
   bledy: {

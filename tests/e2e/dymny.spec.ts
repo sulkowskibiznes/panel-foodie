@@ -14,12 +14,21 @@ test.describe("strony publiczne", () => {
     await expect(page).toHaveScreenshot("start.png", { fullPage: true, maxDiffPixelRatio: 0.02 });
   });
 
-  test("regulamin i polityka prywatności odpowiadają 200 z nagłówkami", async ({ page }) => {
-    await page.goto("/regulamin");
+  test("regulamin i polityka prywatności mają pełną treść z docs/TRESCI-PRAWNE.md", async ({ page }) => {
+    const odpRegulamin = await page.goto("/regulamin");
+    expect(odpRegulamin?.status()).toBe(200);
     await expect(page.getByRole("heading", { level: 1 })).toHaveText(copy.regulamin.tytul);
-    await expect(page.getByRole("heading", { name: copy.regulamin.sekcje[3].naglowek })).toBeVisible();
-    await page.goto("/prywatnosc");
+    await expect(page.getByText(copy.regulamin.obowiazujeOd)).toBeVisible();
+    for (const sekcja of copy.regulamin.sekcje) await expect(page.getByRole("heading", { level: 2, name: sekcja.naglowek })).toBeVisible();
+    await expect(page.getByRole("list").filter({ hasText: "72 godzin" })).toBeVisible();
+
+    const odpPrywatnosc = await page.goto("/prywatnosc");
+    expect(odpPrywatnosc?.status()).toBe(200);
     await expect(page.getByRole("heading", { level: 1 })).toHaveText(copy.prywatnosc.tytul);
+    await expect(page.getByText(copy.prywatnosc.obowiazujeOd)).toBeVisible();
+    for (const sekcja of copy.prywatnosc.sekcje) await expect(page.getByRole("heading", { level: 2, name: sekcja.naglowek })).toBeVisible();
+    await expect(page.getByRole("table")).toHaveCount(2);
+    await expect(page.getByRole("columnheader", { name: "Podstawa prawna" })).toBeVisible();
   });
 
   test("robots.txt blokuje /p/ i /zespol/", async ({ request }) => {

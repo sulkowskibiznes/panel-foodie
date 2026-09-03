@@ -10,6 +10,8 @@ export default async function globalSetup() {
   const stack = lokalnyStack();
   process.env.E2E_DB_URL = stack.dbUrl;
   process.env.E2E_MAILPIT_URL = stack.mailpitUrl;
+  process.env.E2E_API_URL = stack.apiUrl;
+  process.env.E2E_SECRET_KEY = stack.secretKey;
   process.env.E2E_SEED ??= String(Date.now() % 2_000_000_000);
   console.log(`[e2e] ziarno generatora: ${process.env.E2E_SEED}`);
 

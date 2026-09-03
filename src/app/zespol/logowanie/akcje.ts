@@ -46,8 +46,8 @@ export async function zweryfikujKod(_poprzedni: StanLogowania, formData: FormDat
   const czlonek = await znajdzCzlonka(data.user);
   if (!czlonek) {
     await auth.auth.signOut();
-    await zapiszAudyt({ actor_kind: "zespol", actor_label: email, action: "zespol.logowanie_blad", ip_hash: ipHash, ua, meta: { powod: "brak_na_liscie" } });
-    return { etap: "email", blad: copy.zespol.logowanie.zlyKod };
+    await zapiszAudyt({ actor_kind: "zespol", actor_label: email, action: "zespol.logowanie_blad", ip_hash: ipHash, ua, meta: { powod: "brak_na_liscie", etap: "kod" } });
+    return { etap: "email", blad: copy.zespol.logowanie.brakDostepu };
   }
   await zapiszAudyt({ actor_kind: "zespol", actor_id: czlonek.id, actor_label: czlonek.name, action: "zespol.logowanie_ok", ip_hash: ipHash, ua });
   redirect("/zespol");

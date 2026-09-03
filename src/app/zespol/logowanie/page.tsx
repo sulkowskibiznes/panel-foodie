@@ -6,8 +6,10 @@ import { copy } from "@/lib/copy";
 
 export const metadata: Metadata = { title: copy.zespol.logowanie.tytul };
 
-export default async function LogowanieZespolu() {
+/** `?odmowa=1` ustawia trasa /zespol/odmowa po wylogowaniu konta bez aktywnego członka zespołu. */
+export default async function LogowanieZespolu({ searchParams }: { searchParams: Promise<{ odmowa?: string }> }) {
   const czlonek = await pobierzCzlonkaZespolu();
   if (czlonek) redirect("/zespol");
-  return <FormularzLogowania />;
+  const { odmowa } = await searchParams;
+  return <FormularzLogowania odmowa={odmowa === "1"} />;
 }

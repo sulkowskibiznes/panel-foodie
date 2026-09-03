@@ -9,7 +9,7 @@ const POLE = "mt-2 h-12 w-full rounded-xl border border-szary-300 bg-white px-4 
 const PRZYCISK = "inline-flex h-12 w-full items-center justify-center rounded-xl bg-foodie-fiolet px-6 text-base font-medium text-white hover:bg-fiolet-600 disabled:opacity-60";
 
 /** Dwa kroki: adres e-mail, potem sześciocyfrowy kod. Odpowiedź na krok 1 nie zdradza, czy adres jest na liście. */
-export function FormularzLogowania() {
+export function FormularzLogowania({ odmowa = false }: { odmowa?: boolean }) {
   const [stanEmail, wyslij, trwaWysylka] = useActionState<StanLogowania, FormData>(wyslijKod, { etap: "email" });
   const [stanKod, zweryfikuj, trwaWeryfikacja] = useActionState<StanLogowania, FormData>(zweryfikujKod, { etap: "kod" });
   const [innyAdres, setInnyAdres] = useState(false);
@@ -33,6 +33,8 @@ export function FormularzLogowania() {
               </div>
               {stanEmail.blad || stanKod.etap === "email" ? (
                 <p role="alert" className="rounded-lg bg-red-50 px-3 py-2 text-sm leading-6 text-czerwony">{stanEmail.blad ?? stanKod.blad}</p>
+              ) : odmowa ? (
+                <p role="alert" className="rounded-lg bg-red-50 px-3 py-2 text-sm leading-6 text-czerwony">{l.brakDostepu}</p>
               ) : null}
               <button type="submit" disabled={trwaWysylka} className={PRZYCISK}>{trwaWysylka ? l.wysylanie : l.wyslijKod}</button>
             </form>

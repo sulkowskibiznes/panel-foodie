@@ -1,5 +1,6 @@
 import { config as dotenv } from "dotenv";
 import postgres from "postgres";
+import { createClient } from "@supabase/supabase-js";
 import { generujPin, generujToken, hashujPin, hashujToken, tokenLookup, type Losuj } from "../../../src/lib/auth-klient";
 import { wyprowadzKlucz, zaszyfruj } from "../../../src/lib/krypto";
 import { losujZZiarnem } from "../../pomocnicze/losowosc";
@@ -118,4 +119,46 @@ export async function zasobKlienta(slug: string): Promise<string> {
     if (!w) throw new Error(`Brak pliku klienta ${slug}`);
     return w.id;
   });
+}
+
+/** Klient admina Auth lokalnego stacku (tylko testy: tworzenie i sprzątanie kont zespołu). */
+function adminAuth() {
+  const url = process.env.E2E_API_URL;
+  const key = process.env.E2E_SECRET_KEY;
+  if (!url || !key) throw new Error("Brak E2E_API_URL / E2E_SECRET_KEY (ustawia je global-setup).");
+  return createClient(url, key, { auth: { persistSession: false, autoRefreshToken: false, detectSessionInUrl: false } });
+}
+
+export type CzlonekTestowy = { id: string; authUserId: string; email: string };
+
+/** Członek zespołu na potrzeby jednego testu: konto Auth + aktywny wiersz team_members. Sprzątaj przez usunCzlonkaTestowego. */
+export async function utworzCzlonkaTestowego(email: string, role = "content_creator"): Promise<CzlonekTestowy> {
+  const auth = adminAuth();
+  await zBaza((s) => s`delete from public.team_members where lower(email) = lower(${email})`);
+  let authUserId: string | undefined;
+  const utworzony = await auth.auth.admin.createUser({ email, email_confirm: true, user_metadata: { name: "Test E2E" } });
+  if (!utworzony.error && utworzony.data.user) authUserId = utworzony.data.user.id;
+  else {
+    const lista = await auth.auth.admin.listUsers({ perPage: 1000 });
+    authUserId = lista.data?.users.find((u) => u.email?.toLowerCase() === email.toLowerCase())?.id;
+  }
+  if (!authUserId) throw new Error(`Nie udało się założyć konta Auth ${email}: ${utworzony.error?.message ?? "nieznany błąd"}`);
+  const id = await zBaza(async (s) => {
+    const [w] = await s<{ id: string }[]>`
+      insert into public.team_members (auth_user_id, name, email, role, active)
+      values (${authUserId}, 'Test E2E', ${email.toLowerCase()}, ${role}::public.team_role, true)
+      returning id`;
+    if (!w) throw new Error("Nie udało się utworzyć członka testowego");
+    return w.id;
+  });
+  return { id, authUserId, email: email.toLowerCase() };
+}
+
+export async function ustawAktywnosc(id: string, active: boolean): Promise<void> {
+  await zBaza((s) => s`update public.team_members set active = ${active} where id = ${id}`);
+}
+
+export async function usunCzlonkaTestowego(c: CzlonekTestowy): Promise<void> {
+  await zBaza((s) => s`delete from public.team_members where id = ${c.id}`);
+  await adminAuth().auth.admin.deleteUser(c.authUserId);
 }

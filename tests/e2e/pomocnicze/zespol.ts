@@ -39,6 +39,8 @@ export async function zalogujZespol(page: Page, email: string): Promise<void> {
   const l = copy.zespol.logowanie;
   const od = Date.now();
   await page.goto("/zespol/logowanie");
+  // Klik przed hydracją Reacta wysyła formularz dwa razy (natywnie i po odtworzeniu), a GoTrue odrzuca drugi kod limitem częstotliwości.
+  await page.waitForLoadState("networkidle");
   await page.getByLabel(l.email).fill(email);
   await page.getByRole("button", { name: l.wyslijKod }).click();
   await expect(page.getByLabel(l.kod)).toBeVisible();

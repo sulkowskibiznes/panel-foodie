@@ -31,32 +31,49 @@ export async function klientAuthZespolu() {
 
 export type CzlonekZespolu = { id: string; name: string; email: string; role: Rola };
 
-/** Członek zespołu dla użytkownika Auth: po auth_user_id, awaryjnie po e-mailu (z uzupełnieniem powiązania). */
+const KOLUMNY_CZLONKA = "id, name, email, role, active, auth_user_id";
+
+/**
+ * Członek zespołu dla użytkownika Auth: najpierw po auth_user_id, awaryjnie po e-mailu
+ * (adres w Auth jest zweryfikowany kodem, więc dopasowanie po nim jest bezpieczne).
+ * Brakujące albo nieaktualne powiązanie auth_user_id uzupełniamy. Nieaktywny wiersz = brak dostępu.
+ */
 export async function znajdzCzlonka(user: { id: string; email?: string | null }): Promise<CzlonekZespolu | null> {
-  const email = user.email?.toLowerCase();
   const db = supabaseSerwer();
-  const zapytanie = db.from("team_members").select("id, name, email, role, active, auth_user_id");
-  const { data: wiersz } = await (email ? zapytanie.or(`auth_user_id.eq.${user.id},email.eq.${email}`) : zapytanie.eq("auth_user_id", user.id))
-    .limit(1)
-    .maybeSingle();
+  let { data: wiersz } = await db.from("team_members").select(KOLUMNY_CZLONKA).eq("auth_user_id", user.id).maybeSingle();
+  const email = user.email?.trim().toLowerCase();
+  if (!wiersz && email) {
+    ({ data: wiersz } = await db.from("team_members").select(KOLUMNY_CZLONKA).eq("email", email).maybeSingle());
+  }
   if (!wiersz || !wiersz.active) return null;
-  if (!wiersz.auth_user_id) {
-    await db.from("team_members").update({ auth_user_id: user.id }).eq("id", wiersz.id);
+  if (wiersz.auth_user_id !== user.id) {
+    const { error } = await db.from("team_members").update({ auth_user_id: user.id }).eq("id", wiersz.id);
+    if (error) console.error("[zespol] nie udało się powiązać konta Auth z członkiem zespołu", wiersz.id, error.message);
   }
   return { id: wiersz.id, name: wiersz.name, email: wiersz.email, role: wiersz.role };
 }
 
-export const pobierzCzlonkaZespolu = cache(async (): Promise<CzlonekZespolu | null> => {
+/** Użytkownik Supabase Auth z cookies (albo null). Jeden odczyt na żądanie. */
+export const pobierzUzytkownikaAuth = cache(async () => {
   const auth = await klientAuthZespolu();
   const { data } = await auth.auth.getUser();
-  if (!data.user) return null;
-  return znajdzCzlonka(data.user);
+  return data.user;
 });
 
+export const pobierzCzlonkaZespolu = cache(async (): Promise<CzlonekZespolu | null> => {
+  const user = await pobierzUzytkownikaAuth();
+  if (!user) return null;
+  return znajdzCzlonka(user);
+});
+
+/**
+ * Brak sesji Auth: ekran logowania. Sesja Auth bez aktywnego członka zespołu (osoba dezaktywowana
+ * albo konto założone poza panelem): trasa odmowy, która wylogowuje i pokazuje komunikat. Nigdy pusty panel.
+ */
 export async function wymagajCzlonka(): Promise<CzlonekZespolu> {
   const czlonek = await pobierzCzlonkaZespolu();
-  if (!czlonek) redirect("/zespol/logowanie");
-  return czlonek;
+  if (czlonek) return czlonek;
+  redirect((await pobierzUzytkownikaAuth()) ? "/zespol/odmowa" : "/zespol/logowanie");
 }
 
 /** Filtr wstępny (env) + prawdziwa lista (team_members.active). Nie ujawniamy, który warunek nie przeszedł. */
