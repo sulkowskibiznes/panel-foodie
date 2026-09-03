@@ -100,3 +100,37 @@ Ukończona 2026-09-03, gałąź `faza/1-dostep`. Kryteria 1-6 zielone w Playwrig
 - Pasek „PODGLĄD KLIENTA" i impersonacja: faza 3 (kontekst klienta ma już miejsce na tryb `podglad`).
 - Odliczanie auto-akceptacji na żywo w przeglądarce: faza 2 (teraz liczone przy renderze).
 - Sprzątanie wygasłych sesji po 90 dniach: faza 6 (cron).
+
+## Faza 2: Serce (w toku)
+
+Gałąź `faza/2-serce`, start 2026-09-03 (późny wieczór). Faza 1 sprawdzona przed startem: `main` = `faza/1-dostep`
+(52cbab3), 29 testów E2E zielonych na lokalnym Supabase (kryteria 1-6, 27, 28, strony publiczne, odmowa zespołu).
+
+**Sześć poprawek z przeglądu rozdz. 20 (SPEC 1.4):**
+- Poz. 30 (dni robocze pon-sob): `src/lib/pakiety/auto-akceptacja.ts` liczy termin w obu trybach, testy z kalendarzem
+  września 2026 (sobota liczy się, niedziela nie). Domyślne 72 h kalendarzowe bez zmian.
+- Poz. 16 (`token_enc`): zrobione w fazie 1 (kryterium 27, test `tests/e2e/dostep-zespol.spec.ts`), sprawdzone ponownie.
+- Poz. 26 (wstrzymana auto-akceptacja na pulpicie): kolumna `comments.seen_by_team_at` (migracja
+  `20260904100001`), cron zapisuje `auto_wstrzymana` raz na rundę; osobny wiersz na pulpicie dochodzi razem
+  z ekranem pakietu zespołu.
+- Poz. 15 (przełącznik lokalu): w projekcie komponentów `docs/PROJEKT-PODGLADY.md`, rozdz. 4.
+- Poz. 21 (klient demo na produkcji): `pnpm db:seed:demo` (`--tylko=demo-bistro`) tworzy tylko klienta demo,
+  bez ruszania zespołu i usług; sprawdzone na lokalnym stacku.
+- Poz. 31 (cofnięcie po akceptacji): przejścia `zaakceptowany → poprawki` i `zaplanowany → poprawki` kasują
+  akceptację, zapisują powód i wysyłają `pakiet.cofniety_do_poprawek`; baner dla klienta dochodzi z ekranem pakietu.
+
+**Co działa (krok 1 i 6 z kolejności fazy):**
+- Maszyna stanów `src/lib/pakiety/przejscia.ts` (czysta, zależności wstrzykiwane) + `src/lib/pakiety/baza.ts`
+  (`zmienStatusPakietu`, jedyna droga zmiany statusu): 9 dozwolonych przejść z rozdz. 6.8, warunki dodatkowe,
+  `package_events` z migawką przy akceptacji, ciało webhooka z rozdz. 15. 120 kombinacji w teście jednostkowym.
+- Cron `GET /api/cron/auto-akceptacja` (Bearer `CRON_SECRET`, co pełną godzinę w `vercel.json`):
+  auto-akceptacja po terminie, `auto_wstrzymana` przy nierozwiązanych uwagach, `pakiet.auto_za_24h`,
+  `pakiet.nieotwarty_po_24h`; deduplikacja po `outbox`. Logika czysta w `src/lib/pakiety/cron-auto-akceptacji.ts`.
+- Testy jednostkowe: 90 zielonych (+ 6 na bazie po ustawieniu `SUPABASE_DB_URL`).
+
+**Czeka na decyzję Szymona (blokuje krok 2, podglądy):** projekt komponentów w `docs/PROJEKT-PODGLADY.md`
+(rozdz. 8: domyślny lokal w reklamie, wideo w seedzie bez ffmpeg, przełącznik proporcji posta).
+
+**Do zrobienia w tej fazie:** podglądy (krok 2), ekran pakietu klienta (3), akceptacja i komentarze (4),
+rundy (5), trasa E2E dla crona i kryteria 7-16, 26, wiersz „Auto-akceptacja wstrzymana" na pulpicie,
+migracja `seen_by_team_at` do projektu chmurowego (`pnpm db:migrate`) przed merge do `main`.
