@@ -8,13 +8,13 @@ import { copy } from "@/lib/copy";
  * Układ panelu klienta (SPEC rozdz. 5): dolna nawigacja na telefonie, boczna na desktopie.
  * Branding wyłącznie Foodie Media; nazwa klienta tylko tekstem.
  */
-export function UkladKlienta({ token, nazwaKlienta, etykietaOsoby, sciezka, children }: { token: string; nazwaKlienta: string; etykietaOsoby: string; sciezka: string; children: ReactNode }) {
+export function UkladKlienta({ token, nazwaKlienta, etykietaOsoby, sciezka, podglad = false, children }: { token: string; nazwaKlienta: string; etykietaOsoby: string; sciezka: string; podglad?: boolean; children: ReactNode }) {
   const baza = `/p/${token}`;
   const biezaca = (href: string) => sciezka === href || sciezka.startsWith(`${href}/`);
   const pozycje = [
     { href: `${baza}/start`, etykieta: copy.nawigacja.start, Ikona: Home, aktywna: true },
     { href: `${baza}/materialy`, etykieta: copy.nawigacja.materialy, Ikona: Inbox, aktywna: true },
-    { href: `${baza}/harmonogram`, etykieta: copy.nawigacja.harmonogram, Ikona: CalendarDays, aktywna: false },
+    { href: `${baza}/harmonogram`, etykieta: copy.nawigacja.harmonogram, Ikona: CalendarDays, aktywna: true },
     { href: `${baza}/archiwum`, etykieta: copy.nawigacja.archiwum, Ikona: Archive, aktywna: false },
     { href: `${baza}/raporty`, etykieta: copy.nawigacja.raporty, Ikona: BarChart3, aktywna: false },
     { href: `${baza}/faktury`, etykieta: copy.nawigacja.faktury, Ikona: FileText, aktywna: false },
@@ -45,7 +45,7 @@ export function UkladKlienta({ token, nazwaKlienta, etykietaOsoby, sciezka, chil
             ),
           )}
         </nav>
-        <StopkaSesji token={token} nazwaKlienta={nazwaKlienta} etykietaOsoby={etykietaOsoby} />
+        <StopkaSesji token={token} nazwaKlienta={nazwaKlienta} etykietaOsoby={etykietaOsoby} podglad={podglad} />
       </aside>
 
       <div className="flex flex-1 flex-col">
@@ -71,30 +71,36 @@ export function UkladKlienta({ token, nazwaKlienta, etykietaOsoby, sciezka, chil
               </span>
             ),
           )}
-          <form action={`${baza}/wyloguj`} method="post" className="contents">
-            <button type="submit" className="flex flex-col items-center gap-1 px-2 py-2.5 text-[11px] text-szary-600">
-              <span className="size-5 rounded-full border border-szary-300" aria-hidden />
-              {copy.nawigacja.wyloguj}
-            </button>
-          </form>
+          {podglad ? (
+            <span className="flex flex-col items-center justify-center gap-1 px-2 py-2.5 text-[11px] text-szary-600">{copy.podgladKlienta.zalogowanyJako}</span>
+          ) : (
+            <form action={`${baza}/wyloguj`} method="post" className="contents">
+              <button type="submit" className="flex flex-col items-center gap-1 px-2 py-2.5 text-[11px] text-szary-600">
+                <span className="size-5 rounded-full border border-szary-300" aria-hidden />
+                {copy.nawigacja.wyloguj}
+              </button>
+            </form>
+          )}
         </nav>
       </div>
     </div>
   );
 }
 
-function StopkaSesji({ token, nazwaKlienta, etykietaOsoby }: { token: string; nazwaKlienta: string; etykietaOsoby: string }) {
+function StopkaSesji({ token, nazwaKlienta, etykietaOsoby, podglad }: { token: string; nazwaKlienta: string; etykietaOsoby: string; podglad: boolean }) {
   return (
     <div className="border-t border-szary-100 px-6 py-4 text-sm">
       <p className="font-medium text-foodie-czern">{nazwaKlienta}</p>
       <p className="text-szary-600">
-        {copy.nawigacja.zalogowanyJako} {etykietaOsoby}
+        {podglad ? copy.podgladKlienta.zalogowanyJako : copy.nawigacja.zalogowanyJako} {etykietaOsoby}
       </p>
-      <form action={`/p/${token}/wyloguj`} method="post" className="mt-3">
-        <button type="submit" className="text-sm font-medium text-foodie-fiolet hover:underline">
-          {copy.nawigacja.wyloguj}
-        </button>
-      </form>
+      {podglad ? null : (
+        <form action={`/p/${token}/wyloguj`} method="post" className="mt-3">
+          <button type="submit" className="text-sm font-medium text-foodie-fiolet hover:underline">
+            {copy.nawigacja.wyloguj}
+          </button>
+        </form>
+      )}
     </div>
   );
 }

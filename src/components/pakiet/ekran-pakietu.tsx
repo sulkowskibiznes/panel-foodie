@@ -12,8 +12,14 @@ import { PostFb } from "@/components/podglad/post-fb";
 import { ReelsFb } from "@/components/podglad/reels-fb";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { copy } from "@/lib/copy";
-import type { MaterialDto, PakietSzczegoly } from "@/lib/dto/materialy";
+import type { KampaniaDto, MaterialDto, PakietSzczegoly } from "@/lib/dto/materialy";
 import type { WynikAkcji } from "@/lib/dto/wynik";
+import type { ReactNode } from "react";
+
+export type NarzedziaEkranu = {
+  material: (m: MaterialDto) => ReactNode;
+  kampania: (k: KampaniaDto) => ReactNode;
+};
 
 export type AkcjeEkranu = {
   decyzje: AkcjeDecyzji | null;
@@ -32,7 +38,7 @@ function nieprzeczytane(materialy: MaterialDto[]): number {
  * Ekran pakietu (SPEC rozdz. 6.2): ten sam dla klienta i podglądu zespołu. Zakładki Posty / Relacje / Kampanie /
  * Wszystko z plakietkami nieprzeczytanych odpowiedzi, pasek decyzji, banery, „Obejrzano x z y".
  */
-export function EkranPakietu({ pakiet, teraz, tryb, mozeAkceptowac, akcje }: { pakiet: PakietSzczegoly; teraz: string; tryb: "klient" | "zespol"; mozeAkceptowac: boolean; akcje: AkcjeEkranu }) {
+export function EkranPakietu({ pakiet, teraz, tryb, mozeAkceptowac, akcje, blokada = null, narzedzia }: { pakiet: PakietSzczegoly; teraz: string; tryb: "klient" | "zespol"; mozeAkceptowac: boolean; akcje: AkcjeEkranu; /** Podgląd zespołu: przyciski decyzji wyszarzone z tą podpowiedzią, formularze uwag zastąpione notką. */ blokada?: string | null; /** Zespół: przyciski nad materiałem („Edytuj", „Podmień") i nad kampanią. */ narzedzia?: NarzedziaEkranu }) {
   const [zakladka, setZakladka] = useState<Zakladka>(pakiet.kampanie.length > 0 && pakiet.posty.length === 0 ? "kampanie" : "posty");
   const [obejrzane, setObejrzane] = useState<Set<string>>(() => new Set(pakiet.obejrzane));
   const z = copy.pakiet.zakladki;
@@ -58,6 +64,7 @@ export function EkranPakietu({ pakiet, teraz, tryb, mozeAkceptowac, akcje }: { p
           zalatwione: akcje.zalatwione ?? undefined,
         }
       : null;
+  const notkaWatku = blokada ? copy.podgladKlienta.komentarzeZablokowane : undefined;
 
   const sledzenie = tryb === "klient" && akcje.obejrzenie !== null;
   const liczniki = { posty: nieprzeczytane(pakiet.posty), relacje: nieprzeczytane(pakiet.relacje), kampanie: nieprzeczytane(pakiet.kampanie.map((k) => k.reklama).filter((m): m is MaterialDto => m !== null)) };
@@ -70,20 +77,21 @@ export function EkranPakietu({ pakiet, teraz, tryb, mozeAkceptowac, akcje }: { p
           <ObserwatorObejrzenia key={m.id} id={m.id} aktywny={sledzenie && !obejrzane.has(m.id)} onObejrzano={odnotuj}>
             <SekcjaMaterialu
               material={m}
+              narzedzia={narzedzia?.material(m)}
               podglad={m.typ === "reels" ? <ReelsFb strona={stronaGlowna ?? { nazwaStrony: "", igHandle: null, avatarUrl: null }} plik={m.pliki[0] ?? null} tekst={m.opis} /> : <PostFb lokale={lokale.length > 0 ? lokale : pakiet.lokale} tekst={m.opis} pliki={m.pliki} publikacjaO={m.publikacjaO} />}
-              watek={<WatekKomentarzy id={`watek-${m.id}`} komentarze={m.komentarze} runda={pakiet.runda} tryb={tryb} akcje={akcjeWatku(m.id)} />}
+              watek={<WatekKomentarzy id={`watek-${m.id}`} komentarze={m.komentarze} runda={pakiet.runda} tryb={tryb} akcje={akcjeWatku(m.id)} notka={notkaWatku} />}
             />
           </ObserwatorObejrzenia>
         );
       })}
     </div>
   );
-  const Relacje = pakiet.relacje.length > 0 ? <SekcjaRelacji relacje={pakiet.relacje} strona={stronaGlowna} runda={pakiet.runda} tryb={tryb} akcje={akcje.komentarz ? akcjeWatku : null} onObejrzano={sledzenie ? odnotuj : undefined} /> : null;
+  const Relacje = pakiet.relacje.length > 0 ? <SekcjaRelacji relacje={pakiet.relacje} strona={stronaGlowna} runda={pakiet.runda} tryb={tryb} akcje={akcje.komentarz ? akcjeWatku : null} onObejrzano={sledzenie ? odnotuj : undefined} notka={notkaWatku} narzedzia={narzedzia?.material} /> : null;
   const Kampanie = (
     <div className="space-y-4">
       {pakiet.kampanie.map((k, i) => (
         <ObserwatorObejrzenia key={k.id} id={k.reklama?.id ?? k.id} aktywny={sledzenie && !!k.reklama && !obejrzane.has(k.reklama.id)} onObejrzano={odnotuj}>
-          <SekcjaKampanii kampania={k} numer={i + 1} liczba={pakiet.kampanie.length} lokale={pakiet.lokale} runda={pakiet.runda} tryb={tryb} akcje={k.reklama ? akcjeWatku(k.reklama.id) : null} />
+          <SekcjaKampanii kampania={k} numer={i + 1} liczba={pakiet.kampanie.length} lokale={pakiet.lokale} runda={pakiet.runda} tryb={tryb} akcje={k.reklama ? akcjeWatku(k.reklama.id) : null} notka={notkaWatku} narzedzia={narzedzia?.kampania(k)} />
         </ObserwatorObejrzenia>
       ))}
     </div>
@@ -97,7 +105,7 @@ export function EkranPakietu({ pakiet, teraz, tryb, mozeAkceptowac, akcje }: { p
 
   return (
     <div className="space-y-4">
-      <PasekDecyzji pakiet={pakiet} teraz={teraz} tryb={tryb} mozeAkceptowac={mozeAkceptowac} obejrzane={obejrzane.size} akcje={akcje.decyzje} />
+      <PasekDecyzji pakiet={pakiet} teraz={teraz} tryb={tryb} mozeAkceptowac={mozeAkceptowac} obejrzane={obejrzane.size} akcje={akcje.decyzje} blokada={blokada} />
       <BaneryPakietu pakiet={pakiet} />
       <Tabs value={zakladka} onValueChange={(v) => setZakladka(v as Zakladka)} className="gap-4">
         <TabsList className="h-auto w-full justify-start gap-1 overflow-x-auto bg-white p-1 shadow-miekki group-data-horizontal/tabs:h-auto" aria-label={copy.nawigacja.materialy}>
@@ -118,7 +126,7 @@ export function EkranPakietu({ pakiet, teraz, tryb, mozeAkceptowac, akcje }: { p
         </TabsContent>
       </Tabs>
       <section className="rounded-xl bg-white p-4 shadow-miekki sm:p-6" data-uwagi-pakietu>
-        <WatekKomentarzy id="watek-pakiet" komentarze={pakiet.komentarzePakietu} runda={pakiet.runda} tryb={tryb} akcje={akcjeWatku(null)} tytul={copy.pakiet.komentarze.doPakietu} etykietaPola={tryb === "klient" ? copy.pakiet.komentarze.doPakietuOpis : undefined} />
+        <WatekKomentarzy id="watek-pakiet" komentarze={pakiet.komentarzePakietu} runda={pakiet.runda} tryb={tryb} akcje={akcjeWatku(null)} tytul={copy.pakiet.komentarze.doPakietu} etykietaPola={tryb === "klient" ? copy.pakiet.komentarze.doPakietuOpis : undefined} notka={notkaWatku} />
       </section>
     </div>
   );

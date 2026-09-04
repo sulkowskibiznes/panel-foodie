@@ -31,7 +31,11 @@ export async function GET(_request: Request, ctx: { params: Promise<{ token: str
 
   if (wariant === "original") {
     const { ipHash } = await infoZadania();
-    await zapiszAudyt({ actor_kind: "klient", actor_id: kontekst.contactId, actor_label: kontekst.label, action: "klient.plik_pobrany", entity: "item_asset", entity_id: assetId, client_id: kontekst.clientId, ip_hash: ipHash });
+    if (kontekst.tryb === "podglad") {
+      await zapiszAudyt({ actor_kind: "zespol", actor_id: kontekst.memberId, actor_label: kontekst.memberName, action: "zespol.plik_pobrany", entity: "item_asset", entity_id: assetId, client_id: kontekst.clientId, ip_hash: ipHash, meta: { podglad: true } });
+    } else {
+      await zapiszAudyt({ actor_kind: "klient", actor_id: kontekst.contactId, actor_label: kontekst.label, action: "klient.plik_pobrany", entity: "item_asset", entity_id: assetId, client_id: kontekst.clientId, ip_hash: ipHash });
+    }
   }
 
   return NextResponse.redirect(data.signedUrl, { status: 302, headers: { "Cache-Control": "private, max-age=540" } });

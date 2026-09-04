@@ -46,7 +46,7 @@ function Komentarz({ k, tryb, etykietaWariantu, onZalatwione, trwa }: { k: Komen
  * Wątek pod materiałem (SPEC rozdz. 6.7): komentarze bieżącej rundy, poprzednie zwinięte w „Historia uwag (runda n)",
  * odpowiedzi zespołu w tym samym miejscu, „Załatwione" po stronie zespołu.
  */
-export function WatekKomentarzy({ id, komentarze, runda, tryb, akcje, opcjeCelu, etykietaWariantu, tytul, etykietaPola }: { id: string; komentarze: KomentarzDto[]; runda: number; tryb: "klient" | "zespol"; akcje: AkcjeWatku | null; opcjeCelu?: OpcjaCelu[]; etykietaWariantu?: (id: string) => string; tytul?: string; etykietaPola?: string }) {
+export function WatekKomentarzy({ id, komentarze, runda, tryb, akcje, opcjeCelu, etykietaWariantu, tytul, etykietaPola, notka }: { id: string; komentarze: KomentarzDto[]; runda: number; tryb: "klient" | "zespol"; akcje: AkcjeWatku | null; opcjeCelu?: OpcjaCelu[]; etykietaWariantu?: (id: string) => string; tytul?: string; etykietaPola?: string; /** Zamiast formularza (podgląd zespołu): dlaczego nie da się pisać. */ notka?: string }) {
   const router = useRouter();
   const [trwa, startTransition] = useTransition();
   const k = copy.pakiet.komentarze;
@@ -84,6 +84,7 @@ export function WatekKomentarzy({ id, komentarze, runda, tryb, akcje, opcjeCelu,
           </ul>
         </details>
       ))}
+      {!akcje && notka ? <p className="text-xs text-szary-600" data-notka-watku>{notka}</p> : null}
       {akcje ? (
         <FormularzKomentarza
           id={id}

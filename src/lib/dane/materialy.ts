@@ -14,8 +14,8 @@ export type Adresy = {
 
 export type OpcjeSzczegolow = {
   adresy: Adresy;
-  /** Klient: link, z którego liczymy „Obejrzano" i nieprzeczytane odpowiedzi; zespół: null. */
-  strona: { rodzaj: "klient"; linkId: string } | { rodzaj: "zespol" };
+  /** Klient: link, z którego liczymy „Obejrzano" (null w podglądzie zespołu: nic nie liczymy); zespół: null. */
+  strona: { rodzaj: "klient"; linkId: string | null } | { rodzaj: "zespol" };
 };
 
 type WierszPliku = { id: string; kind: Enums["asset_kind"]; preview_path: string | null; thumb_path: string | null; width: number | null; height: number | null; duration_ms: number | null; position: number; original_name: string | null; superseded_at: string | null };
@@ -65,12 +65,14 @@ type WierszPakietu = {
   approved_at: string | null;
   approval_kind: Enums["approval_kind"] | null;
   changed_after_approval: boolean;
+  content_folder_url: string | null;
+  period_to: string | null;
   zaakceptowal: { name: string } | null;
   clients: { category: Enums["client_category"]; auto_approve_default: boolean };
 };
 
 const KOLUMNY_PAKIETU =
-  "id, client_id, location_id, title, status, round, period_year, period_month, submitted_at, auto_approve_enabled, auto_approve_at, approved_at, approval_kind, changed_after_approval, zaakceptowal:client_contacts!packages_approved_by_contact_id_fkey(name), clients!inner(category, auto_approve_default)";
+  "id, client_id, location_id, title, status, round, period_year, period_month, submitted_at, auto_approve_enabled, auto_approve_at, approved_at, approval_kind, changed_after_approval, content_folder_url, period_to, zaakceptowal:client_contacts!packages_approved_by_contact_id_fkey(name), clients!inner(category, auto_approve_default)";
 const KOLUMNY_MATERIALU =
   "id, type, position, title, caption, publish_at, location_ids, campaign_id, updated_in_round, added_after_submit, item_assets(id, kind, preview_path, thumb_path, width, height, duration_ms, position, original_name, superseded_at), ad_variants(id, kind, position, label, value_text, asset_id, location_id)";
 const KOLUMNY_KOMENTARZA =
@@ -151,7 +153,7 @@ export async function pobierzPakietSzczegoly(pakietId: string, o: OpcjeSzczegolo
   const [lokale, materialy, kampanie, komentarze, zdarzenia, obejrzane] = await Promise.all([
     db.from("locations").select("id, name, fb_page_name, ig_handle, avatar_path, position").eq("client_id", p.client_id).order("position"),
     db.from("package_items").select(KOLUMNY_MATERIALU).eq("package_id", pakietId).order("position"),
-    db.from("campaigns").select("id, name, goal, note, position").eq("package_id", pakietId).order("position"),
+    db.from("campaigns").select("id, name, goal, note, position, ads_folder_url").eq("package_id", pakietId).order("position"),
     db.from("comments").select(KOLUMNY_KOMENTARZA).eq("package_id", pakietId).order("created_at"),
     db
       .from("package_events")
@@ -160,7 +162,7 @@ export async function pobierzPakietSzczegoly(pakietId: string, o: OpcjeSzczegolo
       .in("kind", ["wyslany", "wycofany", "poprawki", "zaakceptowany", "auto_zaakceptowany", "cofniety_do_poprawek"])
       .order("created_at", { ascending: false })
       .limit(1),
-    o.strona.rodzaj === "klient" ? db.from("item_views").select("item_id").eq("access_link_id", o.strona.linkId) : Promise.resolve({ data: [] as { item_id: string }[], error: null }),
+    o.strona.rodzaj === "klient" && o.strona.linkId ? db.from("item_views").select("item_id").eq("access_link_id", o.strona.linkId) : Promise.resolve({ data: [] as { item_id: string }[], error: null }),
   ]);
   for (const w of [lokale, materialy, kampanie, komentarze, zdarzenia, obejrzane]) {
     if (w.error) throw new Error(`pobierzPakietSzczegoly: ${w.error.message}`);
@@ -200,10 +202,12 @@ export async function pobierzPakietSzczegoly(pakietId: string, o: OpcjeSzczegolo
       rodzajAkceptacji: p.approval_kind,
       cofniecie,
       zmienionePoAkceptacji: p.changed_after_approval,
+      folderContentuUrl: o.strona.rodzaj === "zespol" ? p.content_folder_url : null,
+      koniecOkresu: p.period_to,
       lokale: lokaleDto,
       posty,
       relacje,
-      kampanie: (kampanie.data ?? []).map<KampaniaDto>((k) => ({ id: k.id, nazwa: k.name, cel: k.goal, notatka: k.note, pozycja: k.position, reklama: reklamy.get(k.id) ?? null })),
+      kampanie: (kampanie.data ?? []).map<KampaniaDto>((k) => ({ id: k.id, nazwa: k.name, cel: k.goal, notatka: k.note, pozycja: k.position, reklama: reklamy.get(k.id) ?? null, folderReklamUrl: o.strona.rodzaj === "zespol" ? k.ads_folder_url : null })),
       komentarzePakietu: komentarzeDto.filter((k) => k.materialId === null),
       obejrzane: (obejrzane.data ?? []).map((v) => v.item_id),
       liczbaMaterialow: posty.length + relacje.length + reklamy.size,

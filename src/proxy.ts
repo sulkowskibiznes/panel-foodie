@@ -4,7 +4,8 @@ import { NextResponse, type NextRequest } from "next/server";
 /**
  * Proxy (dawniej middleware) robi dwie rzeczy i NIC więcej:
  * 1. przekazuje ścieżkę w nagłówku x-pathname (potrzebna przy rotacji sesji klienta),
- * 2. dla /zespol odświeża cookies sesji Supabase Auth (komponenty serwerowe nie mogą ich ustawiać).
+ * 2. dla /zespol i dla podglądu klienta oczami zespołu (/p/podglad.…) odświeża cookies sesji Supabase Auth
+ *    (komponenty serwerowe nie mogą ich ustawiać).
  * Decyzje o dostępie zapadają w layoutach, akcjach i trasach, nigdy tutaj.
  */
 export async function proxy(request: NextRequest) {
@@ -14,7 +15,8 @@ export async function proxy(request: NextRequest) {
 
   const url = process.env.SUPABASE_URL;
   const klucz = process.env.SUPABASE_PUBLISHABLE_KEY;
-  if (request.nextUrl.pathname.startsWith("/zespol") && url && klucz) {
+  const sciezka = request.nextUrl.pathname;
+  if ((sciezka.startsWith("/zespol") || sciezka.startsWith("/p/podglad.")) && url && klucz) {
     const supabase = createServerClient(url, klucz, {
       cookies: {
         getAll: () => request.cookies.getAll(),

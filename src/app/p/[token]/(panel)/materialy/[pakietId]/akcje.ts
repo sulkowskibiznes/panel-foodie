@@ -15,17 +15,27 @@ import type { Aktor } from "@/lib/pakiety/przejscia";
 import { czyUuid } from "@/lib/walidacja";
 import { infoZadania } from "@/lib/zadanie";
 
-/** Sesja klienta + izolacja (CLAUDE.md, zasada 1): każda akcja zaczyna się tutaj. Cudzy pakiet = 404. */
-async function autoryzuj(token: string, pakietId: string): Promise<KontekstKlienta> {
+type KontekstZapisu = Extract<KontekstKlienta, { tryb: "klient" }>;
+
+/**
+ * Sesja klienta + izolacja (CLAUDE.md, zasada 1): każda akcja zaczyna się tutaj. Cudzy pakiet = 404.
+ * Podgląd zespołu („Zobacz jak klient") nie zapisuje niczego: wynik z komunikatem zamiast zmiany.
+ */
+async function autoryzuj(token: string, pakietId: string): Promise<KontekstZapisu | { ok: false; blad: string }> {
   const kontekst = await pobierzKontekstKlienta(token);
   if (!kontekst || !czyUuid(pakietId)) notFound();
   const pakiet = await pobierzPakiet(pakietId);
   if (!pakiet) notFound();
   assertClientAccess(kontekst.clientId, pakiet.clientId);
+  if (kontekst.tryb === "podglad") return { ok: false, blad: copy.podgladKlienta.blad };
   return kontekst;
 }
 
-function aktorKlienta(k: KontekstKlienta): Extract<Aktor, { rodzaj: "klient" }> {
+function czyBlad(k: KontekstZapisu | { ok: false; blad: string }): k is { ok: false; blad: string } {
+  return "ok" in k;
+}
+
+function aktorKlienta(k: KontekstZapisu): Extract<Aktor, { rodzaj: "klient" }> {
   return { rodzaj: "klient", contactId: k.contactId, linkId: k.linkId, label: k.label, mozeAkceptowac: k.canApprove };
 }
 
@@ -39,6 +49,7 @@ function odswiez(token: string, pakietId: string) {
 /** „Akceptuję wszystko" (SPEC rozdz. 6.3, kryterium 8). */
 export async function akceptujPakiet(token: string, pakietId: string, dane: { sprawdzilemDaty: boolean }): Promise<WynikAkcji> {
   const kontekst = await autoryzuj(token, pakietId);
+  if (czyBlad(kontekst)) return kontekst;
   if (!dane.sprawdzilemDaty) return { ok: false, blad: copy.pakiet.modalAkceptacji.zaznaczDaty };
   const wynik = await zmienStatusPakietu(pakietId, { typ: "akceptuj" }, aktorKlienta(kontekst));
   if (!wynik.ok) return { ok: false, blad: copy.przejscia.odmowa[wynik.powod] };
@@ -51,6 +62,7 @@ export async function akceptujPakiet(token: string, pakietId: string, dane: { sp
 /** „Zgłaszam uwagi" (SPEC rozdz. 6.3, kryteria 9 i 10): wymaga co najmniej jednego komentarza; zatrzymuje licznik. */
 export async function zglosUwagi(token: string, pakietId: string): Promise<WynikAkcji> {
   const kontekst = await autoryzuj(token, pakietId);
+  if (czyBlad(kontekst)) return kontekst;
   const wynik = await zmienStatusPakietu(pakietId, { typ: "zglos_uwagi" }, aktorKlienta(kontekst));
   if (!wynik.ok) return { ok: false, blad: copy.przejscia.odmowa[wynik.powod] };
   const { ipHash, ua } = await infoZadania();
@@ -64,6 +76,7 @@ export type DaneKomentarza = { materialId: string | null; wariantId: string | nu
 /** Komentarz klienta do materiału, wariantu albo całego pakietu (SPEC rozdz. 6.7); po akceptacji nie zmienia statusu (kryterium 13). */
 export async function dodajKomentarz(token: string, pakietId: string, dane: DaneKomentarza): Promise<WynikAkcji> {
   const kontekst = await autoryzuj(token, pakietId);
+  if (czyBlad(kontekst)) return kontekst;
   const materialId = dane.materialId && czyUuid(dane.materialId) ? dane.materialId : null;
   const wariantId = dane.wariantId && czyUuid(dane.wariantId) ? dane.wariantId : null;
   const tresc = oczyscTrescKomentarza(String(dane.tresc ?? ""));
@@ -79,6 +92,6 @@ export async function dodajKomentarz(token: string, pakietId: string, dane: Dane
 /** „Obejrzano 12 z 19": materiał był 2 s w polu widzenia. Nie blokuje akceptacji, nic nie zwraca. */
 export async function odnotujObejrzenie(token: string, pakietId: string, materialId: string): Promise<void> {
   const kontekst = await autoryzuj(token, pakietId);
-  if (!czyUuid(materialId)) return;
+  if (czyBlad(kontekst) || !czyUuid(materialId)) return;
   await odnotujObejrzenieMaterialu(pakietId, materialId, kontekst.linkId);
 }

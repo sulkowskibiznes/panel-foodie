@@ -29,6 +29,19 @@ export type AkcjaAudytu =
   | "zespol.pakiet_zaplanowany"
   | "zespol.komentarz"
   | "zespol.uwaga_zalatwiona"
+  | "zespol.podglad_klienta_start"
+  | "zespol.podglad_klienta_koniec"
+  | "zespol.pakiet_utworzony"
+  | "zespol.pakiet_zmieniony"
+  | "zespol.kampania_dodana"
+  | "zespol.kampania_zmieniona"
+  | "zespol.kampania_usunieta"
+  | "zespol.material_dodany"
+  | "zespol.material_podmieniony"
+  | "zespol.material_zmieniony"
+  | "zespol.material_usuniety"
+  | "zespol.plik_pobrany"
+  | "zespol.harmonogram_zmieniony"
   | "system.auto_akceptacja";
 
 export type ZdarzenieAudytu = {

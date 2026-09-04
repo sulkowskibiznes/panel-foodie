@@ -19,6 +19,18 @@ export type KlientNaPulpicie = {
   aktywneLinki: number;
 };
 
+/** Id klientów przypisanych do członka zespołu (client_assignments) albo pod jego opieką, niezależnie od roli. */
+export async function pobierzIdsMoichKlientow(memberId: string): Promise<string[]> {
+  const db = supabaseSerwer();
+  const [{ data: przypisania }, { data: podOpieka }] = await Promise.all([db.from("client_assignments").select("client_id").eq("team_member_id", memberId), db.from("clients").select("id").eq("opiekun_id", memberId)]);
+  return [...new Set([...(przypisania ?? []).map((p) => p.client_id), ...(podOpieka ?? []).map((k) => k.id)])];
+}
+
+/** Zakres klientów do zapytań (pulpit, skrzynka): null = wszyscy (admin, sales), inaczej lista id wg przypisań. */
+export async function zakresKlientow(czlonek: CzlonekZespolu): Promise<string[] | null> {
+  return WIDZI_WSZYSTKICH_KLIENTOW.includes(czlonek.role) ? null : pobierzIdsMoichKlientow(czlonek.id);
+}
+
 /** Klienci widoczni dla członka zespołu: admin i sales wszyscy aktywni, reszta przypisani albo pod opieką. */
 export async function pobierzKlientowDla(czlonek: CzlonekZespolu): Promise<KlientNaPulpicie[]> {
   const db = supabaseSerwer();

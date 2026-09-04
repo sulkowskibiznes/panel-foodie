@@ -1,22 +1,18 @@
 import Link from "next/link";
+import { PokazLinkPulpit } from "@/components/zespol/pulpit/pokaz-link";
 import { wymagajCzlonka } from "@/lib/auth-zespol";
 import { copy } from "@/lib/copy";
-import { pobierzKlientowDla } from "@/lib/dane/klienci-zespolu";
+import { pobierzIdsMoichKlientow, pobierzKlientowDla } from "@/lib/dane/klienci-zespolu";
 import { pobierzPakietyNaPulpit, type PakietNaPulpicie } from "@/lib/dane/materialy";
+import type { StatusPakietu } from "@/lib/dto/materialy";
 import { etykietaOkresu, formatujKwote, liczebnik, tekstOdliczania } from "@/lib/format";
-import { WIDZI_WSZYSTKICH_KLIENTOW } from "@/lib/uprawnienia";
+import { kluczMiesiaca, parsujMiesiac } from "@/lib/harmonogram/kalendarz";
+import { KLASA_TERMINU, kolorTerminu } from "@/lib/pakiety/terminy";
+import { MOZE_ODSZYFROWAC_TOKEN, WIDZI_WSZYSTKICH_KLIENTOW } from "@/lib/uprawnienia";
 
 const MS_DNIA = 86_400_000;
-
-/** Kolory terminów jak w Bazie Klientów (CLAUDE.md, Marka): niebieski 6-7 dni, żółty 4-5, pomarańczowy 1-3, czerwony dziś, szary po terminie. */
-function klasaTerminu(termin: string, teraz: Date): string {
-  const dni = Math.ceil((new Date(termin).getTime() - teraz.getTime()) / MS_DNIA);
-  if (dni < 0) return "text-termin-szary";
-  if (dni === 0) return "text-termin-czerwony";
-  if (dni <= 3) return "text-termin-pomaranczowy";
-  if (dni <= 5) return "text-termin-zolty";
-  return "text-termin-niebieski";
-}
+const STATUSY: StatusPakietu[] = ["szkic", "do_akceptacji", "poprawki", "zaakceptowany"];
+const POLE = "h-9 rounded-lg border border-szary-300 bg-white px-2 text-sm text-foodie-czern";
 
 function ileTemu(iso: string, teraz: Date): string {
   const t = copy.zespol.pulpitPakiety;
@@ -26,23 +22,47 @@ function ileTemu(iso: string, teraz: Date): string {
   return liczebnik(Math.max(1, Math.floor(ms / 3_600_000)), t.godziny.jeden, t.godziny.kilka, t.godziny.wiele);
 }
 
+/** Kolory terminów jak w Bazie Klientów (lib/pakiety/terminy.ts): niebieski 6-7 dni, żółty 4-5, pomarańczowy 1-3, czerwony dziś, szary po terminie. */
 function KomorkaAuto({ p, teraz }: { p: PakietNaPulpicie; teraz: Date }) {
   const t = copy.zespol.pulpitPakiety.auto;
   if (p.status === "poprawki") return <span className="text-bursztyn">{t.zatrzymane}</span>;
   if (p.status !== "do_akceptacji") return <span className="text-szary-300">{t.brak}</span>;
   if (!p.autoAkceptacjaO) return <span className="text-szary-600">{t.wylaczona}</span>;
-  const minal = new Date(p.autoAkceptacjaO).getTime() <= teraz.getTime();
-  return <span className={`font-medium ${klasaTerminu(p.autoAkceptacjaO, teraz)}`}>{minal ? t.minal : tekstOdliczania(p.autoAkceptacjaO, teraz)}</span>;
+  const kolor = kolorTerminu(p.autoAkceptacjaO, teraz);
+  return (
+    <span className={`font-medium ${KLASA_TERMINU[kolor]}`} data-kolor-terminu={kolor}>
+      {kolor === "szary" ? t.minal : tekstOdliczania(p.autoAkceptacjaO, teraz)}
+    </span>
+  );
 }
 
-/** Pulpit (SPEC rozdz. 12.1): pakiety w toku z osobnym stanem „Auto-akceptacja wstrzymana" (1.4, poz. 26), pod spodem lista klientów. */
-export default async function Pulpit() {
+type Filtry = { zakres: "moi" | "wszyscy"; status: StatusPakietu | "wstrzymana" | null; miesiac: string | null };
+
+function odczytajFiltry(sp: Record<string, string | string[] | undefined>, widziWszystkich: boolean): Filtry {
+  const jeden = (k: string) => (typeof sp[k] === "string" ? (sp[k] as string) : null);
+  const status = jeden("status");
+  return {
+    zakres: widziWszystkich && jeden("zakres") === "moi" ? "moi" : "wszyscy",
+    status: status && ([...STATUSY, "wstrzymana"] as string[]).includes(status) ? (status as Filtry["status"]) : null,
+    miesiac: parsujMiesiac(jeden("m")) ? jeden("m") : null,
+  };
+}
+
+/** Pulpit (SPEC rozdz. 12.1): pakiety w toku z osobnym stanem „Auto-akceptacja wstrzymana" (1.4, poz. 26), filtry moi/wszyscy, status, miesiąc; pod spodem klienci. */
+export default async function Pulpit({ searchParams }: PageProps<"/zespol">) {
   const czlonek = await wymagajCzlonka();
+  const widziWszystkich = WIDZI_WSZYSTKICH_KLIENTOW.includes(czlonek.role);
+  const filtry = odczytajFiltry(await searchParams, widziWszystkich);
   const klienci = await pobierzKlientowDla(czlonek);
-  const pakiety = await pobierzPakietyNaPulpit(WIDZI_WSZYSTKICH_KLIENTOW.includes(czlonek.role) ? null : klienci.map((k) => k.id));
+  const zakres = !widziWszystkich ? klienci.map((k) => k.id) : filtry.zakres === "moi" ? await pobierzIdsMoichKlientow(czlonek.id) : null;
+  const wszystkiePakiety = await pobierzPakietyNaPulpit(zakres);
+  const pakiety = wszystkiePakiety.filter((p) => (filtry.status === null ? true : filtry.status === "wstrzymana" ? p.wstrzymana : p.status === filtry.status)).filter((p) => (filtry.miesiac ? kluczMiesiaca(p.okres.rok, p.okres.miesiac) === filtry.miesiac : true));
+  const miesiace = [...new Set(wszystkiePakiety.map((p) => kluczMiesiaca(p.okres.rok, p.okres.miesiac)))].sort().reverse();
   const k = copy.zespol.pulpit.kolumny;
   const t = copy.zespol.pulpitPakiety;
+  const f = t.filtry;
   const teraz = new Date();
+  const mozePokazacLink = MOZE_ODSZYFROWAC_TOKEN.includes(czlonek.role);
 
   return (
     <div>
@@ -52,11 +72,46 @@ export default async function Pulpit() {
       <section className="mt-6">
         <h2 className="font-naglowek text-lg text-foodie-czern">{t.tytul}</h2>
         <p className="mt-1 text-sm text-szary-600">{t.opis}</p>
+        <form method="get" className="mt-3 flex flex-wrap items-end gap-2" data-filtry-pulpitu>
+          {widziWszystkich ? (
+            <label className="text-xs text-szary-600">
+              {f.zakres}
+              <select name="zakres" defaultValue={filtry.zakres} className={`${POLE} mt-1 block`}>
+                <option value="wszyscy">{f.wszyscy}</option>
+                <option value="moi">{f.moi}</option>
+              </select>
+            </label>
+          ) : null}
+          <label className="text-xs text-szary-600">
+            {f.status}
+            <select name="status" defaultValue={filtry.status ?? ""} className={`${POLE} mt-1 block`}>
+              <option value="">{f.wszystkieStatusy}</option>
+              {STATUSY.map((s) => (
+                <option key={s} value={s}>{copy.materialy.status[s]}</option>
+              ))}
+              <option value="wstrzymana">{t.wstrzymana}</option>
+            </select>
+          </label>
+          <label className="text-xs text-szary-600">
+            {f.miesiac}
+            <select name="m" defaultValue={filtry.miesiac ?? ""} className={`${POLE} mt-1 block`}>
+              <option value="">{f.wszystkieMiesiace}</option>
+              {miesiace.map((m) => {
+                const o = parsujMiesiac(m);
+                return (
+                  <option key={m} value={m}>{o ? etykietaOkresu(o.rok, o.miesiac) : m}</option>
+                );
+              })}
+            </select>
+          </label>
+          <button type="submit" className="h-9 rounded-lg bg-foodie-fiolet px-3 text-sm font-medium text-white hover:bg-fiolet-600">{f.pokaz}</button>
+          <Link href="/zespol" className="h-9 rounded-lg border border-szary-300 px-3 text-sm leading-9 text-foodie-czern hover:bg-szary-050">{f.wyczysc}</Link>
+        </form>
         {pakiety.length === 0 ? (
           <p className="mt-4 rounded-xl bg-white p-6 text-sm text-szary-600 shadow-miekki">{t.brak}</p>
         ) : (
           <div className="mt-4 overflow-x-auto rounded-xl bg-white shadow-miekki">
-            <table aria-label={t.tytul} className="w-full min-w-[860px] text-sm">
+            <table aria-label={t.tytul} className="w-full min-w-[960px] text-sm">
               <thead className="text-left text-xs uppercase tracking-wide text-szary-600">
                 <tr>
                   <th className="px-4 py-3">{t.kolumny.klient}</th>
@@ -72,6 +127,7 @@ export default async function Pulpit() {
               <tbody>
                 {pakiety.map((p) => {
                   const odpowiedz = p.wstrzymana || p.nieprzeczytaneUwagi > 0;
+                  const adresPakietu = `/zespol/klienci/${p.klient.slug}/pakiety/${p.id}`;
                   return (
                     <tr key={p.id} data-pakiet-wiersz={p.id} data-wstrzymana={p.wstrzymana ? "true" : undefined} className={`border-t border-szary-100 ${p.wstrzymana ? "bg-amber-50" : ""}`}>
                       <td className="px-4 py-3 font-medium text-foodie-czern">{p.klient.name}</td>
@@ -106,9 +162,16 @@ export default async function Pulpit() {
                         )}
                       </td>
                       <td className="px-4 py-3">
-                        <Link href={`/zespol/klienci/${p.klient.slug}/pakiety/${p.id}`} className={`font-medium hover:underline ${odpowiedz ? "text-bursztyn" : "text-foodie-fiolet"}`}>
-                          {odpowiedz ? t.odpowiedz : t.otworz}
-                        </Link>
+                        <div className="flex flex-wrap items-center gap-2">
+                          {odpowiedz ? (
+                            <Link href={`${adresPakietu}#uwagi`} className="font-medium text-bursztyn hover:underline">{t.odpowiedz}</Link>
+                          ) : p.status === "poprawki" ? (
+                            <Link href={adresPakietu} className="font-medium text-bursztyn hover:underline">{t.zobaczUwagi}</Link>
+                          ) : (
+                            <Link href={adresPakietu} className="font-medium text-foodie-fiolet hover:underline">{t.otworz}</Link>
+                          )}
+                          {p.status === "do_akceptacji" && mozePokazacLink ? <PokazLinkPulpit slug={p.klient.slug} nazwaKlienta={p.klient.name} /> : null}
+                        </div>
                       </td>
                     </tr>
                   );

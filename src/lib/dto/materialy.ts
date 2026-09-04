@@ -84,6 +84,8 @@ export type KampaniaDto = {
   notatka: string | null;
   pozycja: number;
   reklama: MaterialDto | null;
+  /** Wklejony link do folderu z reklamami (SPEC rozdz. 12.3); tylko dla zespołu, klient dostaje null. */
+  folderReklamUrl: string | null;
 };
 
 export type PakietSzczegoly = {
@@ -104,6 +106,10 @@ export type PakietSzczegoly = {
   /** Ostatnie cofnięcie do poprawek, gdy pakiet nadal jest w `poprawki` (baner z 1.4, poz. 31). */
   cofniecie: { kiedyO: string; powod: string } | null;
   zmienionePoAkceptacji: boolean;
+  /** Wklejony link do folderu z contentem; tylko dla zespołu, klient dostaje null. */
+  folderContentuUrl: string | null;
+  /** Dzień zakończenia pakietu (`period_to`, SPEC rozdz. 8) jako YYYY-MM-DD. */
+  koniecOkresu: string | null;
   lokale: StronaDto[];
   posty: MaterialDto[];
   relacje: MaterialDto[];

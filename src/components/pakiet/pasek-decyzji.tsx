@@ -30,7 +30,7 @@ export function podsumowanieLiczb(p: Pick<PakietSzczegoly, "posty" | "relacje" |
  * „Zgłaszam uwagi" aktywne tylko z co najmniej jednym komentarzem (kryterium 9); „Akceptuję wszystko" przez
  * modal z podsumowaniem, checkboxem dat i ostrzeżeniem o nierozwiązanych uwagach, które nie blokuje.
  */
-export function PasekDecyzji({ pakiet, teraz, tryb, mozeAkceptowac, obejrzane, akcje }: { pakiet: PakietSzczegoly; teraz: string; tryb: "klient" | "zespol"; mozeAkceptowac: boolean; obejrzane: number; akcje: AkcjeDecyzji | null }) {
+export function PasekDecyzji({ pakiet, teraz, tryb, mozeAkceptowac, obejrzane, akcje, blokada = null }: { pakiet: PakietSzczegoly; teraz: string; tryb: "klient" | "zespol"; mozeAkceptowac: boolean; obejrzane: number; akcje: AkcjeDecyzji | null; blokada?: string | null }) {
   const router = useRouter();
   const [dialog, setDialog] = useState<"akceptacja" | "uwagi" | null>(null);
   const [sprawdzilem, setSprawdzilem] = useState(false);
@@ -38,7 +38,7 @@ export function PasekDecyzji({ pakiet, teraz, tryb, mozeAkceptowac, obejrzane, a
   const [trwa, startTransition] = useTransition();
   const t = copy.pakiet;
   const liczby = podsumowanieLiczb(pakiet);
-  const decyzje = tryb === "klient" && pakiet.status === "do_akceptacji" && akcje !== null;
+  const decyzje = tryb === "klient" && pakiet.status === "do_akceptacji" && (akcje !== null || blokada !== null);
   const pilne = czyOstatnieDobra(pakiet.autoAkceptacjaO, new Date(teraz));
   const brakUwag = pakiet.uwagiKlientaWRundzie === 0;
 
@@ -107,7 +107,19 @@ export function PasekDecyzji({ pakiet, teraz, tryb, mozeAkceptowac, obejrzane, a
           ) : null}
         </div>
         {decyzje ? (
-          mozeAkceptowac ? (
+          blokada ? (
+            <div className="w-full sm:w-auto" data-decyzje-zablokowane>
+              <div className="grid grid-cols-2 gap-2 sm:flex sm:items-center">
+                <Button type="button" variant="outline" size="lg" disabled title={blokada} data-decyzja="uwagi">
+                  {t.decyzje.uwagi}
+                </Button>
+                <Button type="button" size="lg" disabled title={blokada} data-decyzja="akceptuj">
+                  {t.decyzje.akceptuj}
+                </Button>
+              </div>
+              <p className="mt-1 text-xs text-szary-600">{copy.podgladKlienta.decyzjeZablokowane}</p>
+            </div>
+          ) : mozeAkceptowac ? (
             <div className="w-full sm:w-auto">
               <div className="grid grid-cols-2 gap-2 sm:flex sm:items-center">
                 <Button type="button" variant="outline" size="lg" disabled={brakUwag || trwa} title={brakUwag ? copy.przejscia.odmowa.brak_uwag : undefined} onClick={() => setDialog("uwagi")} data-decyzja="uwagi">

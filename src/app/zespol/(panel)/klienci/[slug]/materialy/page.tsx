@@ -5,8 +5,9 @@ import { copy } from "@/lib/copy";
 import { pobierzKlientaPoSlugu } from "@/lib/dane/klienci-zespolu";
 import { pobierzPakietyKlienta } from "@/lib/dane/materialy";
 import { etykietaOkresu, formatujDateCzas, tekstOdliczania } from "@/lib/format";
+import { maUprawnienie } from "@/lib/uprawnienia";
 
-/** Zakładka Materiały (SPEC rozdz. 12.2): lista pakietów klienta ze statusami; kreator dochodzi w fazie 3. */
+/** Zakładka Materiały (SPEC rozdz. 12.2): lista pakietów klienta ze statusami i wejście do kreatora (12.3). */
 export default async function MaterialyKlientaZespol({ params }: PageProps<"/zespol/klienci/[slug]/materialy">) {
   const { slug } = await params;
   const czlonek = await wymagajCzlonka();
@@ -20,8 +21,17 @@ export default async function MaterialyKlientaZespol({ params }: PageProps<"/zes
 
   return (
     <section className="rounded-xl bg-white p-5 shadow-miekki sm:p-6">
-      <h2 className="font-naglowek text-xl text-foodie-czern">{t.tytul}</h2>
-      <p className="mt-1 max-w-prose text-sm text-szary-600">{t.opis}</p>
+      <div className="flex flex-wrap items-start justify-between gap-3">
+        <div>
+          <h2 className="font-naglowek text-xl text-foodie-czern">{t.tytul}</h2>
+          <p className="mt-1 max-w-prose text-sm text-szary-600">{t.opis}</p>
+        </div>
+        {maUprawnienie(czlonek.role, "materialy", "pelne") ? (
+          <Link href={`/zespol/klienci/${slug}/pakiety/nowy`} className="inline-flex h-9 items-center rounded-lg bg-foodie-fiolet px-3 text-sm font-medium text-white hover:bg-fiolet-600" data-nowy-pakiet>
+            {copy.zespol.kreator.nowyPakiet}
+          </Link>
+        ) : null}
+      </div>
       {pakiety.length === 0 ? (
         <p className="mt-5 text-sm text-szary-600">{t.brak}</p>
       ) : (

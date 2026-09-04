@@ -2,10 +2,12 @@
  * Prymitywy kryptograficzne panelu. Czysty Node, bez zależności od React,
  * żeby seed i testy mogły importować ten moduł. NIGDY nie importuj go w komponencie klienckim.
  *
- * Z jednego SESSION_SECRET wyprowadzamy (HKDF) trzy niezależne klucze:
- * - cookie: HMAC podpisu cookie sesji klienta,
- * - token:  AES-256-GCM dla access_links.token_enc („Kopiuj dostęp"),
- * - ip:     pieprz do hashowania adresów IP w audycie i limitach.
+ * Z jednego SESSION_SECRET wyprowadzamy (HKDF) niezależne klucze:
+ * - cookie:  HMAC podpisu cookie sesji klienta,
+ * - token:   AES-256-GCM dla access_links.token_enc („Kopiuj dostęp"),
+ * - ip:      pieprz do hashowania adresów IP w audycie i limitach,
+ * - podglad: podpis tokenu „Zobacz jak klient" (faza 3),
+ * - upload:  podpis pozwolenia na upload pliku do Storage (faza 3).
  */
 import {
   createCipheriv,
@@ -17,7 +19,7 @@ import {
   timingSafeEqual,
 } from "node:crypto";
 
-export type CelKlucza = "cookie" | "token" | "ip";
+export type CelKlucza = "cookie" | "token" | "ip" | "podglad" | "upload";
 
 const SOL_HKDF = "panel-foodie";
 const DLUGOSC_KLUCZA = 32;

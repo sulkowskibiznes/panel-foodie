@@ -22,13 +22,13 @@ Zaznaczamy kryterium, gdy przechodzi jako test E2E (CLAUDE.md, „Jak pracujemy"
 | 16 | Dwie kampanie w miesiącu jako osobne sekcje, akceptowane razem | 2 | ✅ 2026-09-04 |
 | 17 | Folder spoza „Materiałów klientów" blokuje import | 4 | ☐ |
 | 18 | Folder użyty w innym pakiecie pokazuje ostrzeżenie z linkiem | 4 | ☐ |
-| 19 | Podmiana w pakiecie zaakceptowanym: potwierdzenie, zdarzenie, plakietka, baner | 3 | ☐ |
-| 20 | Stary plik po podmianie istnieje z superseded_at | 3 | ☐ |
-| 21 | Wysyłka z postem bez daty zablokowana z listą braków | 3 | ☐ |
-| 22 | Klient nie przesuwa materiału w kalendarzu | 3 | ☐ |
-| 23 | content_creator dostaje 404 na trasie faktur | 3 | ☐ (trasa i 404 już działają, test E2E dojdzie w fazie 3) |
-| 24 | csm widzi tylko przypisanych klientów | 3 | ☐ |
-| 25 | Impersonacja blokuje decyzje i zapisuje wejście do audit_log | 3 | ☐ |
+| 19 | Podmiana w pakiecie zaakceptowanym: potwierdzenie, zdarzenie, plakietka, baner | 3 | ✅ 2026-09-05 |
+| 20 | Stary plik po podmianie istnieje z superseded_at | 3 | ✅ 2026-09-05 |
+| 21 | Wysyłka z postem bez daty zablokowana z listą braków | 3 | ✅ 2026-09-05 |
+| 22 | Klient nie przesuwa materiału w kalendarzu | 3 | ✅ 2026-09-05 |
+| 23 | content_creator dostaje 404 na trasie faktur | 3 | ✅ 2026-09-05 |
+| 24 | csm widzi tylko przypisanych klientów | 3 | ✅ 2026-09-05 |
+| 25 | Impersonacja blokuje decyzje i zapisuje wejście do audit_log | 3 | ✅ 2026-09-05 |
 | 26 | Zrzuty podglądów zgodne ze wzorcami w obu szerokościach | 2 | ✅ 2026-09-04 |
 | 27 | Lista linków bez tokenu; „Pokaż link" tylko admin/csm, każde kliknięcie w audit_log; content_creator 404 na Dostępie | 1 | ✅ 2026-09-03 |
 | 28 | Klient demonstracyjny bez linku dostępu i faktury (trigger + notka w zakładce Dostęp) | 1 | ✅ 2026-09-03 |
@@ -162,3 +162,75 @@ brak przełącznika proporcji posta, proporcja z pliku, bo Facebook nie przycina
 
 **Wymaga decyzji Szymona:** nic nowego. Do zrobienia po jego stronie: dopisanie zasady auto-akceptacji do
 regulaminu i umowy (SPEC rozdz. 20) jest już zatwierdzone przez prawnika.
+
+## Faza 3: Zespół
+
+Gałąź `faza/3-zespol` (od `main` = 9f784cc), 2026-09-05. Kryteria 19-25 zielone w Playwright na 390 px i 1440 px.
+
+**Co działa:**
+- **Impersonacja „Zobacz jak klient"** (SPEC rozdz. 2, kryterium 25): przycisk na karcie klienta dla `admin` i `csm`
+  (`sales` wyłącznie dla klienta demonstracyjnego, `mozeImpersonowac()`), podpisany token `podglad.…` w adresie
+  `/p/[token]/...` ważny 4 h i działający wyłącznie z sesją Auth tego samego członka (`lib/podglad-zespolu.ts`,
+  `lib/podpis.ts`, klucz HKDF „podglad"). `pobierzKontekstKlienta()` zwraca tryb `podglad`: te same strony klienta,
+  stały czarny pasek „PODGLĄD KLIENTA - {nazwa}. Wyjdź", przyciski decyzji wyszarzone z podpowiedzią „niedostępne
+  w podglądzie", formularze uwag zastąpione notką, żadnych śladów po stronie klienta (`first_opened_at`, `item_views`,
+  „przeczytane"), akcje klienta odrzucają zapis. Wejście `zespol.podglad_klienta_start` i wyjście
+  `zespol.podglad_klienta_koniec` w `audit_log`. `proxy.ts` odświeża cookies Auth także dla `/p/podglad.…`.
+- **Upload plików z komputera** (rozdz. 12.6, 13.4, 16 pkt 11) w trzech krokach (`lib/pliki/upload.ts`): podpisane
+  pozwolenie i jednorazowy adres do bucketu `materialy` (przeglądarka wysyła PUT-em prosto do Storage, bez klucza
+  Supabase, obsługuje 300 MB wideo mimo limitu funkcji na Vercelu), potem po stronie serwera magic bytes
+  (`lib/pliki/magia.ts`), rzeczywista waga, dla obrazów EXIF zdjęty przez sharp i warianty preview 1080 px / thumb
+  400 px webp, na końcu podpisany OPIS pliku, jedyna rzecz, jaką przyjmują mutacje. Limity: obraz 25 MB, wideo 300 MB
+  z ostrzeżeniem od 150 MB. HEIC bez dekodera zostaje w oryginale bez podglądu (ostrzeżenie).
+- **Dodaj materiał i Podmień materiał w każdej chwili** (`lib/dane/materialy-zespol.ts`, dialogi w
+  `components/zespol/materialy/`): nowy post/relacja/Reels z `origin = 'dodatkowy'` (reklama = nowa grafika kampanii),
+  podmiana pliku na tej samej pozycji ze starym plikiem oznaczonym `superseded_at` i `superseded_by`
+  (komentarze i pozycja zostają), dodatkowy slajd/grafika, usunięcie pliku (supersede), edycja tytułu, opisu, daty
+  publikacji i lokali, edytor tekstów, nagłówków, opisu, przycisku i linku reklamy z wersjami per lokal (wiersze
+  zachowują id, bo komentarze wskazują `variant_id`), dodanie, edycja i usunięcie kampanii, usunięcie materiału
+  (tylko szkic). Skutki wg statusu z tabeli 12.6 liczy czysta funkcja `lib/pakiety/zmiana-materialu.ts`
+  (testowana): szkic bez plakietek; `do_akceptacji`/`poprawki` plakietka „Nowe" albo „Poprawione", zdarzenie
+  `material_dodany`/`material_podmieniony`, w `do_akceptacji` termin auto-akceptacji na co najmniej 24 h od zmiany
+  (`auto_przesunieta`); `zaakceptowany`/`zaplanowany` checkbox potwierdzenia, `changed_after_approval`, baner
+  u klienta, `material.podmieniony_po_akceptacji` w outbox. Edycja treści po akceptacji idzie tą samą ścieżką (T6).
+- **Kreator pakietu na wklejanych linkach** (rozdz. 12.3): `/zespol/klienci/[slug]/pakiety/nowy`: miesiąc i rok,
+  lokal dla kat1 (pakiet per lokal, kat2/kat3 jeden pakiet), tytuł, link do folderu z contentem rozpoznawany
+  w `lib/drive/linki.ts` (formaty `/drive/folders/<id>`, `/drive/u/0/folders/<id>`, `?id=`, `/file/d/<id>`; zły link
+  blokuje), kampanie z osobnym folderem reklam każda (bywa ich kilka), zajęty okres ostrzega przed unique. Pakiet
+  powstaje w szkicu z jednym materiałem `reklama` na kampanię i zdarzeniem `utworzony`.
+- **Harmonogram** (rozdz. 8): zakładka Harmonogram na karcie klienta z kalendarzem miesiąca (`@dnd-kit/core`):
+  przeciąganie materiałów między dniami i do panelu „Niezaplanowane", pole daty i godziny w każdym kafelku
+  (dostępność, telefon, testy), domyślne godziny publikacji klienta (`clients.default_publish_hours`, migracja
+  `20260905100001`, pierwsza wolna z listy przy upuszczeniu), „Dzień zakończenia" (`period_to`), kampanie poza
+  kalendarzem, „Poza tym miesiącem" dla dat spoza okresu. Zmiana daty w wysłanym pakiecie idzie ścieżką edycji
+  materiału (plakietka, termin, potwierdzenie po akceptacji). Klient: `/p/[token]/harmonogram` z tym samym
+  kalendarzem tylko do odczytu, listą publikacji, „Skomentuj" do wątku materiału i sekcją kampanii; zero uchwytów,
+  pól daty i endpointu (kryterium 22). Kolory statusów z rozdz. 5.3. Czysta logika kalendarza (Europe/Warsaw,
+  zmiana czasu) w `lib/harmonogram/kalendarz.ts` z testami.
+- **Pulpit** (rozdz. 12.1): filtry moi klienci / wszyscy (tylko role widzące wszystkich), status (w tym
+  „Auto-akceptacja wstrzymana") i miesiąc; kolory terminów liczone dniami kalendarzowymi w Europe/Warsaw
+  (`lib/pakiety/terminy.ts`, test: niebieski 6-7, żółty 4-5, pomarańczowy 1-3, czerwony dziś, szary po terminie);
+  kolumna Akcja: „Odpowiedz na uwagi", „Zobacz uwagi" (poprawki), „Otwórz pakiet" i „Pokaż link" dla
+  `do_akceptacji` (admin i csm, ten sam mechanizm co w zakładce Dostęp: wybór osoby, każde pokazanie
+  `link.odszyfrowany` w audycie).
+- **Skrzynka uwag** (rozdz. 12.5): `/zespol/uwagi` z plakietką nieprzeczytanych w nawigacji, filtry po kliencie
+  i rodzaju (post, relacja, Reels, reklama, cały miesiąc), odpowiedź w tym samym wątku co u klienta i „Załatwione"
+  bez wchodzenia w pakiet; otwarcie skrzynki oznacza uwagi jako przeczytane przez zespół.
+- Walidacja przed wysyłką (rozdz. 8, kryterium 21) bez zmian z fazy 2: lista braków w dialogu wysyłki; test E2E
+  uzupełnia daty w edycji materiału i wysyła.
+- Testy: jednostkowe 128 (linki Dysku, magic bytes, skutki zmiany, kolory terminów, kalendarz, podpisy),
+  E2E nowe pliki `zespol-materialy` (19, 20, 21, 25), `harmonogram` (22 + przeciąganie dnd-kit myszą), `role`
+  (23, 24), `kreator`, `skrzynka`; klony pakietów w latach 2030-2033 (`PlikTestow`). Testy z uploadem wysyłają
+  PNG generowany sharp-em (`tests/e2e/pomocnicze/pliki.ts`) prosto do lokalnego Storage.
+
+**Odłożone:**
+- Karta weryfikacyjna, import z folderu, mapowanie grafika-opis (kreator kroki 2, 4 i 5 z importem): faza 4. Kreator
+  zapisuje już `content_folder_id` i `ads_folder_id`.
+- Edycja `internal_note` w panelu zespołu i zakładka Ustawienia karty klienta (w tym domyślne godziny poza
+  harmonogramem): faza 5.
+- Placeholder dla wideo bez miniatury (kind `video` ma `thumb_path = null`, podgląd gra z oryginału): faza 4 razem
+  z wariantami z importu.
+- Powiadomienia toast (sonner) zamiast komunikatów w dialogach: nie w MVP.
+
+**Wymaga decyzji Szymona:** nic nowego. Migracja `20260905100001_domyslne_godziny_publikacji.sql` czeka na
+`pnpm db:migrate` do chmury przed merge do `main`.

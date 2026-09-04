@@ -1,5 +1,6 @@
 "use client";
 
+import type { ReactNode } from "react";
 import type { OpcjaCelu } from "@/components/pakiet/formularz-komentarza";
 import { WatekKomentarzy, type AkcjeWatku } from "@/components/pakiet/watek-komentarzy";
 import { PodgladReklamy } from "@/components/podglad/reklama/podglad-reklamy";
@@ -11,7 +12,7 @@ import type { KampaniaDto, StronaDto, WariantDto } from "@/lib/dto/materialy";
  * Kampania jako osobna sekcja z nazwą, celem i zdaniem od zespołu (SPEC rozdz. 6.2, kryterium 16).
  * Formularz uwagi dostaje bieżący stan podglądu, żeby przypiąć komentarz do konkretnego wariantu (kryterium 15).
  */
-export function SekcjaKampanii({ kampania, numer, liczba, lokale, runda, tryb, akcje }: { kampania: KampaniaDto; numer: number; liczba: number; lokale: StronaDto[]; runda: number; tryb: "klient" | "zespol"; akcje: AkcjeWatku | null }) {
+export function SekcjaKampanii({ kampania, numer, liczba, lokale, runda, tryb, akcje, notka, narzedzia }: { kampania: KampaniaDto; numer: number; liczba: number; lokale: StronaDto[]; runda: number; tryb: "klient" | "zespol"; akcje: AkcjeWatku | null; notka?: string; narzedzia?: ReactNode }) {
   const reklama = kampania.reklama;
   const p = copy.pakiet;
   const lokaleReklamy = reklama && reklama.lokaleIds.length > 0 ? lokale.filter((l) => reklama.lokaleIds.includes(l.lokalId)) : lokale;
@@ -35,6 +36,7 @@ export function SekcjaKampanii({ kampania, numer, liczba, lokale, runda, tryb, a
           </p>
         ) : null}
         {kampania.notatka ? <p className="mt-2 text-sm leading-6 text-foodie-czern">{kampania.notatka}</p> : null}
+        {narzedzia ? <div className="mt-3">{narzedzia}</div> : null}
       </header>
       {reklama ? (
         <PodgladReklamy
@@ -48,7 +50,7 @@ export function SekcjaKampanii({ kampania, numer, liczba, lokale, runda, tryb, a
             if (stan.zlozony.naglowek) opcje.push({ wartosc: stan.zlozony.naglowek.id, etykieta: `${p.komentarze.tenNaglowek} (${etykieta(stan.zlozony.naglowek.id)})` });
             return (
               <div className="mt-2 border-t border-szary-100 pt-4">
-                <WatekKomentarzy id={`watek-${reklama.id}`} komentarze={reklama.komentarze} runda={runda} tryb={tryb} akcje={akcje} opcjeCelu={opcje} etykietaWariantu={etykieta} />
+                <WatekKomentarzy id={`watek-${reklama.id}`} komentarze={reklama.komentarze} runda={runda} tryb={tryb} akcje={akcje} opcjeCelu={opcje} etykietaWariantu={etykieta} notka={notka} />
               </div>
             );
           }}

@@ -52,8 +52,15 @@ src/
     p/[token]/            # panel klienta — WSZYSTKO tu wymaga sesji klienta
       (panel)/materialy/[pakietId]/   # ekran akceptacji (page + akcje.ts: akceptuj, uwagi, komentarz, obejrzenie)
       (panel)/plik/, awatar/          # pliki i zdjęcia profilowe przez signed URL po assertClientAccess
+    p/[token]/            # token linku ALBO token podglądu „podglad.…" (impersonacja zespołu, tryb tylko do odczytu)
+      (panel)/harmonogram/            # kalendarz klienta tylko do odczytu (kryterium 22)
+      podglad/wyjdz/                  # wyjście z podglądu (audyt)
     zespol/               # panel zespołu — wymaga Supabase Auth + roli
-      (panel)/klienci/[slug]/pakiety/[pakietId]/  # ten sam ekran pakietu + akcje zespołu (przejścia, odpowiedzi)
+      (panel)/uwagi/                  # skrzynka uwag (rozdz. 12.5)
+      (panel)/klienci/[slug]/pakiety/nowy/        # kreator pakietu na wklejanych linkach (rozdz. 12.3)
+      (panel)/klienci/[slug]/pakiety/[pakietId]/  # ten sam ekran pakietu + akcje zespołu (akcje.ts: przejścia, odpowiedzi;
+                                                  # materialy-akcje.ts: upload, dodaj/podmień/edytuj materiał, kampanie)
+      (panel)/klienci/[slug]/harmonogram/         # kalendarz zespołu z przeciąganiem (dnd-kit) + akcje.ts
       (panel)/plik/, awatar/          # pliki dla zespołu (assertTeamClientAccess)
     api/
       ingest/report/      # webhook do rejestrowania raportów
@@ -61,13 +68,19 @@ src/
   components/
     podglad/              # podglądy 1:1 — post/relacja/reels na FB, reklama/ w 6 placementach; czyste, bez danych
     pakiet/               # ekran pakietu wspólny dla klienta i zespołu: pasek decyzji, banery, wątki, sekcje
+    harmonogram/          # kalendarz zespołu (dnd-kit) i klienta (tylko odczyt), wspólna siatka miesiąca
     zespol/pakiety/       # akcje zespołu nad pakietem (wyślij, wycofaj, v2, cofnij, zaplanowano)
+    zespol/materialy/     # narzędzia nad materiałem: upload (use-upload-pliku), dodaj, pliki/podmiana, edycja, reklama, kampania
+    zespol/kreator/       # kreator pakietu
+    zespol/pulpit/, zespol/skrzynka/  # „Pokaż link" na pulpicie, karta uwagi w skrzynce
+    klient/pasek-podgladu.tsx         # stały pasek impersonacji
     ui/                   # shadcn
   lib/
     auth-klient.ts        # token linku, PIN, argon2id, hash-atrapa (czysty Node, używa go też seed)
     logowanie-klienta.ts  # czysta logika logowania z wstrzykiwanymi zależnościami (test liczy wywołania argon2)
     sesja-klienta.ts      # cookie sesji, rotacja co 24 h, wygaszanie sesji linku
-    kontekst-klienta.ts   # kontekst strony klienta (sesja klienta; w fazie 3 także podgląd zespołu)
+    kontekst-klienta.ts   # kontekst strony klienta: tryb 'klient' (sesja) albo 'podglad' (token podpisany + sesja zespołu)
+    podglad-zespolu.ts, podpis.ts  # token impersonacji i podpisane, wygasające ładunki (także pozwolenie na upload)
     auth-zespol.ts        # Supabase Auth OTP + członek zespołu + assertTeamClientAccess
     dostep.ts             # assertClientAccess() — JEDYNE miejsce sprawdzania izolacji
     uprawnienia.ts        # macierz zasób × rola z SPEC rozdz. 2
@@ -77,10 +90,15 @@ src/
     audyt.ts, outbox.ts   # zapiszAudyt(), dodajDoOutbox()
     zadanie.ts            # IP (hash), UA, ścieżka z nagłówka x-pathname
     dane/                 # zapytania do bazy: materialy.ts (pakiet → DTO), komentarze.ts, pliki.ts, ustawienia.ts,
-                          # pakiety-klienta.ts, klienci-zespolu.ts, linki.ts
+                          # pakiety-klienta.ts, klienci-zespolu.ts, linki.ts, materialy-zespol.ts (mutacje materiałów,
+                          # plików, kampanii, kreator), harmonogram.ts, skrzynka.ts
     dto/                  # kształty danych dla stron (materialy.ts, wynik.ts); nigdy surowe wiersze z bazy
     pakiety/              # przejscia.ts (maszyna stanów, czysta), baza.ts (zmienStatusPakietu, JEDYNA droga zmiany statusu),
-                          # auto-akceptacja.ts (72 h / pon-sob), cron-auto-akceptacji.ts, otwarcie.ts
+                          # auto-akceptacja.ts (72 h / pon-sob), cron-auto-akceptacji.ts, otwarcie.ts,
+                          # zmiana-materialu.ts (skutki dodania/podmiany/edycji wg tabeli 12.6, czyste), terminy.ts (kolory terminów)
+    pliki/                # magia.ts (magic bytes, limity; czyste), upload.ts (pozwolenie, PUT do Storage z przeglądarki, sharp, opis)
+    drive/linki.ts        # rozpoznawanie wklejonych linków do Dysku (czyste); import przez API w fazie 4
+    harmonogram/kalendarz.ts  # siatka miesiąca, daty lokalne Europe/Warsaw (czyste)
     reklamy/warianty.ts   # składanie wariantu reklamy dla lokalu (czyste, testowane)
     podglad/tekst.ts      # hashtagi i linki w tekście posta
     format.ts, walidacja.ts
@@ -122,8 +140,16 @@ tests/e2e/                # Playwright na lokalnym Supabase, port 3100; zespół
     Panel nigdy sam nie wylicza ścieżki na Dysku i nigdy nie importuje bez potwierdzenia
     karty weryfikacyjnej przez człowieka. To zabezpieczenie przed materiałami z innego miesiąca.
 12. **Podmiana pliku nie kasuje starego** — stary dostaje `superseded_at` i `superseded_by`.
+    Każda zmiana materiału (dodanie, podmiana, edycja treści, data) przechodzi przez skutki
+    z `lib/pakiety/zmiana-materialu.ts` i zapis w `lib/dane/materialy-zespol.ts`: plakietki, przesunięcie
+    auto-akceptacji, `changed_after_approval`, zdarzenie i outbox biorą się stamtąd, nie z handlera.
 13. **Strony klienta dostają wyłącznie DTO z `lib/dto/`**, nigdy surowe wiersze z bazy. Pola
     zespołu (`internal_note`, `created_by`, hashe) nie mogą wyciec przez przypadkowy `select *`.
+14. **Pliki wchodzą tylko przez `lib/pliki/upload.ts`**: przeglądarka dostaje jednorazowy podpisany adres
+    do Storage, serwer sprawdza magic bytes i zdejmuje EXIF, a mutacja materiału przyjmuje wyłącznie
+    podpisany opis pliku. Nigdy ścieżki w Storage podane przez klienta akcji.
+15. **Impersonacja wyłącznie do odczytu.** Kontekst `podglad` (token `podglad.…` plus sesja zespołu)
+    nie zostawia śladów po stronie klienta: żadnych `first_opened_at`, `item_views`, komentarzy, decyzji.
 
 ## Język i ton
 

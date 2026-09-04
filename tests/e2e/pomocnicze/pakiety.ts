@@ -31,8 +31,8 @@ export type OpcjeKlonu = {
   autoWlaczona?: boolean;
 };
 
-export type PlikTestow = "akceptacja" | "cron" | "reklamy";
-const ROK_PLIKU: Record<PlikTestow, number> = { akceptacja: 2027, cron: 2028, reklamy: 2029 };
+export type PlikTestow = "akceptacja" | "cron" | "reklamy" | "zespol" | "harmonogram" | "kreator" | "skrzynka";
+const ROK_PLIKU: Record<PlikTestow, number> = { akceptacja: 2027, cron: 2028, reklamy: 2029, zespol: 2030, harmonogram: 2031, kreator: 2032, skrzynka: 2033 };
 
 /**
  * Okres na klony: osobny rok na plik testów i osobne półrocze na projekt Playwrighta (mobile 1-6, desktop 7-12),
@@ -203,5 +203,67 @@ export async function wpisyAudytuPakietu(pakietId: string, action: string): Prom
   return zBaza(async (s) => {
     const [w] = await s<{ n: number }[]>`select count(*)::int as n from public.audit_log where entity_id = ${pakietId}::uuid and action = ${action}`;
     return w?.n ?? 0;
+  });
+}
+
+export type PlikTestowyMaterialu = { id: string; position: number; storage_path: string; superseded_at: string | null; superseded_by: string | null; original_name: string | null };
+
+/** Pliki materiału z historią podmian (kryterium 20: stary plik zostaje z superseded_at). */
+export async function plikiMaterialu(itemId: string): Promise<PlikTestowyMaterialu[]> {
+  return zBaza((s) => s<PlikTestowyMaterialu[]>`select id, position, storage_path, superseded_at, superseded_by, original_name from public.item_assets where item_id = ${itemId} order by created_at`);
+}
+
+export async function stanMaterialu(itemId: string): Promise<{ updated_in_round: number | null; added_after_submit: boolean; publish_at: string | null; title: string | null; caption: string | null } | null> {
+  return zBaza(async (s) => {
+    const [w] = await s<{ updated_in_round: number | null; added_after_submit: boolean; publish_at: string | null; title: string | null; caption: string | null }[]>`select updated_in_round, added_after_submit, publish_at, title, caption from public.package_items where id = ${itemId}`;
+    return w ?? null;
+  });
+}
+
+export async function ustawDatePublikacji(itemId: string, publishAt: string | null): Promise<void> {
+  await zBaza((s) => s`update public.package_items set publish_at = ${publishAt}::timestamptz where id = ${itemId}`);
+}
+
+export async function flagaPoAkceptacji(pakietId: string): Promise<boolean> {
+  return zBaza(async (s) => {
+    const [w] = await s<{ changed_after_approval: boolean }[]>`select changed_after_approval from public.packages where id = ${pakietId}`;
+    return w?.changed_after_approval ?? false;
+  });
+}
+
+/** Wpisy audytu danej akcji dla klienta (np. wejście w podgląd „Zobacz jak klient", kryterium 25). */
+export async function wpisyAudytuKlienta(clientId: string, action: string, od: Date): Promise<number> {
+  return zBaza(async (s) => {
+    const [w] = await s<{ n: number }[]>`select count(*)::int as n from public.audit_log where client_id = ${clientId}::uuid and action = ${action} and created_at >= ${od.toISOString()}::timestamptz`;
+    return w?.n ?? 0;
+  });
+}
+
+/** Id klienta po slugu. */
+export async function idKlienta(slug: string): Promise<string> {
+  return zBaza(async (s) => {
+    const [w] = await s<{ id: string }[]>`select id from public.clients where slug = ${slug}`;
+    if (!w) throw new Error(`Brak klienta ${slug}`);
+    return w.id;
+  });
+}
+
+export type SzczegolyPakietu = { status: StatusTestowy; content_folder_id: string | null; content_folder_url: string | null; location_id: string | null; cooperation_month: number | null; kampanie: Array<{ name: string; goal: string | null; ads_folder_id: string | null; position: number }>; reklamy: number };
+
+/** Pakiet z kreatora: foldery, lokal, kampanie i liczba materiałów `reklama` (SPEC rozdz. 12.3). */
+export async function szczegolyPakietu(id: string): Promise<SzczegolyPakietu> {
+  return zBaza(async (s) => {
+    const [p] = await s<Array<Omit<SzczegolyPakietu, "kampanie" | "reklamy">>>`select status, content_folder_id, content_folder_url, location_id, cooperation_month from public.packages where id = ${id}`;
+    if (!p) throw new Error(`Brak pakietu ${id}`);
+    const kampanie = await s<SzczegolyPakietu["kampanie"]>`select name, goal, ads_folder_id, position from public.campaigns where package_id = ${id} order by position`;
+    const [r] = await s<{ n: number }[]>`select count(*)::int as n from public.package_items where package_id = ${id} and type = 'reklama'`;
+    return { ...p, kampanie, reklamy: r?.n ?? 0 };
+  });
+}
+
+export async function pochodzenieMaterialu(itemId: string): Promise<string | null> {
+  return zBaza(async (s) => {
+    const [w] = await s<{ origin: string }[]>`select origin from public.package_items where id = ${itemId}`;
+    return w?.origin ?? null;
   });
 }

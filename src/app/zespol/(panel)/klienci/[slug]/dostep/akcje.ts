@@ -8,6 +8,7 @@ import { assertTeamClientAccess, wymagajCzlonka, wymagajUprawnienia, type Czlone
 import { copy } from "@/lib/copy";
 import { pobierzKlientaPoSlugu, type KartaKlienta } from "@/lib/dane/klienci-zespolu";
 import { adresLinku, odszyfrujAdresLinku, utworzLinkDostepu, wygasLinkDostepu, wylogujUrzadzeniaLinku, zresetujPinLinku } from "@/lib/dane/linki";
+import { supabaseSerwer } from "@/lib/supabase/server";
 import { MOZE_ODSZYFROWAC_TOKEN } from "@/lib/uprawnienia";
 import { czyUuid } from "@/lib/walidacja";
 import { infoZadania } from "@/lib/zadanie";
@@ -121,4 +122,14 @@ export async function odnotujSkopiowanie(slug: string, linkId: string, co: "link
   if (!czyUuid(linkId)) return;
   const { ipHash } = await infoZadania();
   await zapiszAudyt({ actor_kind: "zespol", actor_id: czlonek.id, actor_label: czlonek.name, action: "link.skopiowany", entity: "access_link", entity_id: linkId, client_id: klient.id, ip_hash: ipHash, meta: { co } });
+}
+
+export type LinkDoPokazania = { id: string; label: string };
+
+/** Lista aktywnych linków klienta (etykiety, bez adresów) do okna „Pokaż link" na pulpicie (SPEC rozdz. 12.4). */
+export async function listaLinkowDoPokazania(slug: string): Promise<LinkDoPokazania[]> {
+  const { czlonek, klient } = await autoryzuj(slug);
+  if (!MOZE_ODSZYFROWAC_TOKEN.includes(czlonek.role)) notFound();
+  const { data } = await supabaseSerwer().from("access_links").select("id, label").eq("client_id", klient.id).is("revoked_at", null).order("created_at", { ascending: false });
+  return (data ?? []).map((l) => ({ id: l.id, label: l.label }));
 }

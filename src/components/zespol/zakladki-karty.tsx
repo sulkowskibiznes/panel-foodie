@@ -15,7 +15,7 @@ export function ZakladkiKarty({ slug, rola }: { slug: string; rola: Rola }) {
   const zakladki: Zakladka[] = [
     { klucz: "podsumowanie", etykieta: copy.zespol.karta.podsumowanie, href: baza },
     ...(maUprawnienie(rola, "materialy", "podglad") ? [{ klucz: "materialy", etykieta: z.materialy, href: `${baza}/materialy` }] : []),
-    { klucz: "harmonogram", etykieta: z.harmonogram, href: null },
+    ...(maUprawnienie(rola, "harmonogram", "podglad") ? [{ klucz: "harmonogram", etykieta: z.harmonogram, href: `${baza}/harmonogram` }] : []),
     { klucz: "raporty", etykieta: z.raporty, href: null },
     ...(maUprawnienie(rola, "faktury", "podglad") ? [{ klucz: "faktury", etykieta: z.faktury, href: `${baza}/faktury` }] : []),
     { klucz: "dokumenty", etykieta: z.dokumenty, href: null },

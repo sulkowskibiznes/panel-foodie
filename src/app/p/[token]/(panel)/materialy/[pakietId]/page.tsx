@@ -1,6 +1,7 @@
 import { notFound } from "next/navigation";
 import { after } from "next/server";
 import { EkranPakietu } from "@/components/pakiet/ekran-pakietu";
+import { copy } from "@/lib/copy";
 import { oznaczPrzeczytanePrzezKlienta } from "@/lib/dane/komentarze";
 import { pobierzPakietSzczegoly } from "@/lib/dane/materialy";
 import { assertClientAccess } from "@/lib/dostep";
@@ -22,6 +23,20 @@ export default async function EkranPakietuKlienta({ params }: PageProps<"/p/[tok
   if (!wynik) notFound();
   assertClientAccess(kontekst.clientId, wynik.clientId);
   if (wynik.pakiet.status === "szkic") notFound();
+
+  // Podgląd zespołu (kryterium 25): żadnych śladów po stronie klienta (first_opened_at, item_views, „przeczytane").
+  if (kontekst.tryb === "podglad") {
+    return (
+      <EkranPakietu
+        tryb="klient"
+        pakiet={wynik.pakiet}
+        teraz={new Date().toISOString()}
+        mozeAkceptowac
+        blokada={copy.podgladKlienta.niedostepne}
+        akcje={{ decyzje: null, komentarz: null, zalatwione: null, obejrzenie: null }}
+      />
+    );
+  }
 
   const { ipHash, ua } = await infoZadania();
   const aktor = { rodzaj: "klient" as const, contactId: kontekst.contactId, linkId: kontekst.linkId, label: kontekst.label, mozeAkceptowac: kontekst.canApprove };

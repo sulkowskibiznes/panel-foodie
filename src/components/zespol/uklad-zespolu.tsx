@@ -5,7 +5,7 @@ import type { CzlonekZespolu } from "@/lib/auth-zespol";
 import { copy } from "@/lib/copy";
 import { maUprawnienie } from "@/lib/uprawnienia";
 
-export function UkladZespolu({ czlonek, children }: { czlonek: CzlonekZespolu; children: ReactNode }) {
+export function UkladZespolu({ czlonek, nieprzeczytaneUwagi = 0, children }: { czlonek: CzlonekZespolu; nieprzeczytaneUwagi?: number; children: ReactNode }) {
   const n = copy.zespol.nawigacja;
   return (
     <div className="flex min-h-full flex-1 flex-col bg-szary-050">
@@ -19,6 +19,12 @@ export function UkladZespolu({ czlonek, children }: { czlonek: CzlonekZespolu; c
             <Link href="/zespol" className="font-medium text-foodie-czern hover:text-foodie-fiolet">
               {n.pulpit}
             </Link>
+            {maUprawnienie(czlonek.role, "materialy", "podglad") ? (
+              <Link href="/zespol/uwagi" className="flex items-center gap-1.5 font-medium text-foodie-czern hover:text-foodie-fiolet" data-link-skrzynki>
+                {n.skrzynka}
+                {nieprzeczytaneUwagi > 0 ? <span className="rounded-full bg-foodie-fiolet px-1.5 text-[11px] font-semibold text-white" data-nieprzeczytane-uwagi={nieprzeczytaneUwagi}>{nieprzeczytaneUwagi}</span> : null}
+              </Link>
+            ) : null}
             {maUprawnienie(czlonek.role, "ustawienia", "pelne") ? (
               <Link href="/zespol/ustawienia/zespol" className="font-medium text-foodie-czern hover:text-foodie-fiolet">
                 {n.ustawienia}
