@@ -232,5 +232,6 @@ Gałąź `faza/3-zespol` (od `main` = 9f784cc), 2026-09-05. Kryteria 19-25 zielo
   z wariantami z importu.
 - Powiadomienia toast (sonner) zamiast komunikatów w dialogach: nie w MVP.
 
-**Wymaga decyzji Szymona:** nic nowego. Migracja `20260905100001_domyslne_godziny_publikacji.sql` czeka na
-`pnpm db:migrate` do chmury przed merge do `main`.
+**Wymaga decyzji Szymona:** nic nowego. Migracja `20260905100001_domyslne_godziny_publikacji.sql` wypchnięta do projektu
+chmurowego 2026-09-05 (`pnpm db:migrate`). `main` = `faza/3-zespol`, wdrożenie produkcyjne z GitHuba. Do sprawdzenia
+przez Szymona na produkcji: upload pliku z komputera (PUT z przeglądarki do Storage w chmurze) i „Zobacz jak klient".
