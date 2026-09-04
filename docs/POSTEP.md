@@ -147,7 +147,8 @@ brak przełącznika proporcji posta, proporcja z pliku, bo Facebook nie przycina
   z listą pakietów, pulpit z tabelą pakietów w toku (kolory terminów jak w Bazie Klientów).
 - Lista `/p/[token]/materialy` (kat1: kilka pakietów), nawigacja klienta z aktywną pozycją.
 - `pnpm dev:lokalny` (`scripts/dev-lokalny.mjs`): serwer na 3100 podpięty pod lokalny Supabase, ten sam co E2E.
-- Migracje `20260904100001` (`seen_by_team_at`) i `20260904100002` (`comments.author_label`).
+- Migracje `20260904100001` (`seen_by_team_at`) i `20260904100002` (`comments.author_label`), wypchnięte do projektu
+  chmurowego 2026-09-04 (`pnpm db:migrate`). `main` = `faza/2-serce`, wdrożenie produkcyjne z GitHuba.
 - Testy: 100 jednostkowych (+ 6 na bazie), E2E kryteria 7-16 i 26 (`akceptacja`, `reklamy`, `cron`, `podglady`;
   18 wzorców zrzutów: 9 ramek × 2 szerokości), testy zmieniające status pracują na klonach pakietów
   (`tests/e2e/pomocnicze/pakiety.ts`). Test 14 przełącza 54 kombinacje w każdym z 6 placementów i sprawdza
