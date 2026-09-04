@@ -6,6 +6,11 @@ import { supabaseSerwer } from "@/lib/supabase/server";
 export type KluczUstawienia = "auto_approve_hours" | "auto_approve_business_days" | "retention_months" | "onboarding_enabled";
 type Json = Database["public"]["Tables"]["settings"]["Row"]["value"];
 
+/** `true` albo napis "true" (ręczny wpis w panelu Supabase): obie postaci znaczą włączone. */
+function czyPrawda(wartosc: Json | undefined): boolean {
+  return wartosc === true || wartosc === "true";
+}
+
 export async function pobierzUstawienia(klucze: KluczUstawienia[]): Promise<Map<string, Json>> {
   const { data, error } = await supabaseSerwer().from("settings").select("key, value").in("key", klucze);
   if (error) throw new Error(`pobierzUstawienia: ${error.message}`);
@@ -18,7 +23,7 @@ export async function pobierzUstawieniaAutoAkceptacji(): Promise<UstawieniaAutoA
   const godziny = Number(mapa.get("auto_approve_hours"));
   return {
     godziny: Number.isFinite(godziny) && godziny > 0 ? godziny : DOMYSLNE_GODZINY_AUTO_AKCEPTACJI,
-    dniRobocze: mapa.get("auto_approve_business_days") === true,
+    dniRobocze: czyPrawda(mapa.get("auto_approve_business_days")),
   };
 }
 

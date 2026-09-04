@@ -28,10 +28,10 @@ async function zBaza<T>(fn: (s: ReturnType<typeof postgres>) => Promise<T>): Pro
   }
 }
 
-export type LinkTestowy = { id: string; token: string; pin: string; clientId: string; label: string };
+export type LinkTestowy = { id: string; token: string; pin: string; clientId: string; label: string; contactId: string | null };
 
-/** Link testowy dla klienta z seedu. Token i PIN z generatorów z ustalonym ziarnem, hashe jak w aplikacji. */
-export async function utworzLinkTestowy(slug: string, opcje: { label?: string; canApprove?: boolean } = {}): Promise<LinkTestowy> {
+/** Link testowy dla klienta z seedu. Token i PIN z generatorów z ustalonym ziarnem, hashe jak w aplikacji. `zKontaktem` = główna osoba kontaktowa klienta. */
+export async function utworzLinkTestowy(slug: string, opcje: { label?: string; canApprove?: boolean; zKontaktem?: boolean } = {}): Promise<LinkTestowy> {
   const losuj = losowosc();
   const token = generujToken(losuj);
   const pin = generujPin("pin4", losuj);
@@ -43,12 +43,17 @@ export async function utworzLinkTestowy(slug: string, opcje: { label?: string; c
   return zBaza(async (s) => {
     const [klient] = await s<{ id: string }[]>`select id from public.clients where slug = ${slug}`;
     if (!klient) throw new Error(`Brak klienta ${slug} w bazie testowej`);
+    let contactId: string | null = null;
+    if (opcje.zKontaktem) {
+      const [kontakt] = await s<{ id: string }[]>`select id from public.client_contacts where client_id = ${klient.id} order by is_primary desc, created_at limit 1`;
+      contactId = kontakt?.id ?? null;
+    }
     const [link] = await s<{ id: string }[]>`
-      insert into public.access_links (client_id, label, token_lookup, token_hash, token_enc, pin_hash, pin_kind, can_approve)
-      values (${klient.id}, ${label}, ${tokenLookup(token)}, ${hashujToken(token)}, ${tokenEnc}, ${pinHash}, 'pin4', ${opcje.canApprove ?? true})
+      insert into public.access_links (client_id, contact_id, label, token_lookup, token_hash, token_enc, pin_hash, pin_kind, can_approve)
+      values (${klient.id}, ${contactId}, ${label}, ${tokenLookup(token)}, ${hashujToken(token)}, ${tokenEnc}, ${pinHash}, 'pin4', ${opcje.canApprove ?? true})
       returning id`;
     if (!link) throw new Error("Nie udało się utworzyć linku testowego");
-    return { id: link.id, token, pin, clientId: klient.id, label };
+    return { id: link.id, token, pin, clientId: klient.id, label, contactId };
   });
 }
 

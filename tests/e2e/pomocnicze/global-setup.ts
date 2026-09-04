@@ -1,6 +1,7 @@
 import { execSync } from "node:child_process";
 import postgres from "postgres";
 import { lokalnyStack } from "./lokalny-stack";
+import { usunWszystkieKlony } from "./pakiety";
 
 /**
  * Przed testami: lokalny stack musi stać, a w bazie muszą być klienci z seedu.
@@ -29,5 +30,7 @@ export default async function globalSetup() {
     await sql.end();
   }
 
+  const klony = await usunWszystkieKlony();
+  if (klony > 0) console.log(`[e2e] usunięto ${klony} klonów pakietów po poprzednim przebiegu`);
   await fetch(`${stack.mailpitUrl}/api/v1/messages`, { method: "DELETE" }).catch(() => undefined);
 }

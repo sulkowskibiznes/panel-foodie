@@ -10,16 +10,16 @@ Zaznaczamy kryterium, gdy przechodzi jako test E2E (CLAUDE.md, „Jak pracujemy"
 | 4 | Klient A nie otwiera zasobów klienta B (404), także plik | 1 | ✅ 2026-09-03 |
 | 5 | Wygaszenie linku wylogowuje sesję przy następnym żądaniu | 1 | ✅ 2026-09-03 |
 | 6 | Reset PIN-u wylogowuje wszystkie urządzenia linku | 1 | ✅ 2026-09-03 |
-| 7 | Pakiet 6 postów + 10 relacji + 2 kampanie renderuje się na 390 px i 1440 px | 2 | ☐ |
-| 8 | „Akceptuję wszystko" ustawia status, datę, osobę i zdarzenie w outbox | 2 | ☐ |
-| 9 | „Zgłaszam uwagi" bez komentarza zablokowane z podpowiedzią | 2 | ☐ |
-| 10 | Zgłoszenie uwag zatrzymuje licznik auto-akceptacji | 2 | ☐ |
-| 11 | Cron auto-akceptacji po 72 h; pomija wyłączone i w poprawkach; dni robocze po przełączeniu | 2 | ☐ |
-| 12 | Wysłanie v2 podbija rundę, restartuje licznik, plakietki „Poprawione" | 2 | ☐ |
-| 13 | Komentarz po akceptacji nie zmienia statusu, ale wysyła zdarzenie | 2 | ☐ |
-| 14 | 54 kombinacje wariantów w 6 placementach; brak ig_handle wyszarza IG | 2 | ☐ |
-| 15 | Komentarz przypięty do wariantu wraca w panelu zespołu | 2 | ☐ |
-| 16 | Dwie kampanie w miesiącu jako osobne sekcje, akceptowane razem | 2 | ☐ |
+| 7 | Pakiet 6 postów + 10 relacji + 2 kampanie renderuje się na 390 px i 1440 px | 2 | ✅ 2026-09-04 |
+| 8 | „Akceptuję wszystko" ustawia status, datę, osobę i zdarzenie w outbox | 2 | ✅ 2026-09-04 |
+| 9 | „Zgłaszam uwagi" bez komentarza zablokowane z podpowiedzią | 2 | ✅ 2026-09-04 |
+| 10 | Zgłoszenie uwag zatrzymuje licznik auto-akceptacji | 2 | ✅ 2026-09-04 |
+| 11 | Cron auto-akceptacji po 72 h; pomija wyłączone i w poprawkach; dni robocze po przełączeniu | 2 | ✅ 2026-09-04 |
+| 12 | Wysłanie v2 podbija rundę, restartuje licznik, plakietki „Poprawione" | 2 | ✅ 2026-09-04 |
+| 13 | Komentarz po akceptacji nie zmienia statusu, ale wysyła zdarzenie | 2 | ✅ 2026-09-04 |
+| 14 | 54 kombinacje wariantów w 6 placementach; brak ig_handle wyszarza IG | 2 | ✅ 2026-09-04 |
+| 15 | Komentarz przypięty do wariantu wraca w panelu zespołu | 2 | ✅ 2026-09-04 |
+| 16 | Dwie kampanie w miesiącu jako osobne sekcje, akceptowane razem | 2 | ✅ 2026-09-04 |
 | 17 | Folder spoza „Materiałów klientów" blokuje import | 4 | ☐ |
 | 18 | Folder użyty w innym pakiecie pokazuje ostrzeżenie z linkiem | 4 | ☐ |
 | 19 | Podmiana w pakiecie zaakceptowanym: potwierdzenie, zdarzenie, plakietka, baner | 3 | ☐ |
@@ -29,7 +29,7 @@ Zaznaczamy kryterium, gdy przechodzi jako test E2E (CLAUDE.md, „Jak pracujemy"
 | 23 | content_creator dostaje 404 na trasie faktur | 3 | ☐ (trasa i 404 już działają, test E2E dojdzie w fazie 3) |
 | 24 | csm widzi tylko przypisanych klientów | 3 | ☐ |
 | 25 | Impersonacja blokuje decyzje i zapisuje wejście do audit_log | 3 | ☐ |
-| 26 | Zrzuty podglądów zgodne ze wzorcami w obu szerokościach | 2 | ☐ |
+| 26 | Zrzuty podglądów zgodne ze wzorcami w obu szerokościach | 2 | ✅ 2026-09-04 |
 | 27 | Lista linków bez tokenu; „Pokaż link" tylko admin/csm, każde kliknięcie w audit_log; content_creator 404 na Dostępie | 1 | ✅ 2026-09-03 |
 | 28 | Klient demonstracyjny bez linku dostępu i faktury (trigger + notka w zakładce Dostęp) | 1 | ✅ 2026-09-03 |
 
@@ -101,36 +101,63 @@ Ukończona 2026-09-03, gałąź `faza/1-dostep`. Kryteria 1-6 zielone w Playwrig
 - Odliczanie auto-akceptacji na żywo w przeglądarce: faza 2 (teraz liczone przy renderze).
 - Sprzątanie wygasłych sesji po 90 dniach: faza 6 (cron).
 
-## Faza 2: Serce (w toku)
+## Faza 2: Serce
 
-Gałąź `faza/2-serce`, start 2026-09-03 (późny wieczór). Faza 1 sprawdzona przed startem: `main` = `faza/1-dostep`
-(52cbab3), 29 testów E2E zielonych na lokalnym Supabase (kryteria 1-6, 27, 28, strony publiczne, odmowa zespołu).
+Gałąź `faza/2-serce`, 2026-09-03 (noc) do 2026-09-04. Faza 1 sprawdzona przed startem: `main` = `faza/1-dostep`
+(52cbab3), 29 testów E2E zielonych na lokalnym Supabase. Realne logowanie Szymona na produkcji się powiodło,
+regulamin i klauzula zatwierdzone przez prawnika (2026-09-04).
 
 **Sześć poprawek z przeglądu rozdz. 20 (SPEC 1.4):**
-- Poz. 30 (dni robocze pon-sob): `src/lib/pakiety/auto-akceptacja.ts` liczy termin w obu trybach, testy z kalendarzem
-  września 2026 (sobota liczy się, niedziela nie). Domyślne 72 h kalendarzowe bez zmian.
-- Poz. 16 (`token_enc`): zrobione w fazie 1 (kryterium 27, test `tests/e2e/dostep-zespol.spec.ts`), sprawdzone ponownie.
-- Poz. 26 (wstrzymana auto-akceptacja na pulpicie): kolumna `comments.seen_by_team_at` (migracja
-  `20260904100001`), cron zapisuje `auto_wstrzymana` raz na rundę; osobny wiersz na pulpicie dochodzi razem
-  z ekranem pakietu zespołu.
-- Poz. 15 (przełącznik lokalu): w projekcie komponentów `docs/PROJEKT-PODGLADY.md`, rozdz. 4.
-- Poz. 21 (klient demo na produkcji): `pnpm db:seed:demo` (`--tylko=demo-bistro`) tworzy tylko klienta demo,
-  bez ruszania zespołu i usług; sprawdzone na lokalnym stacku.
-- Poz. 31 (cofnięcie po akceptacji): przejścia `zaakceptowany → poprawki` i `zaplanowany → poprawki` kasują
-  akceptację, zapisują powód i wysyłają `pakiet.cofniety_do_poprawek`; baner dla klienta dochodzi z ekranem pakietu.
+- Poz. 30 (dni robocze pon-sob): `src/lib/pakiety/auto-akceptacja.ts` liczy termin w obu trybach (sobota liczy się,
+  niedziela nie), przełącznik `settings.auto_approve_business_days` sprawdzony E2E (kryterium 11). Domyślne 72 h kalendarzowe.
+- Poz. 16 (`token_enc`): zrobione w fazie 1 (kryterium 27), sprawdzone ponownie.
+- Poz. 26 (wstrzymana auto-akceptacja): `comments.seen_by_team_at`, cron zapisuje `auto_wstrzymana` raz na rundę,
+  pulpit zespołu pokazuje osobny bursztynowy wiersz „Auto-akceptacja wstrzymana" z liczbą nieprzeczytanych uwag
+  i akcją „Odpowiedz na uwagi"; ekran pakietu zespołu ma ten sam baner. E2E w `tests/e2e/cron.spec.ts`.
+- Poz. 15 (przełącznik lokalu): czwarta lista „Lokal" w podglądzie reklamy kat2/kat3, wersja per lokal z podpisem,
+  które elementy są z lokalu, a które wspólne; nazwy lokali w „Zobacz wszystkie warianty". E2E w `tests/e2e/reklamy.spec.ts`.
+- Poz. 21 (klient demo na produkcji): `pnpm db:seed:demo` tworzy tylko klienta demo, bez ruszania zespołu i usług.
+- Poz. 31 (cofnięcie po akceptacji): przejścia `zaakceptowany → poprawki` i `zaplanowany → poprawki` z obowiązkowym
+  powodem, `pakiet.cofniety_do_poprawek` w outbox, bursztynowy baner u klienta w miejsce zielonego.
 
-**Co działa (krok 1 i 6 z kolejności fazy):**
-- Maszyna stanów `src/lib/pakiety/przejscia.ts` (czysta, zależności wstrzykiwane) + `src/lib/pakiety/baza.ts`
-  (`zmienStatusPakietu`, jedyna droga zmiany statusu): 9 dozwolonych przejść z rozdz. 6.8, warunki dodatkowe,
-  `package_events` z migawką przy akceptacji, ciało webhooka z rozdz. 15. 120 kombinacji w teście jednostkowym.
-- Cron `GET /api/cron/auto-akceptacja` (Bearer `CRON_SECRET`, co pełną godzinę w `vercel.json`):
-  auto-akceptacja po terminie, `auto_wstrzymana` przy nierozwiązanych uwagach, `pakiet.auto_za_24h`,
-  `pakiet.nieotwarty_po_24h`; deduplikacja po `outbox`. Logika czysta w `src/lib/pakiety/cron-auto-akceptacji.ts`.
-- Testy jednostkowe: 90 zielonych (+ 6 na bazie po ustawieniu `SUPABASE_DB_URL`).
+**Decyzje Szymona z 2026-09-04 (rozdz. 8 `docs/PROJEKT-PODGLADY.md`):** domyślny lokal w reklamie = pierwszy lokal;
+wideo bez placeholdera w seedzie (komponenty obsługują `kind = 'video'`, plik dojdzie z realnymi materiałami);
+brak przełącznika proporcji posta, proporcja z pliku, bo Facebook nie przycina (99 % postów 4:5).
 
-**Czeka na decyzję Szymona (blokuje krok 2, podglądy):** projekt komponentów w `docs/PROJEKT-PODGLADY.md`
-(rozdz. 8: domyślny lokal w reklamie, wideo w seedzie bez ffmpeg, przełącznik proporcji posta).
+**Co działa:**
+- Maszyna stanów `src/lib/pakiety/przejscia.ts` (czysta) + `baza.ts` (`zmienStatusPakietu`): 9 przejść z rozdz. 6.8,
+  `package_events` z migawką przy akceptacji, outbox z ciałem webhooka z rozdz. 15. 120 kombinacji w teście jednostkowym.
+- Cron `GET /api/cron/auto-akceptacja` (Bearer `CRON_SECRET`, co pełną godzinę w `vercel.json`): auto-akceptacja po
+  terminie, `auto_wstrzymana` przy nierozwiązanych uwagach, `pakiet.auto_za_24h`, `pakiet.nieotwarty_po_24h`,
+  deduplikacja po `outbox`. Wysyłka i v2 zerują `first_opened_at`, więc „nieotwarty" liczy się per runda.
+- Podglądy 1:1 w `src/components/podglad/`: post FB (tekst z „Zobacz więcej", karuzela, przełącznik profilu w kat3),
+  relacja 9:16 (seria z paskiem segmentów i miniaturami), Reels, reklama w sześciu placementach na wspólnej ramce
+  9:16 i wspólnym elemencie reklamowym. Awatar tylko w ramce (`/p/[token]/awatar/[lokalId]`, `/zespol/awatar/...`).
+  Placementy IG bez nicka wyszarzone z podpowiedzią.
+- Ekran pakietu `src/components/pakiet/ekran-pakietu.tsx` wspólny dla klienta (`/p/[token]/materialy/[pakietId]`)
+  i zespołu (`/zespol/klienci/[slug]/pakiety/[pakietId]`): przyklejony pasek z licznikiem odświeżanym co 30 s,
+  zakładki Posty / Relacje / Kampanie / Wszystko z plakietkami nieprzeczytanych odpowiedzi, „Obejrzano x z y"
+  (2 s w polu widzenia, `item_views`), banery stanu, wątki uwag z historią rund, komentarz do całego miesiąca,
+  komentarz przypięty do wariantu reklamy („Do czego": cała reklama / ta grafika / ten tekst / ten nagłówek).
+- Decyzje klienta: modal akceptacji z podsumowaniem, checkboxem dat i ostrzeżeniem o nierozwiązanych uwagach;
+  „Zgłaszam uwagi" tylko z komentarzem, z podpowiedzią. Otwarcie pakietu = `first_opened_at`, `otwarty`,
+  `pakiet.otwarty`, audyt; odpowiedzi zespołu oznaczane jako przeczytane po otwarciu (`after()`).
+- Zespół: pasek akcji nad pakietem (wyślij z checkboxem auto-akceptacji i listą braków, wycofaj, wyślij v2,
+  cofnij do poprawek z powodem, zaplanowano), odpowiedzi w wątkach, „Oznacz jako załatwione", zakładka Materiały
+  z listą pakietów, pulpit z tabelą pakietów w toku (kolory terminów jak w Bazie Klientów).
+- Lista `/p/[token]/materialy` (kat1: kilka pakietów), nawigacja klienta z aktywną pozycją.
+- `pnpm dev:lokalny` (`scripts/dev-lokalny.mjs`): serwer na 3100 podpięty pod lokalny Supabase, ten sam co E2E.
+- Migracje `20260904100001` (`seen_by_team_at`) i `20260904100002` (`comments.author_label`).
+- Testy: 100 jednostkowych (+ 6 na bazie), E2E kryteria 7-16 i 26 (`akceptacja`, `reklamy`, `cron`, `podglady`;
+  18 wzorców zrzutów: 9 ramek × 2 szerokości), testy zmieniające status pracują na klonach pakietów
+  (`tests/e2e/pomocnicze/pakiety.ts`). Test 14 przełącza 54 kombinacje w każdym z 6 placementów i sprawdza
+  grafikę, tekst i nagłówek w ramce bez przeładowania.
 
-**Do zrobienia w tej fazie:** podglądy (krok 2), ekran pakietu klienta (3), akceptacja i komentarze (4),
-rundy (5), trasa E2E dla crona i kryteria 7-16, 26, wiersz „Auto-akceptacja wstrzymana" na pulpicie,
-migracja `seen_by_team_at` do projektu chmurowego (`pnpm db:migrate`) przed merge do `main`.
+**Odłożone:**
+- Wideo w seedzie (brak ffmpeg): komponenty gotowe, pierwszy plik z realnymi materiałami (plan sesji startowej, pkt 11).
+- Kreator pakietu, dodawanie i podmiana materiałów (plakietki „Poprawione" i „Nowe" mają już miejsce w DTO): faza 3.
+- „Pokaż link" w kolumnie Akcja pulpitu, filtry pulpitu, impersonacja: faza 3.
+- Wysyłka outboxu do Zapiera (cron co minutę): faza 5. Zdarzenia już się zapisują.
+
+**Wymaga decyzji Szymona:** nic nowego. Do zrobienia po jego stronie: dopisanie zasady auto-akceptacji do
+regulaminu i umowy (SPEC rozdz. 20) jest już zatwierdzone przez prawnika.

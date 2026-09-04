@@ -56,7 +56,7 @@ export type PakietSeed = {
   /** godziny temu, gdy pakiet wysłano do akceptacji */
   wyslanoGodzinTemu?: number;
   kolor: string;
-  posty: Array<{ title: string; caption: string; dzien: number; godzina: number; slajdy?: number; proporcja?: "1:1" | "4:5" }>;
+  posty: Array<{ title: string; caption: string; dzien: number; godzina: number; slajdy?: number; proporcja?: "1:1" | "4:5" | "9:16"; typ?: "post" | "reels" }>;
   relacje: Array<{ title: string; dzien: number; godzina: number }>;
   kampanie: Kampania[];
 };
@@ -189,6 +189,8 @@ export const KLIENCI: KlientSeed[] = [
           { title: "Post 4 - dostawa", caption: "Dowozimy z każdego lokalu w promieniu 6 km. Zamów przez naszą stronę i odbierz 10% zniżki na pierwsze zamówienie.", dzien: 13, godzina: 18 },
           { title: "Post 5 - wege", caption: "Burger z kotletem z ciecierzycy i awokado. Wegetarianie, to dla Was.", dzien: 19, godzina: 12 },
           { title: "Post 6 - konkurs", caption: "Konkurs: pokaż nam swojego ulubionego burgera i wygraj kolację dla dwojga. Szczegóły w komentarzu.", dzien: 25, godzina: 18, slajdy: 2 },
+          // Reels liczą się do postów (SPEC rozdz. 20 poz. 28); tu grafika 9:16 zamiast wideo, bo seed nie ma ffmpeg.
+          { title: "Reels - kuchnia od zaplecza", caption: "Tak wygląda 30 sekund na naszej kuchni w piątkowy wieczór. Dźwięk włącz koniecznie.", dzien: 28, godzina: 12, proporcja: "9:16", typ: "reels" },
         ],
         relacje: RELACJE_10("Burger Brothers"),
         kampanie: [

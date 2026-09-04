@@ -358,7 +358,7 @@ async function seedPakietu(
   for (const [i, post] of p.posty.entries()) {
     const item = await wstawJeden<{ id: string }>("package_items", {
       package_id: pakietId,
-      type: "post",
+      type: post.typ ?? "post",
       position: i + 1,
       title: post.title,
       caption: post.caption,
@@ -367,7 +367,7 @@ async function seedPakietu(
       origin: "import",
     });
     itemyPostow.push(item.id);
-    const [w, h] = post.proporcja === "4:5" ? [1080, 1350] : [1080, 1080];
+    const [w, h] = post.proporcja === "4:5" ? [1080, 1350] : post.proporcja === "9:16" ? [1080, 1920] : [1080, 1080];
     const slajdy = post.slajdy ?? 1;
     for (let s = 0; s < slajdy; s++) {
       const g = await grafika(slajdy > 1 ? `Post ${i + 1} / ${s + 1}` : `Post ${i + 1}`, p.kolor, w, h);

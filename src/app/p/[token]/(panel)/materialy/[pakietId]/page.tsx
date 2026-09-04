@@ -1,35 +1,47 @@
-import Link from "next/link";
 import { notFound } from "next/navigation";
-import { copy } from "@/lib/copy";
-import { pobierzPakiet } from "@/lib/dane/pakiety-klienta";
+import { after } from "next/server";
+import { EkranPakietu } from "@/components/pakiet/ekran-pakietu";
+import { oznaczPrzeczytanePrzezKlienta } from "@/lib/dane/komentarze";
+import { pobierzPakietSzczegoly } from "@/lib/dane/materialy";
 import { assertClientAccess } from "@/lib/dostep";
-import { liczebnik } from "@/lib/format";
 import { wymagajKontekstuKlienta } from "@/lib/kontekst-klienta";
+import { odnotujOtwarciePakietu } from "@/lib/pakiety/otwarcie";
 import { czyUuid } from "@/lib/walidacja";
+import { infoZadania } from "@/lib/zadanie";
+import { akceptujPakiet, dodajKomentarz, odnotujObejrzenie, zglosUwagi } from "./akcje";
 
-/** Faza 1: szkielet ekranu pakietu z izolacją klientów (kryterium 4). Pełny ekran akceptacji w fazie 2. */
-export default async function EkranPakietu({ params }: { params: Promise<{ token: string; pakietId: string }> }) {
+/** Ekran akceptacji materiałów (SPEC rozdz. 6). Izolacja: assertClientAccess przed użyciem czegokolwiek (kryterium 4). */
+export default async function EkranPakietuKlienta({ params }: PageProps<"/p/[token]/materialy/[pakietId]">) {
   const { token, pakietId } = await params;
   const kontekst = await wymagajKontekstuKlienta(token);
   if (!czyUuid(pakietId)) notFound();
-  const wynik = await pobierzPakiet(pakietId);
+  const wynik = await pobierzPakietSzczegoly(pakietId, {
+    adresy: { plik: (id, wariant) => `/p/${token}/plik/${id}/${wariant}`, awatar: (id) => `/p/${token}/awatar/${id}` },
+    strona: { rodzaj: "klient", linkId: kontekst.linkId },
+  });
   if (!wynik) notFound();
   assertClientAccess(kontekst.clientId, wynik.clientId);
-  const p = wynik.pakiet;
+  if (wynik.pakiet.status === "szkic") notFound();
+
+  const { ipHash, ua } = await infoZadania();
+  const aktor = { rodzaj: "klient" as const, contactId: kontekst.contactId, linkId: kontekst.linkId, label: kontekst.label, mozeAkceptowac: kontekst.canApprove };
+  after(async () => {
+    await odnotujOtwarciePakietu(pakietId, aktor, { ipHash, ua });
+    await oznaczPrzeczytanePrzezKlienta(pakietId);
+  });
 
   return (
-    <section className="rounded-xl bg-white p-6 shadow-miekki sm:p-8">
-      <p className="text-sm font-medium text-szary-600">{copy.materialy.status[p.status]}{p.runda > 1 ? ` · ${copy.klientStart.wersja} ${p.runda}` : ""}</p>
-      <h1 className="mt-1 font-naglowek text-2xl text-foodie-czern sm:text-3xl">{p.tytul}</h1>
-      <p className="mt-2 text-base text-szary-600">
-        {liczebnik(p.liczbaPostow, copy.klientStart.posty.jeden, copy.klientStart.posty.kilka, copy.klientStart.posty.wiele)} ·{" "}
-        {liczebnik(p.liczbaRelacji, copy.klientStart.relacje.jeden, copy.klientStart.relacje.kilka, copy.klientStart.relacje.wiele)} ·{" "}
-        {liczebnik(p.liczbaKampanii, copy.klientStart.kampanie.jeden, copy.klientStart.kampanie.kilka, copy.klientStart.kampanie.wiele)}
-      </p>
-      <p className="mt-6 rounded-lg bg-szary-050 p-4 text-sm leading-6 text-szary-600">{copy.materialy.wBudowie}</p>
-      <Link href={`/p/${token}/start`} className="mt-6 inline-block text-sm font-medium text-foodie-fiolet hover:underline">
-        {copy.materialy.wroc}
-      </Link>
-    </section>
+    <EkranPakietu
+      tryb="klient"
+      pakiet={wynik.pakiet}
+      teraz={new Date().toISOString()}
+      mozeAkceptowac={kontekst.canApprove}
+      akcje={{
+        decyzje: { akceptuj: akceptujPakiet.bind(null, token, pakietId), zglosUwagi: zglosUwagi.bind(null, token, pakietId) },
+        komentarz: dodajKomentarz.bind(null, token, pakietId),
+        zalatwione: null,
+        obejrzenie: odnotujObejrzenie.bind(null, token, pakietId),
+      }}
+    />
   );
 }

@@ -1,0 +1,11 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "dev-lokalny",
+      "runtimeExecutable": "node",
+      "runtimeArgs": ["scripts/dev-lokalny.mjs"],
+      "port": 3100
+    }
+  ]
+}

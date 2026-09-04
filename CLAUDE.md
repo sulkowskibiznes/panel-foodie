@@ -28,7 +28,8 @@ jest ważniejsze niż wszystko inne.
 ## Komendy
 
 ```bash
-pnpm dev              # serwer deweloperski
+pnpm dev              # serwer deweloperski (projekt z .env.local, czyli chmura)
+pnpm dev:lokalny      # serwer na porcie 3100 podpięty pod lokalny Supabase z Dockera (ten sam co E2E)
 pnpm build            # build produkcyjny — musi przechodzić przed każdym commitem
 pnpm lint             # eslint
 pnpm typecheck        # tsc --noEmit
@@ -49,12 +50,18 @@ pnpm db:types         # regeneracja typów z bazy do src/lib/db-types.ts
 src/
   app/
     p/[token]/            # panel klienta — WSZYSTKO tu wymaga sesji klienta
+      (panel)/materialy/[pakietId]/   # ekran akceptacji (page + akcje.ts: akceptuj, uwagi, komentarz, obejrzenie)
+      (panel)/plik/, awatar/          # pliki i zdjęcia profilowe przez signed URL po assertClientAccess
     zespol/               # panel zespołu — wymaga Supabase Auth + roli
+      (panel)/klienci/[slug]/pakiety/[pakietId]/  # ten sam ekran pakietu + akcje zespołu (przejścia, odpowiedzi)
+      (panel)/plik/, awatar/          # pliki dla zespołu (assertTeamClientAccess)
     api/
       ingest/report/      # webhook do rejestrowania raportów
-      cron/               # auto-akceptacja, statusy faktur, outbox, retencja
+      cron/auto-akceptacja/  # co godzinę (vercel.json), Bearer CRON_SECRET; logika w lib/pakiety/cron-auto-akceptacji.ts
   components/
-    podglad/              # podglądy 1:1 — post/relacja/reels na FB, reklama w 6 placementach
+    podglad/              # podglądy 1:1 — post/relacja/reels na FB, reklama/ w 6 placementach; czyste, bez danych
+    pakiet/               # ekran pakietu wspólny dla klienta i zespołu: pasek decyzji, banery, wątki, sekcje
+    zespol/pakiety/       # akcje zespołu nad pakietem (wyślij, wycofaj, v2, cofnij, zaplanowano)
     ui/                   # shadcn
   lib/
     auth-klient.ts        # token linku, PIN, argon2id, hash-atrapa (czysty Node, używa go też seed)
@@ -69,8 +76,13 @@ src/
     limity.ts             # blokady linku i limit na IP (funkcje SQL zwieksz_limit, odnotuj_nieudane_logowanie)
     audyt.ts, outbox.ts   # zapiszAudyt(), dodajDoOutbox()
     zadanie.ts            # IP (hash), UA, ścieżka z nagłówka x-pathname
-    dane/                 # zapytania do bazy (klient: pakiety-klienta.ts; zespół: klienci-zespolu.ts, linki.ts)
-    dto/                  # kształty danych dla stron klienta (nigdy surowe wiersze z bazy)
+    dane/                 # zapytania do bazy: materialy.ts (pakiet → DTO), komentarze.ts, pliki.ts, ustawienia.ts,
+                          # pakiety-klienta.ts, klienci-zespolu.ts, linki.ts
+    dto/                  # kształty danych dla stron (materialy.ts, wynik.ts); nigdy surowe wiersze z bazy
+    pakiety/              # przejscia.ts (maszyna stanów, czysta), baza.ts (zmienStatusPakietu, JEDYNA droga zmiany statusu),
+                          # auto-akceptacja.ts (72 h / pon-sob), cron-auto-akceptacji.ts, otwarcie.ts
+    reklamy/warianty.ts   # składanie wariantu reklamy dla lokalu (czyste, testowane)
+    podglad/tekst.ts      # hashtagi i linki w tekście posta
     format.ts, walidacja.ts
     copy.ts               # WSZYSTKIE teksty interfejsu (polski)
     db-types.ts           # generowane
@@ -82,7 +94,8 @@ docs/SPEC.md              # źródło prawdy
 docs/PLAN-SESJA-STARTOWA.md  # plan faz 0 i 1, krytyka spec-u, decyzje (2026-09-02)
 docs/POSTEP.md            # stan kryteriów odbioru z rozdz. 18
 tests/unit/
-tests/e2e/                # Playwright na lokalnym Supabase, port 3100; zespół logowany raz w projekcie „przygotowanie"
+tests/e2e/                # Playwright na lokalnym Supabase, port 3100; zespół logowany raz w projekcie „przygotowanie";
+                          # testy zmieniające status pracują na KLONACH pakietów (pomocnicze/pakiety.ts), seed zostaje nietknięty
 ```
 
 ## Zasady, od których nie ma odstępstw

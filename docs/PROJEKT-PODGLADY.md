@@ -131,11 +131,19 @@ klienta" (SPEC), u klienta „podgląd na Instagramie pojawi się, gdy Twój opi
 - E2E kryterium 26: zrzuty każdej z 9 ramek na 390 px i 1440 px, wzorce w `tests/e2e/podglady.spec.ts-snapshots/`.
   Skrypt `pnpm test:e2e -- podglady` z CLAUDE.md.
 
-## 8. Do potwierdzenia przez Szymona
+## 8. Decyzje Szymona (2026-09-04)
 
-1. **Domyślny lokal w reklamie kat2/kat3**: pierwszy lokal (propozycja) czy „wersja wspólna"?
-2. **Wideo w seedzie**: bez `ffmpeg` na tej maszynie nie wygeneruję placeholdera mp4. Komponenty obsłużą
-   `kind = 'video'` (odtwarzacz wyciszony, plakat z miniatury), a pierwsze prawdziwe wideo przyjdzie
-   z materiałami jednego realnego miesiąca (plan sesji startowej, pkt 11). Zgoda?
-3. **Przełącznik proporcji posta (1:1 / 4:5 / 1.91:1)**: proponuję, żeby domyślna proporcja wynikała
-   z wymiarów pliku, a przełącznik pokazywał, jak Facebook przytnie grafikę w pozostałych. Zgoda?
+1. **Domyślny lokal w reklamie kat2/kat3**: pierwszy lokal. Zrobione.
+2. **Wideo w seedzie**: bez placeholdera. Komponenty obsługują `kind = 'video'` (odtwarzacz wyciszony, plakat
+   z miniatury); pierwsze prawdziwe wideo przyjdzie z materiałami jednego realnego miesiąca.
+3. **Proporcja posta**: bez przełącznika. 99 % postów to 4:5, Facebook nie przycina grafik, więc podgląd pokazuje
+   proporcję z pliku, domykając tylko skrajności tak jak kanał (nie wyżej niż 4:5, nie szerzej niż 1.91:1);
+   `proporcjaWKanale()` w `components/podglad/typy.ts`.
+
+## 9. Co zmieniło się względem projektu w trakcie pisania
+
+- Nagłówek reklamy jest widoczny także w ramkach relacji i Reels (linia nad CTA), żeby klient widział wszystkie
+  trzy wybrane elementy w każdym placemencie, a test 14 mógł je sprawdzić.
+- Listy wyboru to natywne `<select>` (na telefonie systemowa lista, w testach `selectOption`).
+- Przełącznik profilu w poście pokazuje się tylko, gdy lokale mają różne strony (kat3); w kat2 jeden profil.
+- Stan „Obejrzano x z y" widzi tylko klient; zespół widzi zamiast tego liczbę nierozwiązanych uwag.

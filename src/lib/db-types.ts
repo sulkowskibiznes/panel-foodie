@@ -441,6 +441,7 @@ export type Database = {
           after_approval: boolean
           author_contact_id: string | null
           author_kind: Database["public"]["Enums"]["author_kind"]
+          author_label: string | null
           author_member_id: string | null
           body: string
           created_at: string
@@ -459,6 +460,7 @@ export type Database = {
           after_approval?: boolean
           author_contact_id?: string | null
           author_kind: Database["public"]["Enums"]["author_kind"]
+          author_label?: string | null
           author_member_id?: string | null
           body: string
           created_at?: string
@@ -477,6 +479,7 @@ export type Database = {
           after_approval?: boolean
           author_contact_id?: string | null
           author_kind?: Database["public"]["Enums"]["author_kind"]
+          author_label?: string | null
           author_member_id?: string | null
           body?: string
           created_at?: string

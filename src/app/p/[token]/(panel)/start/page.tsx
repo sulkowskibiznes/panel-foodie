@@ -1,7 +1,8 @@
 import Link from "next/link";
+import { Odliczanie } from "@/components/pakiet/odliczanie";
 import { copy } from "@/lib/copy";
 import { pobierzPakietyDoAkceptacji } from "@/lib/dane/pakiety-klienta";
-import { liczebnik, tekstOdliczania } from "@/lib/format";
+import { liczebnik } from "@/lib/format";
 import { wymagajKontekstuKlienta } from "@/lib/kontekst-klienta";
 
 const MS_24H = 24 * 60 * 60 * 1000;
@@ -39,7 +40,7 @@ export default async function Start({ params }: { params: Promise<{ token: strin
               {liczebnik(p.liczbaKampanii, copy.klientStart.kampanie.jeden, copy.klientStart.kampanie.kilka, copy.klientStart.kampanie.wiele)}
             </p>
             <p className={`mt-4 rounded-lg px-3 py-2 text-sm font-medium ${pilne ? "bg-amber-50 text-bursztyn" : "bg-fiolet-050 text-fiolet-700"}`}>
-              {p.autoAkceptacjaO ? `${copy.klientStart.autoAkceptacja} ${tekstOdliczania(p.autoAkceptacjaO, teraz)}` : copy.klientStart.autoWylaczona}
+              {p.autoAkceptacjaO ? <Odliczanie do_={p.autoAkceptacjaO} teraz={teraz.toISOString()} /> : copy.klientStart.autoWylaczona}
             </p>
             <Link
               href={`/p/${token}/materialy/${p.id}`}
