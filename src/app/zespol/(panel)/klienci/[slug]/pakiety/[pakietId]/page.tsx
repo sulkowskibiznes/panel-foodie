@@ -9,10 +9,11 @@ import { copy } from "@/lib/copy";
 import { pobierzKlientaPoSlugu } from "@/lib/dane/klienci-zespolu";
 import { oznaczPrzeczytanePrzezZespol } from "@/lib/dane/komentarze";
 import { pobierzPakietSzczegoly } from "@/lib/dane/materialy";
+import { konfiguracjaDysku } from "@/lib/drive/klient";
 import { maUprawnienie } from "@/lib/uprawnienia";
 import { czyUuid } from "@/lib/walidacja";
 import { odpowiedzNaKomentarz, oznaczZalatwione, wykonajPrzejscieZespolu } from "./akcje";
-import { dodajKampanieAkcja, dodajMaterialAkcja, dodajPlikAkcja, edytujKampanieAkcja, edytujMaterialAkcja, edytujPakietAkcja, podmienPlikAkcja, przygotujUpload, usunKampanieAkcja, usunMaterialAkcja, usunPlikAkcja, zakonczUpload, zapiszReklameAkcja } from "./materialy-akcje";
+import { dodajKampanieAkcja, dodajMaterialAkcja, dodajPlikAkcja, edytujKampanieAkcja, edytujMaterialAkcja, edytujPakietAkcja, pobierzZDyskuAkcja, podmienPlikAkcja, przygotujUpload, usunKampanieAkcja, usunMaterialAkcja, usunPlikAkcja, zakonczUpload, zapiszReklameAkcja } from "./materialy-akcje";
 
 /** Pakiet w panelu zespołu: TE SAME komponenty podglądu co u klienta (SPEC rozdz. 12.3 pkt 6) plus akcje zespołu, narzędzia materiałów (12.6) i odpowiedzi w wątkach. */
 export default async function PakietZespolu({ params }: PageProps<"/zespol/klienci/[slug]/pakiety/[pakietId]">) {
@@ -33,6 +34,7 @@ export default async function PakietZespolu({ params }: PageProps<"/zespol/klien
   const akcjeMaterialow: AkcjeMaterialow = {
     przygotuj: przygotujUpload.bind(null, slug, pakietId),
     zakoncz: zakonczUpload.bind(null, slug, pakietId),
+    pobierzZDysku: pobierzZDyskuAkcja.bind(null, slug, pakietId),
     dodajMaterial: dodajMaterialAkcja.bind(null, slug, pakietId),
     podmienPlik: podmienPlikAkcja.bind(null, slug, pakietId),
     dodajPlik: dodajPlikAkcja.bind(null, slug, pakietId),
@@ -46,6 +48,8 @@ export default async function PakietZespolu({ params }: PageProps<"/zespol/klien
     edytujPakiet: edytujPakietAkcja.bind(null, slug, pakietId),
   };
   const teraz = new Date().toISOString();
+  const maFoldery = !!wynik.pakiet.folderContentuUrl || wynik.pakiet.kampanie.some((k) => !!k.folderReklamUrl);
+  const adresImportu = wynik.pakiet.status === "szkic" && maFoldery && konfiguracjaDysku() ? `/zespol/klienci/${slug}/pakiety/${pakietId}/import` : null;
 
   return (
     <div className="space-y-4">
@@ -66,6 +70,7 @@ export default async function PakietZespolu({ params }: PageProps<"/zespol/klien
         akcjeMaterialow={akcjeMaterialow}
         uprawnienia={uprawnienia}
         adresHarmonogramu={`/zespol/klienci/${slug}/harmonogram?m=${wynik.pakiet.okres.rok}-${String(wynik.pakiet.okres.miesiac).padStart(2, "0")}`}
+        adresImportu={adresImportu}
       />
     </div>
   );

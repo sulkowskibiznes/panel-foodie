@@ -3,6 +3,8 @@
 import { useCallback, useState } from "react";
 import { copy } from "@/lib/copy";
 import { czyRodzajPliku, formatujMB, limitBajtow } from "@/lib/pliki/magia";
+import { rozpoznajLinkDysku } from "@/lib/drive/linki";
+import type { WynikPlikuZDysku } from "@/lib/import/pojedynczy";
 import type { WynikPrzygotowania, WynikZakonczenia } from "@/lib/pliki/upload";
 
 export type StanUploadu =
@@ -15,6 +17,8 @@ export type StanUploadu =
 export type AkcjeUploadu = {
   przygotuj: (plik: { nazwa: string; mime: string; bytes: number }) => Promise<WynikPrzygotowania>;
   zakoncz: (pozwolenie: string) => Promise<WynikZakonczenia>;
+  /** Opcjonalne: link do pliku na Dysku (SPEC rozdz. 12.6). */
+  pobierzZDysku?: (url: string) => Promise<WynikPlikuZDysku>;
 };
 
 /** PUT prosto do Storage z paskiem postępu (XHR, bo fetch nie raportuje postępu wysyłki). */
@@ -78,6 +82,33 @@ export function useUploadPliku(akcje: AkcjeUploadu) {
     [akcje, u],
   );
 
+  /** Ta sama końcówka co upload z komputera: serwer pobiera plik z Dysku i oddaje podpisany opis. */
+  const wyslijZDysku = useCallback(
+    async (url: string): Promise<string | null> => {
+      const d = copy.zespol.import.plikZDysku;
+      const link = rozpoznajLinkDysku(url);
+      if (!link || !akcje.pobierzZDysku) {
+        setStan({ faza: "blad", komunikat: d.bledy.zlyLink });
+        return null;
+      }
+      if (link.rodzaj === "folder") {
+        setStan({ faza: "blad", komunikat: d.bledy.folder });
+        return null;
+      }
+      setStan({ faza: "sprawdzanie", nazwa: link.id });
+      const w = await akcje.pobierzZDysku(link.url);
+      if (!w.ok) {
+        const tekst = w.powod === "zaDuzy" ? u.bledy.zaDuzy.replace("{limit}", w.limit ?? "") : w.powod === "zlyLink" || w.powod === "folder" || w.powod === "nieZnaleziono" || w.powod === "zablokowany" || w.powod === "nieSkonfigurowany" || w.powod === "dysk" ? d.bledy[w.powod] : u.bledy[w.powod];
+        setStan({ faza: "blad", komunikat: tekst });
+        return null;
+      }
+      const ostrzezenia = w.ostrzezenia.map((o) => (o === "duzeWideo" ? u.duzeWideo : o === "bezPodgladu" ? u.bezPodgladu : o));
+      setStan({ faza: "gotowy", nazwa: w.plik.originalName, opis: w.opis, ostrzezenia });
+      return w.opis;
+    },
+    [akcje, u],
+  );
+
   const wyczysc = useCallback(() => setStan({ faza: "brak" }), []);
-  return { stan, wyslij, wyczysc };
+  return { stan, wyslij, wyslijZDysku, wyczysc };
 }

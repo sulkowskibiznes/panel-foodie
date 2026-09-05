@@ -43,9 +43,13 @@ test("kreator: klient i miesiąc, link do folderu z contentem, dwie kampanie z o
     await z.locator("#kreator-kampania-1-cel").selectOption("leady");
     await z.locator("#kreator-kampania-1-folder").fill(FOLDER_IMPREZY);
     await z.locator("[data-utworz-pakiet]").click();
-    await z.waitForURL(/\/pakiety\/[0-9a-f-]{36}$/);
-    pakietId = /\/pakiety\/([0-9a-f-]{36})$/.exec(z.url())?.[1] ?? null;
+    // Z wklejonymi linkami kreator prowadzi od razu do karty weryfikacyjnej (faza 4); tu linki są zmyślone, więc karty mówią „nie znaleziono"
+    await z.waitForURL(/\/pakiety\/[0-9a-f-]{36}\/import$/);
+    pakietId = /\/pakiety\/([0-9a-f-]{36})\/import$/.exec(z.url())?.[1] ?? null;
     expect(pakietId).toBeTruthy();
+    await expect(z.locator('[data-karta-weryfikacyjna][data-karta-rodzaj="content"]')).toHaveAttribute("data-karta-stan", "nie_znaleziono");
+    await expect(z.locator("[data-dalej-mapowanie]")).toBeDisabled();
+    await z.goto(`/zespol/klienci/${KLIENT}/pakiety/${pakietId}`);
 
     const p = await szczegolyPakietu(pakietId!);
     expect(p.status).toBe("szkic");

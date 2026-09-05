@@ -7,7 +7,8 @@
  * - token:   AES-256-GCM dla access_links.token_enc („Kopiuj dostęp"),
  * - ip:      pieprz do hashowania adresów IP w audycie i limitach,
  * - podglad: podpis tokenu „Zobacz jak klient" (faza 3),
- * - upload:  podpis pozwolenia na upload pliku do Storage (faza 3).
+ * - upload:  podpis pozwolenia na upload pliku do Storage (faza 3),
+ * - import:  podpis adresów miniatur z Dysku na ekranie mapowania (faza 4).
  */
 import {
   createCipheriv,
@@ -19,7 +20,7 @@ import {
   timingSafeEqual,
 } from "node:crypto";
 
-export type CelKlucza = "cookie" | "token" | "ip" | "podglad" | "upload";
+export type CelKlucza = "cookie" | "token" | "ip" | "podglad" | "upload" | "import";
 
 const SOL_HKDF = "panel-foodie";
 const DLUGOSC_KLUCZA = 32;

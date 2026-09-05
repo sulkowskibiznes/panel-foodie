@@ -4,7 +4,18 @@
     {
       "name": "dev-lokalny",
       "runtimeExecutable": "node",
-      "runtimeArgs": ["scripts/dev-lokalny.mjs"],
+      "runtimeArgs": [
+        "scripts/dev-lokalny.mjs"
+      ],
+      "port": 3100
+    },
+    {
+      "name": "dev-lokalny-dysk",
+      "runtimeExecutable": "node",
+      "runtimeArgs": [
+        "scripts/dev-lokalny.mjs",
+        "--dysk"
+      ],
       "port": 3100
     }
   ]

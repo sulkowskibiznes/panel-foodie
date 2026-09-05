@@ -20,8 +20,8 @@ Zaznaczamy kryterium, gdy przechodzi jako test E2E (CLAUDE.md, „Jak pracujemy"
 | 14 | 54 kombinacje wariantów w 6 placementach; brak ig_handle wyszarza IG | 2 | ✅ 2026-09-04 |
 | 15 | Komentarz przypięty do wariantu wraca w panelu zespołu | 2 | ✅ 2026-09-04 |
 | 16 | Dwie kampanie w miesiącu jako osobne sekcje, akceptowane razem | 2 | ✅ 2026-09-04 |
-| 17 | Folder spoza „Materiałów klientów" blokuje import | 4 | ☐ |
-| 18 | Folder użyty w innym pakiecie pokazuje ostrzeżenie z linkiem | 4 | ☐ |
+| 17 | Folder spoza „Materiałów klientów" blokuje import | 4 | ✅ 2026-09-05 |
+| 18 | Folder użyty w innym pakiecie pokazuje ostrzeżenie z linkiem | 4 | ✅ 2026-09-05 |
 | 19 | Podmiana w pakiecie zaakceptowanym: potwierdzenie, zdarzenie, plakietka, baner | 3 | ✅ 2026-09-05 |
 | 20 | Stary plik po podmianie istnieje z superseded_at | 3 | ✅ 2026-09-05 |
 | 21 | Wysyłka z postem bez daty zablokowana z listą braków | 3 | ✅ 2026-09-05 |
@@ -235,3 +235,79 @@ Gałąź `faza/3-zespol` (od `main` = 9f784cc), 2026-09-05. Kryteria 19-25 zielo
 **Wymaga decyzji Szymona:** nic nowego. Migracja `20260905100001_domyslne_godziny_publikacji.sql` wypchnięta do projektu
 chmurowego 2026-09-05 (`pnpm db:migrate`). `main` = `faza/3-zespol`, wdrożenie produkcyjne z GitHuba. Do sprawdzenia
 przez Szymona na produkcji: upload pliku z komputera (PUT z przeglądarki do Storage w chmurze) i „Zobacz jak klient".
+
+## Faza 4: Import z Dysku
+
+Gałąź `faza/4-import` (od `main` = ff9a9a1), 2026-09-05. Kryteria 17 i 18 zielone w Playwright na 390 px i 1440 px.
+Import działa wyłącznie na WKLEJANYCH linkach (CLAUDE.md, zasada 11): panel nigdy nie szuka folderów sam.
+
+**Co działa:**
+- **Dysk przez konto usługi** (`lib/drive/google.ts`): JWT RS256 z `node:crypto` (bez googleapis), token w pamięci procesu,
+  Drive API v3 przez fetch (metadane, listowanie z `name_natural`, pobranie, eksport Dokumentu Google do text/plain,
+  miniatura), ponawianie 429/5xx, dyski współdzielone (`supportsAllDrives`). Klucz z `GOOGLE_SERVICE_ACCOUNT_JSON`
+  (surowy JSON albo base64), korzeń z `GOOGLE_DRIVE_ROOT_FOLDER_ID`. Wąski kontrakt `lib/drive/api.ts`.
+- **Atrapa Dysku** (`lib/drive/atrapa.ts`, `DRIVE_ATRAPA=1`): drzewo w pamięci odwzorowujące strukturę z SPEC 13.1 dla
+  klientów z seedu, folder poza „Materiałami klientów", plik ponad limit, dokumenty z opisami; grafiki generuje sharp.
+  Używają jej testy E2E (`playwright.config.ts`) i `pnpm dev:lokalny`. `pnpm dev:lokalny:dysk` podpina prawdziwe
+  konto usługi z `.env.local` do lokalnej bazy: tak sprawdzono realny miesiąc (niżej). Na produkcji atrapa odmawia startu.
+- **Karta weryfikacyjna** (rozdz. 13.2, `lib/import/weryfikacja.ts` + czysta ocena w `lib/import/ocena.ts`): wspinaczka
+  po rodzicach do korzenia (pełna ścieżka „Materiały klientów / Klient / content / content 5 mies"), liczba plików
+  i rodzaje, ostatnia zmiana, pierwsze nazwy (folder, potem „1. Posty", potem „2. Relacje"), podfoldery. Ostrzeżenia:
+  inna nazwa klienta, inny numer miesiąca współpracy albo okres `RR-MM` w nazwie, folder użyty w innym pakiecie
+  (zakończone importy, `packages.content_folder_id`, `campaigns.ads_folder_id`) z linkiem i datą importu, brak
+  podfolderów, pusty folder, pliki w nieobsługiwanym formacie, wideo ponad 150 MB. Folder spoza „Materiałów klientów"
+  = blokada bez obejścia (kryterium 17); plik ponad 25 MB / 300 MB z metadanych = import przerwany z nazwą i wagą.
+  Ostrzeżenia ignoruje się jednym checkboxem, każde zignorowanie to wpis `zespol.import_ostrzezenie_zignorowane` w audycie.
+  Link da się poprawić na karcie (zapis do pakietu albo kampanii i ponowna weryfikacja).
+- **Ekran mapowania, obowiązkowy** (rozdz. 13.3, `lib/import/mapowanie.ts` + czyste `lib/drive/parowanie.ts`,
+  `opisy.ts`, `nazwy.ts`, `docx.ts`): grafiki w kolejności naturalnej (1, 2, ..., 10), karuzela z „3a/3b" albo „3-1/3-2",
+  wideo w postach jako Reels, relacje po jednej na plik. Opisy z dokumentów: Dokument Google (eksport) albo **.docx**
+  (rozpakowanie `word/document.xml` przez fflate; content creatorzy trzymają opisy w Wordzie), podział po nagłówkach
+  „Post 1", „tekst 2", „TEKST 3:", „1." z podglądem podziału; dopasowanie po numerze, po numerze w nazwie dokumentu
+  albo po kolejności (oznaczone). Dokument reklam: sekcje „Teksty"/„Nagłówki"/„Opis"/„Przycisk"/„Link" albo pozycje
+  „tekst N" / „nagłówek N" bez sekcji. Człowiek poprawia tytuł, rodzaj, opis (lista sekcji), pomija materiały i grafiki,
+  edytuje teksty, nagłówki, opis, przycisk i link. Miniatury z Dysku przez podpisany adres w panelu
+  (`/import/miniatura/[fileId]?t=…`, klucz HKDF „import"), nigdy prosto z Google.
+- **Kopiowanie w tle** (rozdz. 13.4, `lib/import/zadania.ts`): jedno zadanie `import_jobs` na folder z planem
+  potwierdzonym na mapowaniu (`plan jsonb`), migawką karty (`verification`), biciem serca i licznikiem prób (migracja
+  `20260906100001`). Serwer waliduje plan ponownie (folder względem korzenia, identyfikatory plików z listowania,
+  limity), a worker rusza w `after()` po odesłaniu odpowiedzi (`maxDuration = 300` na stronie importu). Każdy plik:
+  pobranie, magic bytes, limit rzeczywistej wagi, EXIF zdjęty, preview 1080 px i thumb 400 px, `item_assets` z
+  `drive_file_id`; po każdym pliku postęp w planie (`assetId`), więc „Ponów" po błędzie i „Wznów" po zawieszeniu
+  (brak bicia serca 3 min) zaczynają od miejsca, w którym import stanął. Plik z Dysku już obecny w pakiecie jest
+  pomijany z ostrzeżeniem. Materiały contentu z `origin = 'import'`; reklamy jako grafiki i warianty
+  tekst/nagłówek/opis/cta/link na istniejącym materiale `reklama` kampanii (bez duplikatów). Zakończenie: zdarzenie
+  `zaimportowany`, audyt `zespol.import_zakonczony`; błąd: `import_blad` z czytelnym komunikatem, który plik.
+  Pasek postępu odpytuje stan co 2 s; zadanie „oczekuje" bez workera dostaje go przy odczycie stanu.
+- **Kreator prowadzi do importu**: z wklejonymi linkami po utworzeniu pakietu od razu karta weryfikacyjna
+  (`/zespol/klienci/[slug]/pakiety/[pakietId]/import`); przycisk „Importuj z Dysku" na ekranie pakietu w szkicu.
+  Import działa w szkicu; po wysyłce materiały dochodzą pojedynczo.
+- **„Dodaj materiał" i „Podmień" linkiem do pliku na Dysku** (rozdz. 12.6): pole linku obok pliku z komputera; serwer
+  sprawdza plik względem „Materiałów klientów", pobiera go tą samą ścieżką (magic bytes, limit, EXIF, warianty) i oddaje
+  podpisany opis pliku, więc skutki z tabeli 12.6 zostają bez zmian. `import_jobs` z `kind` `dodatkowy`/`podmiana`,
+  audyt `zespol.import_pliku_z_dysku`. Plik spoza „Materiałów klientów" odpada.
+- Wspólne przetwarzanie plików (`lib/pliki/przetwarzanie.ts`) wydzielone z uploadu z komputera; `OpisPliku` niesie `driveFileId`.
+- Testy: jednostkowe 159 (+ 6 na bazie; nazwy i sortowanie naturalne, podział opisów, dokument reklam, .docx, parowanie, ocena karty,
+  plan i limity, JWT konta usługi), E2E `import.spec.ts` (pełny przebieg na atrapie: karty, mapowanie, kopiowanie,
+  „Dodaj materiał" linkiem, kryteria 17 i 18) plus dostosowany `kreator.spec.ts`; łącznie 77 E2E zielonych.
+
+**Realny miesiąc (definicja ukończenia fazy):** 2026-09-05 na lokalnym Supabase z prawdziwym kontem usługi
+(`pnpm dev:lokalny:dysk`) zaimportowano dla klienta z seedu folder „Bafra Kebab / Content / Content 9 mies"
+(6 postów PNG + `opisy ... 9mies.docx`, 10 relacji) i dwie kampanie z folderów „Reklamy 9 mies" i „Reklamy 8 mies"
+(po 3 grafiki + `teksty reklamowe ... .docx`). Karty pokazały pełne ścieżki i spodziewane ostrzeżenia (inny klient,
+inny numer miesiąca), mapowanie dopasowało wszystkie sześć opisów po numerze i rozłożyło teksty reklam na trzy
+pozycje w każdej kampanii; nic nie trzeba było poprawiać ręcznie. Nagłówków w dokumentach nie ma, więc zostają
+do uzupełnienia w edycji reklamy, jak dotąd. Sondowanie realnej struktury ujawniło trzy rzeczy spoza SPEC-u, które
+dodano: dokumenty `.docx` zamiast Dokumentów Google, foldery nazywane `Content 26-09` (rok-miesiąc) i podfolder
+„0. Plan" (pomijany).
+
+**Odłożone:**
+- Kolejka niezależna od żądania (cron co minutę) zamiast `after()`: gdyby import przekraczał limit funkcji na Vercelu
+  przy bardzo dużych wideo; dziś ratuje „Wznów". Wysyłka outboxu do Zapiera: faza 5.
+- Kroki 5-7 kreatora z SPEC 12.3 (daty publikacji, złożenie wariantów, podgląd, wysyłka) to istniejące ekrany pakietu
+  i harmonogramu; po imporcie link „Otwórz pakiet".
+- Wideo bez miniatury (kind `video`, `thumb_path = null`): jak w fazie 3.
+
+**Wymaga decyzji Szymona:** nic nowego. Do zrobienia po jego stronie: udostępnienie folderu „Materiały klientów"
+na adres konta usługi już działa (sprawdzone tylko do odczytu); na Vercelu ustawić `GOOGLE_SERVICE_ACCOUNT_JSON`
+i `GOOGLE_DRIVE_ROOT_FOLDER_ID` dla production i preview (`DRIVE_ATRAPA` puste).

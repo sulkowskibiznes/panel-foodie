@@ -16,7 +16,7 @@ import type { PakietSzczegoly } from "@/lib/dto/materialy";
  * Ekran pakietu w panelu zespołu: te same komponenty co u klienta (SPEC rozdz. 12.3 pkt 6) plus narzędzia
  * zespołu nad każdym materiałem i kampanią oraz „Dodaj materiał" i „Dodaj kampanię" dostępne w każdej chwili (12.6).
  */
-export function EkranPakietuZespolu({ pakiet, teraz, akcje, akcjeMaterialow, uprawnienia, adresHarmonogramu }: { pakiet: PakietSzczegoly; teraz: string; akcje: AkcjeEkranu; akcjeMaterialow: AkcjeMaterialow; uprawnienia: UprawnieniaMaterialow; adresHarmonogramu: string }) {
+export function EkranPakietuZespolu({ pakiet, teraz, akcje, akcjeMaterialow, uprawnienia, adresHarmonogramu, adresImportu }: { pakiet: PakietSzczegoly; teraz: string; akcje: AkcjeEkranu; akcjeMaterialow: AkcjeMaterialow; uprawnienia: UprawnieniaMaterialow; adresHarmonogramu: string; /** Import z Dysku (SPEC rozdz. 13): tylko szkic z wklejonymi linkami i skonfigurowanym kontem usługi. */ adresImportu?: string | null }) {
   const [dialog, setDialog] = useState<"material" | "kampania" | null>(null);
   const t = copy.zespol.materialy;
   const cokolwiek = uprawnienia.content || uprawnienia.kampanie;
@@ -30,6 +30,9 @@ export function EkranPakietuZespolu({ pakiet, teraz, akcje, akcjeMaterialow, upr
           ) : null}
           {uprawnienia.kampanie ? (
             <Button type="button" variant="outline" size="lg" onClick={() => setDialog("kampania")} data-dodaj-kampanie>{t.dodajKampanie}</Button>
+          ) : null}
+          {adresImportu && uprawnienia.content ? (
+            <Link href={adresImportu} className="inline-flex h-10 items-center rounded-lg border border-szary-300 bg-white px-4 text-sm font-medium text-foodie-czern hover:bg-szary-050" data-importuj-z-dysku>{copy.zespol.import.przyciskWPakiecie}</Link>
           ) : null}
           <Link href={adresHarmonogramu} className="text-sm font-medium text-foodie-fiolet hover:underline">{copy.zespol.harmonogram.tytul}</Link>
           {pakiet.folderContentuUrl ? (

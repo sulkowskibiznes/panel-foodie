@@ -31,8 +31,8 @@ export type OpcjeKlonu = {
   autoWlaczona?: boolean;
 };
 
-export type PlikTestow = "akceptacja" | "cron" | "reklamy" | "zespol" | "harmonogram" | "kreator" | "skrzynka";
-const ROK_PLIKU: Record<PlikTestow, number> = { akceptacja: 2027, cron: 2028, reklamy: 2029, zespol: 2030, harmonogram: 2031, kreator: 2032, skrzynka: 2033 };
+export type PlikTestow = "akceptacja" | "cron" | "reklamy" | "zespol" | "harmonogram" | "kreator" | "skrzynka" | "import";
+const ROK_PLIKU: Record<PlikTestow, number> = { akceptacja: 2027, cron: 2028, reklamy: 2029, zespol: 2030, harmonogram: 2031, kreator: 2032, skrzynka: 2033, import: 2034 };
 
 /**
  * Okres na klony: osobny rok na plik testów i osobne półrocze na projekt Playwrighta (mobile 1-6, desktop 7-12),
@@ -265,5 +265,30 @@ export async function pochodzenieMaterialu(itemId: string): Promise<string | nul
   return zBaza(async (s) => {
     const [w] = await s<{ origin: string }[]>`select origin from public.package_items where id = ${itemId}`;
     return w?.origin ?? null;
+  });
+}
+
+export type ZadanieImportuTestowe = { id: string; kind: string; status: string; files_total: number | null; files_done: number | null; warnings: unknown; error: string | null; source_folder_id: string | null };
+
+/** Zadania importu pakietu (SPEC rozdz. 13.4). */
+export async function zadaniaImportu(pakietId: string): Promise<ZadanieImportuTestowe[]> {
+  return zBaza((s) => s<ZadanieImportuTestowe[]>`select id, kind, status, files_total, files_done, warnings, error, source_folder_id from public.import_jobs where package_id = ${pakietId} order by created_at`);
+}
+
+export type PlikPakietuTestowy = { id: string; item_id: string; kind: "image" | "video"; position: number; drive_file_id: string | null; original_name: string | null; preview_path: string | null; thumb_path: string | null; superseded_at: string | null };
+
+/** Wszystkie pliki pakietu z identyfikatorem z Dysku (import zapisuje `drive_file_id`). */
+export async function plikiPakietu(pakietId: string): Promise<PlikPakietuTestowy[]> {
+  return zBaza((s) => s<PlikPakietuTestowy[]>`
+    select a.id, a.item_id, a.kind, a.position, a.drive_file_id, a.original_name, a.preview_path, a.thumb_path, a.superseded_at
+    from public.item_assets a join public.package_items i on i.id = a.item_id
+    where i.package_id = ${pakietId} order by i.type, i.position, a.position`);
+}
+
+/** Pakiety klienta w danym roku i miesiącach (sprzątanie po przerwanych testach importu, które tworzą pakiety kreatorem). */
+export async function pakietyKlientaWOkresie(slug: string, rok: number, miesiace: number[]): Promise<string[]> {
+  return zBaza(async (s) => {
+    const w = await s<{ id: string }[]>`select p.id from public.packages p join public.clients c on c.id = p.client_id where c.slug = ${slug} and p.period_year = ${rok} and p.period_month = any(${miesiace}::int[])`;
+    return w.map((x) => x.id);
   });
 }

@@ -30,7 +30,7 @@ async function lokaleKlienta(clientId: string): Promise<{ kategoria: Enums["clie
 }
 
 /** Domyślne `location_ids` nowego materiału: kat1 puste (pakiet jest per lokal), kat2/kat3 wszystkie lokale. */
-async function domyslneLokale(clientId: string): Promise<string[]> {
+export async function domyslneLokale(clientId: string): Promise<string[]> {
   const { kategoria, ids } = await lokaleKlienta(clientId);
   return kategoria === "kat1" ? [] : ids;
 }
@@ -63,6 +63,7 @@ async function wstawPlik(materialId: string, opis: OpisPliku, position: number):
     width: opis.width,
     height: opis.height,
     position,
+    drive_file_id: opis.driveFileId ?? null,
   });
   if (error) throw new Error(`wstawPlik: ${error.message}`);
 }

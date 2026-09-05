@@ -13,7 +13,7 @@ import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } f
 import { copy } from "@/lib/copy";
 import type { PakietSzczegoly, TypMaterialu } from "@/lib/dto/materialy";
 
-/** „Dodaj materiał" (SPEC rozdz. 12.6): plik z komputera, rodzaj i pozycja; reklama trafia do wybranej kampanii jako grafika. */
+/** „Dodaj materiał" (SPEC rozdz. 12.6): plik z komputera albo link do pliku na Dysku, rodzaj i pozycja; reklama trafia do wybranej kampanii jako grafika. */
 export function DialogNowegoMaterialu({ open, onClose, pakiet, akcje, uprawnienia }: { open: boolean; onClose: () => void; pakiet: PakietSzczegoly; akcje: AkcjeMaterialow; uprawnienia: UprawnieniaMaterialow }) {
   const router = useRouter();
   const t = copy.zespol.materialy.nowy;
@@ -25,7 +25,7 @@ export function DialogNowegoMaterialu({ open, onClose, pakiet, akcje, uprawnieni
   const [potwierdzono, setPotwierdzono] = useState(false);
   const [wynik, setWynik] = useState<WynikZmiany | null>(null);
   const [trwa, startTransition] = useTransition();
-  const upload = useUploadPliku(useMemo(() => ({ przygotuj: akcje.przygotuj, zakoncz: akcje.zakoncz }), [akcje]));
+  const upload = useUploadPliku(useMemo(() => ({ przygotuj: akcje.przygotuj, zakoncz: akcje.zakoncz, pobierzZDysku: (url: string) => akcje.pobierzZDysku({ url, materialId: null, rodzaj: "dodatkowy" }) }), [akcje]));
 
   function zamknij() {
     onClose();
@@ -91,7 +91,7 @@ export function DialogNowegoMaterialu({ open, onClose, pakiet, akcje, uprawnieni
               </div>
             </>
           )}
-          <PolePliku id="nowy-plik" stan={upload.stan} onPlik={(plik) => void upload.wyslij(plik)} etykieta={t.plik} wideo={typ !== "reklama"} />
+          <PolePliku id="nowy-plik" stan={upload.stan} onPlik={(plik) => void upload.wyslij(plik)} onLink={(url) => void upload.wyslijZDysku(url)} etykieta={t.plik} wideo={typ !== "reklama"} />
           <PotwierdzeniePoAkceptacji status={pakiet.status} wartosc={potwierdzono} onChange={setPotwierdzono} />
           <KomunikatWyniku wynik={wynik} />
           <div className="flex justify-end gap-2">

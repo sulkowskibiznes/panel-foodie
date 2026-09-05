@@ -42,6 +42,12 @@ export type AkcjaAudytu =
   | "zespol.material_usuniety"
   | "zespol.plik_pobrany"
   | "zespol.harmonogram_zmieniony"
+  | "zespol.import_uruchomiony"
+  | "zespol.import_zakonczony"
+  | "zespol.import_blad"
+  | "zespol.import_wznowiony"
+  | "zespol.import_ostrzezenie_zignorowane"
+  | "zespol.import_pliku_z_dysku"
   | "system.auto_akceptacja";
 
 export type ZdarzenieAudytu = {

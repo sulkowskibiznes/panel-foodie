@@ -1,3 +1,4 @@
+import type { WynikPlikuZDysku } from "@/lib/import/pojedynczy";
 import type { WynikPrzygotowania, WynikZakonczenia } from "@/lib/pliki/upload";
 import type { WynikZmiany } from "@/app/zespol/(panel)/klienci/[slug]/pakiety/[pakietId]/materialy-akcje";
 import type { CelKampanii, TypMaterialu } from "@/lib/dto/materialy";
@@ -8,6 +9,8 @@ export type DaneKampaniiFormularz = { nazwa: string; cel: CelKampanii | null; no
 export type AkcjeMaterialow = {
   przygotuj: (plik: { nazwa: string; mime: string; bytes: number }) => Promise<WynikPrzygotowania>;
   zakoncz: (pozwolenie: string) => Promise<WynikZakonczenia>;
+  /** Link do pojedynczego pliku na Dysku zamiast pliku z komputera (SPEC rozdz. 12.6); wynik to ten sam podpisany opis. */
+  pobierzZDysku: (dane: { url: string; materialId: string | null; rodzaj: "dodatkowy" | "podmiana" }) => Promise<WynikPlikuZDysku>;
   dodajMaterial: (dane: { typ: TypMaterialu; kampaniaId: string | null; tytul: string | null; pozycja: number | null; opis: string; potwierdzono: boolean }) => Promise<WynikZmiany>;
   podmienPlik: (dane: { materialId: string; assetId: string; opis: string; potwierdzono: boolean }) => Promise<WynikZmiany>;
   dodajPlik: (dane: { materialId: string; opis: string; potwierdzono: boolean }) => Promise<WynikZmiany>;

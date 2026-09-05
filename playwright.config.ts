@@ -45,6 +45,9 @@ export default defineConfig({
           SUPABASE_URL: stack.apiUrl,
           SUPABASE_PUBLISHABLE_KEY: stack.publishableKey,
           SUPABASE_SECRET_KEY: stack.secretKey,
+          // Import z Dysku na atrapie w pamięci (lib/drive/atrapa.ts): bez konta usługi, bez sieci.
+          DRIVE_ATRAPA: "1",
+          GOOGLE_DRIVE_ROOT_FOLDER_ID: "atrapa-materialy-klientow",
         },
       }
     : undefined,

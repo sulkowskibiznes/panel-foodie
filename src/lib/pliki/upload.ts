@@ -1,9 +1,9 @@
 import "server-only";
 import { randomUUID } from "node:crypto";
-import sharp, { type Metadata, type Sharp } from "sharp";
 import { env } from "@/lib/env";
 import { wyprowadzKlucz } from "@/lib/krypto";
-import { czyObraz, czyRodzajPliku, formatujMB, limitBajtow, ROZSZERZENIA, sprawdzPlik, type RodzajPliku } from "@/lib/pliki/magia";
+import { czyObraz, czyRodzajPliku, formatujMB, limitBajtow, sprawdzPlik, type RodzajPliku } from "@/lib/pliki/magia";
+import { BUCKET_MATERIALOW, sciezkaOryginalu, usunObiekty, zapiszPlikMaterialu } from "@/lib/pliki/przetwarzanie";
 import { odczytajLadunek, podpiszLadunek } from "@/lib/podpis";
 import { supabaseSerwer } from "@/lib/supabase/server";
 
@@ -17,7 +17,7 @@ import { supabaseSerwer } from "@/lib/supabase/server";
  *    warianty preview 1080 px i thumb 400 px (webp), a potem wystawia podpisany OPIS pliku, który jedyna
  *    przyjmuje mutacja materiału (lib/dane/materialy-zespol.ts). Klient nigdy nie podaje ścieżek sam.
  */
-export const BUCKET_MATERIALOW = "materialy";
+export { BUCKET_MATERIALOW, usunObiekty };
 const MS_WAZNOSCI_POZWOLENIA = 2 * 60 * 60 * 1000;
 const MS_WAZNOSCI_OPISU = 2 * 60 * 60 * 1000;
 
@@ -35,15 +35,13 @@ export type OpisPliku = {
   width: number | null;
   height: number | null;
   originalName: string;
+  /** Identyfikator pliku na Dysku, gdy plik przyszedł linkiem (SPEC rozdz. 12.6); null z komputera. */
+  driveFileId: string | null;
   wygasaO: number;
 };
 
 function klucz() {
   return wyprowadzKlucz(env().SESSION_SECRET, "upload");
-}
-
-function sciezkaOryginalu(clientId: string, assetId: string, rodzaj: RodzajPliku): string {
-  return `${clientId}/${assetId}/original.${ROZSZERZENIA[rodzaj]}`;
 }
 
 export type WynikPrzygotowania = { ok: true; assetId: string; signedUrl: string; pozwolenie: string } | { ok: false; powod: "nieobslugiwany" | "zaDuzy"; limit?: string };
@@ -76,50 +74,14 @@ async function pobierzPoczatek(sciezka: string): Promise<{ bajty: Uint8Array; ro
   return { bajty: bufor.subarray(0, 32), rozmiar: Number.isFinite(calosc) ? calosc : bufor.length };
 }
 
-async function wgraj(sciezka: string, dane: Buffer, contentType: string): Promise<void> {
-  const { error } = await supabaseSerwer().storage.from(BUCKET_MATERIALOW).upload(sciezka, dane, { contentType, upsert: true });
-  if (error) throw new Error(`upload ${sciezka}: ${error.message}`);
-}
-
-export async function usunObiekty(sciezki: string[]): Promise<void> {
-  const lista = sciezki.filter((s) => s.length > 0);
-  if (lista.length === 0) return;
-  const { error } = await supabaseSerwer().storage.from(BUCKET_MATERIALOW).remove(lista);
-  if (error) console.error("[upload] nie usunięto obiektów", error.message);
-}
-
 /**
- * Obrazy: EXIF zdjęty przez ponowne zakodowanie (sharp bez `keepMetadata`), orientacja z EXIF zastosowana
- * przed zdjęciem, do tego preview 1080 px i thumb 400 px w webp. HEIC bez dekodera zostaje w oryginale, bez wariantów.
+ * Obraz już leży w Storage (PUT z przeglądarki): ściągamy go, zdejmujemy EXIF i robimy warianty
+ * tą samą ścieżką co import z Dysku (lib/pliki/przetwarzanie.ts); oryginał wraca bez metadanych.
  */
-async function przetworzObraz(sciezkaOryginalu: string, rodzaj: RodzajPliku, katalog: string): Promise<{ previewPath: string | null; thumbPath: string | null; width: number | null; height: number | null; ostrzezenia: string[] }> {
-  const { data, error } = await supabaseSerwer().storage.from(BUCKET_MATERIALOW).download(sciezkaOryginalu);
-  if (error || !data) throw new Error(`download ${sciezkaOryginalu}: ${error?.message ?? "brak danych"}`);
-  const bufor = Buffer.from(await data.arrayBuffer());
-  let obraz: Sharp;
-  let meta: Metadata;
-  try {
-    obraz = sharp(bufor, { failOn: "none" }).rotate();
-    meta = await obraz.metadata();
-  } catch {
-    return { previewPath: null, thumbPath: null, width: null, height: null, ostrzezenia: ["bezPodgladu"] };
-  }
-  const obrocone = meta.orientation && meta.orientation >= 5;
-  const width = (obrocone ? meta.height : meta.width) ?? null;
-  const height = (obrocone ? meta.width : meta.height) ?? null;
-  const previewPath = `${katalog}/preview.webp`;
-  const thumbPath = `${katalog}/thumb.webp`;
-  const [preview, thumb] = await Promise.all([
-    obraz.clone().resize({ width: 1080, withoutEnlargement: true }).webp({ quality: 82 }).toBuffer(),
-    obraz.clone().resize({ width: 400, withoutEnlargement: true }).webp({ quality: 72 }).toBuffer(),
-  ]);
-  // Oryginał bez EXIF: to samo kodowanie co wejście; HEIC bez enkodera zostaje jak był.
-  let oryginal: Buffer | null = null;
-  if (rodzaj === "image/jpeg") oryginal = await obraz.clone().jpeg({ quality: 92, mozjpeg: true }).toBuffer();
-  else if (rodzaj === "image/png") oryginal = await obraz.clone().png().toBuffer();
-  else if (rodzaj === "image/webp") oryginal = await obraz.clone().webp({ quality: 92 }).toBuffer();
-  await Promise.all([wgraj(previewPath, preview, "image/webp"), wgraj(thumbPath, thumb, "image/webp"), oryginal ? wgraj(sciezkaOryginalu, oryginal, rodzaj) : Promise.resolve()]);
-  return { previewPath, thumbPath, width, height, ostrzezenia: [] };
+async function przetworzObraz(sciezka: string, rodzaj: RodzajPliku, clientId: string, assetId: string) {
+  const { data, error } = await supabaseSerwer().storage.from(BUCKET_MATERIALOW).download(sciezka);
+  if (error || !data) throw new Error(`download ${sciezka}: ${error?.message ?? "brak danych"}`);
+  return zapiszPlikMaterialu(Buffer.from(await data.arrayBuffer()), rodzaj, clientId, assetId);
 }
 
 /** Krok 3. Sprawdzenie pliku, który już leży w Storage, i podpisany opis dla mutacji materiału. */
@@ -134,12 +96,11 @@ export async function zakonczUpload(clientId: string, pozwolenieToken: string): 
     await usunObiekty([sciezka]);
     return { ok: false, powod: sprawdzenie.powod, limit: sprawdzenie.limit ? formatujMB(sprawdzenie.limit) : undefined };
   }
-  const katalog = `${clientId}/${pozwolenie.assetId}`;
   const ostrzezenia: string[] = sprawdzenie.ostrzezenie ? [sprawdzenie.ostrzezenie] : [];
   let warianty = { previewPath: null as string | null, thumbPath: null as string | null, width: null as number | null, height: null as number | null };
   if (czyObraz(sprawdzenie.rodzaj)) {
     try {
-      const w = await przetworzObraz(sciezka, sprawdzenie.rodzaj, katalog);
+      const w = await przetworzObraz(sciezka, sprawdzenie.rodzaj, clientId, pozwolenie.assetId);
       warianty = { previewPath: w.previewPath, thumbPath: w.thumbPath, width: w.width, height: w.height };
       ostrzezenia.push(...w.ostrzezenia);
     } catch (blad) {
@@ -160,9 +121,15 @@ export async function zakonczUpload(clientId: string, pozwolenieToken: string): 
     width: warianty.width,
     height: warianty.height,
     originalName: pozwolenie.nazwa,
+    driveFileId: null,
     wygasaO: Date.now() + MS_WAZNOSCI_OPISU,
   };
   return { ok: true, opis: podpiszLadunek(klucz(), opis), plik: { assetId: opis.assetId, kind: opis.kind, width: opis.width, height: opis.height, bytes: opis.bytes, originalName: opis.originalName }, ostrzezenia };
+}
+
+/** Podpisany opis pliku dla mutacji materiału; używa go też import pojedynczego pliku z Dysku (lib/import/pojedynczy.ts). */
+export function podpiszOpisPliku(opis: Omit<OpisPliku, "wygasaO">): string {
+  return podpiszLadunek(klucz(), { ...opis, wygasaO: Date.now() + MS_WAZNOSCI_OPISU });
 }
 
 /** Opis pliku z podpisanego tokenu, wyłącznie dla tego klienta (mutacja materiału sprawdza jeszcze pakiet). */

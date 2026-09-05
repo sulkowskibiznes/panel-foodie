@@ -9,6 +9,7 @@ import { copy } from "@/lib/copy";
 import { pobierzKlientaPoSlugu } from "@/lib/dane/klienci-zespolu";
 import { dodajKampanie, dodajMaterial, dodajPlik, edytujKampanie, edytujMaterial, edytujPakiet, podmienPlik, usunKampanie, usunMaterial, usunPlik, zapiszReklame, type AktorZespolu, type DaneKampanii, type DaneReklamy, type PowodMutacji, type WynikMutacji } from "@/lib/dane/materialy-zespol";
 import { rozpoznajLinkDysku } from "@/lib/drive/linki";
+import { pobierzPlikZDysku, type WynikPlikuZDysku } from "@/lib/import/pojedynczy";
 import type { WynikAkcji } from "@/lib/dto/wynik";
 import { formatujDateCzas } from "@/lib/format";
 import { czyPoprawnaDataLokalna, zlozDateLokalna } from "@/lib/harmonogram/kalendarz";
@@ -86,6 +87,21 @@ export async function przygotujUpload(slug: string, pakietId: string, plik: z.in
 export async function zakonczUpload(slug: string, pakietId: string, pozwolenie: string): Promise<WynikZakonczenia> {
   const k = await autoryzuj(slug, pakietId, "materialy");
   return zakonczUploadPliku(k.clientId, String(pozwolenie ?? ""));
+}
+
+const schematZDysku = z.object({ url: z.string().min(1).max(500), materialId: z.string().nullable(), rodzaj: z.enum(["dodatkowy", "podmiana"]) });
+
+/** Zamiast pliku z komputera: link do pojedynczego pliku na Dysku (SPEC rozdz. 12.6). Plik spoza „Materiałów klientów" odpada. */
+export async function pobierzZDyskuAkcja(slug: string, pakietId: string, dane: z.input<typeof schematZDysku>): Promise<WynikPlikuZDysku> {
+  const k = await autoryzuj(slug, pakietId, "materialy");
+  const parsed = schematZDysku.safeParse(dane);
+  if (!parsed.success) return { ok: false, powod: "zlyLink" };
+  const link = rozpoznajLinkDysku(parsed.data.url);
+  if (!link) return { ok: false, powod: "zlyLink" };
+  if (link.rodzaj === "folder") return { ok: false, powod: "folder" };
+  const { ipHash, ua } = await infoZadania();
+  const materialId = parsed.data.materialId && czyUuid(parsed.data.materialId) ? parsed.data.materialId : null;
+  return pobierzPlikZDysku({ clientId: k.clientId, pakietId, itemId: materialId, rodzaj: parsed.data.rodzaj, link, aktor: aktor(k.czlonek), ipHash, ua });
 }
 
 // ---------- Materiały ----------

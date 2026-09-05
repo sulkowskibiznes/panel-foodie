@@ -26,7 +26,7 @@ export function DialogPlikow({ open, onClose, material, status, akcje }: { open:
   const [potwierdzono, setPotwierdzono] = useState(false);
   const [wynik, setWynik] = useState<WynikZmiany | null>(null);
   const [trwa, startTransition] = useTransition();
-  const upload = useUploadPliku(useMemo(() => ({ przygotuj: akcje.przygotuj, zakoncz: akcje.zakoncz }), [akcje]));
+  const upload = useUploadPliku(useMemo(() => ({ przygotuj: akcje.przygotuj, zakoncz: akcje.zakoncz, pobierzZDysku: (url: string) => akcje.pobierzZDysku({ url, materialId: material.id, rodzaj: tryb?.rodzaj === "podmiana" ? "podmiana" : "dodatkowy" }) }), [akcje, material.id, tryb?.rodzaj]));
   const reklama = material.typ === "reklama";
   const pliki: PlikDto[] = reklama ? material.warianty.filter((w) => w.rodzaj === "grafika" && w.plik).map((w) => w.plik as PlikDto) : material.pliki;
   const wymagaPotwierdzenia = czyPoAkceptacji(status) && !potwierdzono;
@@ -39,8 +39,8 @@ export function DialogPlikow({ open, onClose, material, status, akcje }: { open:
     upload.wyczysc();
   }
 
-  async function poUploadzie(plik: File) {
-    const opis = await upload.wyslij(plik);
+  async function poUploadzie(plik: File | { url: string }) {
+    const opis = plik instanceof File ? await upload.wyslij(plik) : await upload.wyslijZDysku(plik.url);
     if (!opis || !tryb) return;
     startTransition(async () => {
       const w = tryb.rodzaj === "podmiana" ? await akcje.podmienPlik({ materialId: material.id, assetId: tryb.assetId, opis, potwierdzono }) : await akcje.dodajPlik({ materialId: material.id, opis, potwierdzono });
@@ -97,7 +97,7 @@ export function DialogPlikow({ open, onClose, material, status, akcje }: { open:
         ) : null}
         {tryb ? (
           <div className="rounded-lg bg-szary-050 p-3" data-wybor-pliku={tryb.rodzaj}>
-            <PolePliku id={`plik-${material.id}`} stan={upload.stan} onPlik={(plik) => void poUploadzie(plik)} etykieta={tryb.rodzaj === "podmiana" ? t.wybierzNowy : t.wybierz} wideo={!reklama} />
+            <PolePliku id={`plik-${material.id}`} stan={upload.stan} onPlik={(plik) => void poUploadzie(plik)} onLink={(url) => void poUploadzie({ url })} etykieta={tryb.rodzaj === "podmiana" ? t.wybierzNowy : t.wybierz} wideo={!reklama} />
           </div>
         ) : null}
         <KomunikatWyniku wynik={wynik} />

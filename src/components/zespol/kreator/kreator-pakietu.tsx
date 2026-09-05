@@ -16,8 +16,8 @@ export type DaneKreatora = { rok: number; miesiac: number; lokalId: string | nul
 
 /**
  * Kreator pakietu na wklejanych linkach (SPEC rozdz. 12.3): klient i miesiąc, link do folderu z contentem,
- * kampanie z osobnymi folderami reklam (bywa ich kilka). Pakiet powstaje w szkicu; materiały dochodzą
- * z „Dodaj materiał" (faza 3) albo z importu po linku (faza 4).
+ * kampanie z osobnymi folderami reklam (bywa ich kilka). Pakiet powstaje w szkicu; z wklejonymi linkami
+ * kreator prowadzi od razu do karty weryfikacyjnej i importu (faza 4), bez nich zostaje „Dodaj materiał".
  */
 export function KreatorPakietu({ slug, kategoria, lokale, startWspolpracy, domyslnyOkres, zajeteOkresy, utworz }: { slug: string; kategoria: KategoriaKlienta; lokale: { id: string; name: string }[]; startWspolpracy: string | null; domyslnyOkres: { rok: number; miesiac: number }; /** „YYYY-MM" albo „YYYY-MM:lokalId" dla kat1 */ zajeteOkresy: string[]; utworz: (dane: DaneKreatora) => Promise<WynikKreatora> }) {
   const router = useRouter();
@@ -49,7 +49,8 @@ export function KreatorPakietu({ slug, kategoria, lokale, startWspolpracy, domys
         setBlad(w.blad);
         return;
       }
-      router.push(`/zespol/klienci/${slug}/pakiety/${w.pakietId}`);
+      const maFoldery = !!folder.trim() || kampanie.some((x) => !!x.folder?.trim());
+      router.push(maFoldery ? `/zespol/klienci/${slug}/pakiety/${w.pakietId}/import` : `/zespol/klienci/${slug}/pakiety/${w.pakietId}`);
     });
   }
 
@@ -99,7 +100,7 @@ export function KreatorPakietu({ slug, kategoria, lokale, startWspolpracy, domys
         <p className={`mt-1 text-xs ${folder && !linkContentu ? "text-czerwony" : "text-szary-600"}`} data-folder-status>
           {folder ? (linkContentu ? k.linkRozpoznany.replace("{id}", linkContentu.id) : k.linkNierozpoznany) : k.folderContentuOpis}
         </p>
-        <p className="mt-2 rounded-lg bg-szary-050 px-3 py-2 text-xs text-szary-600">{k.importWkrotce}</p>
+        <p className="mt-2 rounded-lg bg-szary-050 px-3 py-2 text-xs text-szary-600">{k.importPoUtworzeniu}</p>
       </section>
 
       <section className="rounded-xl bg-white p-5 shadow-miekki sm:p-6">

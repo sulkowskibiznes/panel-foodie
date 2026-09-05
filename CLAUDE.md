@@ -29,7 +29,8 @@ jest ważniejsze niż wszystko inne.
 
 ```bash
 pnpm dev              # serwer deweloperski (projekt z .env.local, czyli chmura)
-pnpm dev:lokalny      # serwer na porcie 3100 podpięty pod lokalny Supabase z Dockera (ten sam co E2E)
+pnpm dev:lokalny      # serwer na porcie 3100 podpięty pod lokalny Supabase z Dockera (ten sam co E2E); Dysk = atrapa w pamięci
+pnpm dev:lokalny:dysk # to samo, ale z prawdziwym kontem usługi Google z .env.local (sprawdzanie importu bez produkcji)
 pnpm build            # build produkcyjny — musi przechodzić przed każdym commitem
 pnpm lint             # eslint
 pnpm typecheck        # tsc --noEmit
@@ -59,7 +60,9 @@ src/
       (panel)/uwagi/                  # skrzynka uwag (rozdz. 12.5)
       (panel)/klienci/[slug]/pakiety/nowy/        # kreator pakietu na wklejanych linkach (rozdz. 12.3)
       (panel)/klienci/[slug]/pakiety/[pakietId]/  # ten sam ekran pakietu + akcje zespołu (akcje.ts: przejścia, odpowiedzi;
-                                                  # materialy-akcje.ts: upload, dodaj/podmień/edytuj materiał, kampanie)
+                                                  # materialy-akcje.ts: upload, plik z Dysku, dodaj/podmień/edytuj materiał, kampanie)
+      (panel)/klienci/[slug]/pakiety/[pakietId]/import/   # import z Dysku: karta weryfikacyjna, mapowanie, postęp (akcje.ts),
+                                                          # miniatura/[fileId] przez podpisany token
       (panel)/klienci/[slug]/harmonogram/         # kalendarz zespołu z przeciąganiem (dnd-kit) + akcje.ts
       (panel)/plik/, awatar/          # pliki dla zespołu (assertTeamClientAccess)
     api/
@@ -71,7 +74,8 @@ src/
     harmonogram/          # kalendarz zespołu (dnd-kit) i klienta (tylko odczyt), wspólna siatka miesiąca
     zespol/pakiety/       # akcje zespołu nad pakietem (wyślij, wycofaj, v2, cofnij, zaplanowano)
     zespol/materialy/     # narzędzia nad materiałem: upload (use-upload-pliku), dodaj, pliki/podmiana, edycja, reklama, kampania
-    zespol/kreator/       # kreator pakietu
+    zespol/kreator/       # kreator pakietu (z linkami prowadzi do /import)
+    zespol/import/        # karta weryfikacyjna, mapowanie (grafika ↔ opis), postęp importu
     zespol/pulpit/, zespol/skrzynka/  # „Pokaż link" na pulpicie, karta uwagi w skrzynce
     klient/pasek-podgladu.tsx         # stały pasek impersonacji
     ui/                   # shadcn
@@ -91,13 +95,19 @@ src/
     zadanie.ts            # IP (hash), UA, ścieżka z nagłówka x-pathname
     dane/                 # zapytania do bazy: materialy.ts (pakiet → DTO), komentarze.ts, pliki.ts, ustawienia.ts,
                           # pakiety-klienta.ts, klienci-zespolu.ts, linki.ts, materialy-zespol.ts (mutacje materiałów,
-                          # plików, kampanii, kreator), harmonogram.ts, skrzynka.ts
+                          # plików, kampanii, kreator), harmonogram.ts, skrzynka.ts, import.ts (zadania, poprzednie użycia folderu)
     dto/                  # kształty danych dla stron (materialy.ts, wynik.ts); nigdy surowe wiersze z bazy
     pakiety/              # przejscia.ts (maszyna stanów, czysta), baza.ts (zmienStatusPakietu, JEDYNA droga zmiany statusu),
                           # auto-akceptacja.ts (72 h / pon-sob), cron-auto-akceptacji.ts, otwarcie.ts,
                           # zmiana-materialu.ts (skutki dodania/podmiany/edycji wg tabeli 12.6, czyste), terminy.ts (kolory terminów)
-    pliki/                # magia.ts (magic bytes, limity; czyste), upload.ts (pozwolenie, PUT do Storage z przeglądarki, sharp, opis)
-    drive/linki.ts        # rozpoznawanie wklejonych linków do Dysku (czyste); import przez API w fazie 4
+    pliki/                # magia.ts (magic bytes, limity; czyste), przetwarzanie.ts (EXIF, warianty, Storage: wspólne dla uploadu
+                          # i importu), upload.ts (pozwolenie, PUT do Storage z przeglądarki, podpisany opis pliku)
+    drive/                # linki.ts (wklejone linki), nazwy.ts (sortowanie naturalne, numer i slajd z nazwy), opisy.ts (podział
+                          # dokumentów, dokument reklam), docx.ts (tekst z Worda), parowanie.ts (grafika ↔ opis): wszystko czyste;
+                          # api.ts (kontrakt), google.ts (konto usługi, JWT z google-jwt.ts), atrapa.ts (DRIVE_ATRAPA=1), klient.ts (wybór)
+    import/               # ocena.ts (ostrzeżenia i blokada karty, czyste), plan.ts (plan po mapowaniu, limity, zod), weryfikacja.ts
+                          # (karta: ścieżka do korzenia, listowanie), mapowanie.ts (propozycja + miniatury), zadania.ts (import_jobs,
+                          # worker w after(), wznowienie), pojedynczy.ts (plik z Dysku dla Dodaj/Podmień)
     harmonogram/kalendarz.ts  # siatka miesiąca, daty lokalne Europe/Warsaw (czyste)
     reklamy/warianty.ts   # składanie wariantu reklamy dla lokalu (czyste, testowane)
     podglad/tekst.ts      # hashtagi i linki w tekście posta
@@ -139,6 +149,8 @@ tests/e2e/                # Playwright na lokalnym Supabase, port 3100; zespół
 11. **Materiały wchodzą wyłącznie z wklejonego linku do folderu albo z ręcznego uploadu.**
     Panel nigdy sam nie wylicza ścieżki na Dysku i nigdy nie importuje bez potwierdzenia
     karty weryfikacyjnej przez człowieka. To zabezpieczenie przed materiałami z innego miesiąca.
+    Ekran mapowania (grafika ↔ opis) jest obowiązkowy; folder spoza „Materiałów klientów" jest
+    zablokowany bez obejścia, także dla podrobionego planu (serwer weryfikuje ponownie w `lib/import/zadania.ts`).
 12. **Podmiana pliku nie kasuje starego** — stary dostaje `superseded_at` i `superseded_by`.
     Każda zmiana materiału (dodanie, podmiana, edycja treści, data) przechodzi przez skutki
     z `lib/pakiety/zmiana-materialu.ts` i zapis w `lib/dane/materialy-zespol.ts`: plakietki, przesunięcie
@@ -219,8 +231,9 @@ SUPABASE_URL
 SUPABASE_SECRET_KEY             # sb_secret_… — NIGDY z przedrostkiem NEXT_PUBLIC_
 SUPABASE_PUBLISHABLE_KEY        # sb_publishable_…
 SESSION_SECRET                  # podpis cookie sesji klienta
-GOOGLE_SERVICE_ACCOUNT_JSON     # import z Dysku (base64)
-GOOGLE_DRIVE_ROOT_FOLDER_ID
+GOOGLE_SERVICE_ACCOUNT_JSON     # import z Dysku: JSON klucza konta usługi (surowy albo base64)
+GOOGLE_DRIVE_ROOT_FOLDER_ID     # folder „Materiały klientów" udostępniony na adres konta usługi (odczyt)
+DRIVE_ATRAPA                    # „1" = atrapa Dysku w pamięci (E2E, dev:lokalny); puste na produkcji
 ZAPIER_WEBHOOK_URL
 INGEST_TOKEN                    # webhook rejestrujący raporty
 CRON_SECRET

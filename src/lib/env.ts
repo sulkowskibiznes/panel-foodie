@@ -17,6 +17,8 @@ const schemat = z.object({
   TEAM_EMAIL_ALLOWLIST: z.preprocess(pusteToBrak, z.string().optional()),
   GOOGLE_SERVICE_ACCOUNT_JSON: z.preprocess(pusteToBrak, z.string().optional()),
   GOOGLE_DRIVE_ROOT_FOLDER_ID: z.preprocess(pusteToBrak, z.string().optional()),
+  /** „1" = atrapa Dysku w pamięci zamiast konta usługi (testy E2E, `pnpm dev:lokalny`); nigdy na produkcji. */
+  DRIVE_ATRAPA: z.preprocess(pusteToBrak, z.enum(["0", "1"]).optional()),
   ZAPIER_WEBHOOK_URL: z.preprocess(pusteToBrak, z.url().optional()),
   INGEST_TOKEN: z.preprocess(pusteToBrak, z.string().optional()),
 });

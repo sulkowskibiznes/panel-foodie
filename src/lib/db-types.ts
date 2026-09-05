@@ -592,6 +592,7 @@ export type Database = {
       }
       import_jobs: {
         Row: {
+          attempts: number
           campaign_id: string | null
           created_at: string
           created_by: string | null
@@ -599,16 +600,21 @@ export type Database = {
           files_done: number | null
           files_total: number | null
           finished_at: string | null
+          heartbeat_at: string | null
           id: string
           item_id: string | null
           kind: Database["public"]["Enums"]["import_kind"]
           package_id: string | null
+          plan: Json
           source_folder_id: string | null
           source_url: string
+          started_at: string | null
           status: Database["public"]["Enums"]["import_status"]
+          verification: Json
           warnings: Json
         }
         Insert: {
+          attempts?: number
           campaign_id?: string | null
           created_at?: string
           created_by?: string | null
@@ -616,16 +622,21 @@ export type Database = {
           files_done?: number | null
           files_total?: number | null
           finished_at?: string | null
+          heartbeat_at?: string | null
           id?: string
           item_id?: string | null
           kind: Database["public"]["Enums"]["import_kind"]
           package_id?: string | null
+          plan?: Json
           source_folder_id?: string | null
           source_url: string
+          started_at?: string | null
           status?: Database["public"]["Enums"]["import_status"]
+          verification?: Json
           warnings?: Json
         }
         Update: {
+          attempts?: number
           campaign_id?: string | null
           created_at?: string
           created_by?: string | null
@@ -633,13 +644,17 @@ export type Database = {
           files_done?: number | null
           files_total?: number | null
           finished_at?: string | null
+          heartbeat_at?: string | null
           id?: string
           item_id?: string | null
           kind?: Database["public"]["Enums"]["import_kind"]
           package_id?: string | null
+          plan?: Json
           source_folder_id?: string | null
           source_url?: string
+          started_at?: string | null
           status?: Database["public"]["Enums"]["import_status"]
+          verification?: Json
           warnings?: Json
         }
         Relationships: [
