@@ -308,6 +308,8 @@ dodano: dokumenty `.docx` zamiast Dokumentów Google, foldery nazywane `Content 
   i harmonogramu; po imporcie link „Otwórz pakiet".
 - Wideo bez miniatury (kind `video`, `thumb_path = null`): jak w fazie 3.
 
-**Wymaga decyzji Szymona:** nic nowego. Do zrobienia po jego stronie: udostępnienie folderu „Materiały klientów"
-na adres konta usługi już działa (sprawdzone tylko do odczytu); na Vercelu ustawić `GOOGLE_SERVICE_ACCOUNT_JSON`
-i `GOOGLE_DRIVE_ROOT_FOLDER_ID` dla production i preview (`DRIVE_ATRAPA` puste).
+**Wymaga decyzji Szymona:** nic nowego. Migracja `20260906100001_import_plan_i_wznowienie.sql` wypchnięta do projektu
+chmurowego 2026-09-05 (`pnpm db:migrate`). `main` = `faza/4-import`, wdrożenie produkcyjne z GitHuba. Do zrobienia po
+jego stronie: na Vercelu ustawić `GOOGLE_SERVICE_ACCOUNT_JSON` i `GOOGLE_DRIVE_ROOT_FOLDER_ID` dla production i preview
+(`DRIVE_ATRAPA` puste); bez nich strona importu pokazuje notkę „nie skonfigurowany", a reszta panelu działa jak dotąd.
+Udostępnienie „Materiałów klientów" dla konta usługi już działa (sprawdzone tylko do odczytu).
