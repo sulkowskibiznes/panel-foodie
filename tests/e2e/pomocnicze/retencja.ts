@@ -2,6 +2,7 @@ import { randomUUID } from "node:crypto";
 import { config as dotenv } from "dotenv";
 import postgres from "postgres";
 import { createClient } from "@supabase/supabase-js";
+import { prostyPdf } from "../../../supabase/seed/pdf";
 
 dotenv({ path: ".env.local" });
 
@@ -68,8 +69,12 @@ export async function podmienPlikiKlonu(pakietId: string, clientId: string): Pro
   return sciezki;
 }
 
+/** Obiekt testowy zgodny z typami dopuszczonymi w buckecie: PDF dla faktur i dokumentów, PNG dla reszty. */
 export async function wgrajObiektTestowy(bucket: string, sciezka: string): Promise<void> {
-  const wynik = await storageTestowe().from(bucket).upload(sciezka, PNG_1X1, { contentType: "image/png", upsert: true });
+  const pdf = sciezka.endsWith(".pdf");
+  const wynik = await storageTestowe()
+    .from(bucket)
+    .upload(sciezka, pdf ? prostyPdf("Test E2E", sciezka) : PNG_1X1, { contentType: pdf ? "application/pdf" : "image/png", upsert: true });
   if (wynik.error) throw new Error(`upload ${bucket}/${sciezka}: ${wynik.error.message}`);
 }
 

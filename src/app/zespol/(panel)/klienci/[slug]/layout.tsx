@@ -24,6 +24,11 @@ export default async function UkladKartyKlienta({ children, params }: { children
           <h1 className="font-naglowek text-2xl text-foodie-czern sm:text-3xl">
             {klient.name}
             {klient.demo ? <span className="ml-3 align-middle rounded-full bg-fiolet-050 px-2 py-0.5 text-xs font-medium text-fiolet-700">{k.demo}</span> : null}
+            {klient.status !== "aktywny" ? (
+              <span className="ml-3 align-middle rounded-full bg-amber-50 px-2 py-0.5 text-xs font-medium text-bursztyn" data-status-klienta={klient.status}>
+                {k.statusKlienta[klient.status]}
+              </span>
+            ) : null}
           </h1>
           {mozeImpersonowac(czlonek.role, klient.demo) ? (
             <form action={rozpocznijPodglad.bind(null, slug)}>

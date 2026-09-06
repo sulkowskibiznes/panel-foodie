@@ -31,9 +31,9 @@ export async function zakonczWspolprace(clientId: string, teraz: Date): Promise<
   const ids = (wszystkieLinki ?? []).map((l) => l.id);
   let sesje = 0;
   if (ids.length > 0) {
-    const { data: unieważnione, error: bladSesji } = await db.from("client_sessions").update({ revoked_at: iso }).in("access_link_id", ids).is("revoked_at", null).select("id");
+    const { data: uniewaznione, error: bladSesji } = await db.from("client_sessions").update({ revoked_at: iso }).in("access_link_id", ids).is("revoked_at", null).select("id");
     if (bladSesji) throw new Error(`zakonczWspolprace (sesje): ${bladSesji.message}`);
-    sesje = unieważnione?.length ?? 0;
+    sesje = uniewaznione?.length ?? 0;
   }
   const { data: wygaszone, error: bladLinkow } = await db.from("access_links").update({ revoked_at: iso }).eq("client_id", clientId).is("revoked_at", null).select("id");
   if (bladLinkow) throw new Error(`zakonczWspolprace (linki): ${bladLinkow.message}`);

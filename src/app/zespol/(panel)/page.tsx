@@ -2,13 +2,14 @@ import Link from "next/link";
 import { PokazLinkPulpit } from "@/components/zespol/pulpit/pokaz-link";
 import { wymagajCzlonka } from "@/lib/auth-zespol";
 import { copy } from "@/lib/copy";
-import { pobierzIdsMoichKlientow, pobierzKlientowDla } from "@/lib/dane/klienci-zespolu";
+import { pobierzIdsMoichKlientow, pobierzKlientowDla, zakresKlientow } from "@/lib/dane/klienci-zespolu";
+import { pobierzKlientowNieaktywnych } from "@/lib/dane/offboarding";
 import { pobierzPakietyNaPulpit, type PakietNaPulpicie } from "@/lib/dane/materialy";
 import type { StatusPakietu } from "@/lib/dto/materialy";
-import { etykietaMiesiaca, etykietaOkresu, formatujKwote, liczebnik, tekstOdliczania } from "@/lib/format";
+import { etykietaMiesiaca, etykietaOkresu, formatujDate, formatujKwote, liczebnik, tekstOdliczania } from "@/lib/format";
 import { kluczMiesiaca, miesiacZDaty, parsujMiesiac } from "@/lib/harmonogram/kalendarz";
 import { KLASA_TERMINU, kolorTerminu } from "@/lib/pakiety/terminy";
-import { MOZE_ODSZYFROWAC_TOKEN, WIDZI_WSZYSTKICH_KLIENTOW } from "@/lib/uprawnienia";
+import { maUprawnienie, MOZE_ODSZYFROWAC_TOKEN, WIDZI_WSZYSTKICH_KLIENTOW } from "@/lib/uprawnienia";
 
 const MS_DNIA = 86_400_000;
 const STATUSY: StatusPakietu[] = ["szkic", "do_akceptacji", "poprawki", "zaakceptowany"];
@@ -58,8 +59,12 @@ function miesiacStartu(p: PakietNaPulpicie): string {
 export default async function Pulpit({ searchParams }: PageProps<"/zespol">) {
   const czlonek = await wymagajCzlonka();
   const widziWszystkich = WIDZI_WSZYSTKICH_KLIENTOW.includes(czlonek.role);
-  const filtry = odczytajFiltry(await searchParams, widziWszystkich);
+  const sp = await searchParams;
+  const filtry = odczytajFiltry(sp, widziWszystkich);
+  const usunieto = typeof sp.usunieto === "string" ? sp.usunieto.slice(0, 120) : null;
   const klienci = await pobierzKlientowDla(czlonek);
+  // Offboarding (SPEC rozdz. 17): wstrzymani i zakończeni poza główną listą, ale z wejściem do karty (admin i csm).
+  const nieaktywni = maUprawnienie(czlonek.role, "klienci", "pelne") ? await pobierzKlientowNieaktywnych(await zakresKlientow(czlonek)) : [];
   const zakres = !widziWszystkich ? klienci.map((k) => k.id) : filtry.zakres === "moi" ? await pobierzIdsMoichKlientow(czlonek.id) : null;
   const wszystkiePakiety = await pobierzPakietyNaPulpit(zakres);
   const pakiety = wszystkiePakiety.filter((p) => (filtry.status === null ? true : filtry.status === "wstrzymana" ? p.wstrzymana : p.status === filtry.status)).filter((p) => (filtry.miesiac ? miesiacStartu(p) === filtry.miesiac : true));
@@ -74,6 +79,11 @@ export default async function Pulpit({ searchParams }: PageProps<"/zespol">) {
     <div>
       <h1 className="font-naglowek text-2xl text-foodie-czern sm:text-3xl">{copy.zespol.pulpit.tytul}</h1>
       <p className="mt-1 text-sm text-szary-600">{copy.zespol.pulpit.opis}</p>
+      {usunieto ? (
+        <p role="status" className="mt-4 rounded-lg bg-green-50 px-3 py-2 text-sm text-zielony" data-usunieto-klienta>
+          {copy.zespol.pulpit.usunietoKlienta.replace("{klient}", usunieto)}
+        </p>
+      ) : null}
 
       <section className="mt-6">
         <h2 className="font-naglowek text-lg text-foodie-czern">{t.tytul}</h2>
@@ -230,6 +240,27 @@ export default async function Pulpit({ searchParams }: PageProps<"/zespol">) {
           </div>
         )}
       </section>
+
+      {nieaktywni.length > 0 ? (
+        <section className="mt-8" data-klienci-nieaktywni>
+          <h2 className="font-naglowek text-lg text-foodie-czern">{copy.zespol.pulpit.nieaktywni}</h2>
+          <p className="mt-1 text-sm text-szary-600">{copy.zespol.pulpit.nieaktywniOpis}</p>
+          <ul className="mt-4 divide-y divide-szary-100 rounded-xl bg-white shadow-miekki">
+            {nieaktywni.map((kl) => (
+              <li key={kl.id} className="flex flex-wrap items-center justify-between gap-3 px-4 py-3 text-sm" data-klient-nieaktywny={kl.slug}>
+                <div>
+                  <span className="font-medium text-foodie-czern">{kl.name}</span>
+                  <span className="ml-2 rounded-full bg-amber-50 px-2 py-0.5 text-xs font-medium text-bursztyn">{copy.zespol.karta.statusKlienta[kl.status]}</span>
+                  {kl.zakonczonoO ? <span className="ml-2 text-xs text-szary-600">{copy.zespol.karta.zakonczonaOd.replace("{data}", formatujDate(kl.zakonczonoO))}</span> : null}
+                </div>
+                <Link href={`/zespol/klienci/${kl.slug}/ustawienia`} className="font-medium text-foodie-fiolet hover:underline">
+                  {copy.zespol.pulpit.otworz}
+                </Link>
+              </li>
+            ))}
+          </ul>
+        </section>
+      ) : null}
     </div>
   );
 }

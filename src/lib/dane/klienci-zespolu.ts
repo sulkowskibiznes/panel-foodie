@@ -63,6 +63,9 @@ export type KartaKlienta = {
   monthly_amount_net: number | null;
   /** Klient demonstracyjny: bez linków dostępu i faktur (SPEC rozdz. 20 poz. 21). */
   demo: boolean;
+  /** Offboarding (SPEC rozdz. 17): `zakonczony` blokuje nowe linki, klient znika z pulpitu, można usunąć dane. */
+  status: Database["public"]["Enums"]["client_status"];
+  ended_at: string | null;
   slack_channel: string | null;
   cooperation_started_on: string | null;
   opiekun: { name: string } | null;
@@ -75,7 +78,7 @@ export async function pobierzKlientaPoSlugu(slug: string): Promise<KartaKlienta 
   const { data } = await supabaseSerwer()
     .from("clients")
     .select(
-      "id, slug, name, category, tier, monthly_amount_net, demo, slack_channel, cooperation_started_on, opiekun:team_members!clients_opiekun_id_fkey(name), locations(id, name, city, fb_page_name, position), client_contacts(id, name, role_label, is_primary)",
+      "id, slug, name, category, tier, monthly_amount_net, demo, status, ended_at, slack_channel, cooperation_started_on, opiekun:team_members!clients_opiekun_id_fkey(name), locations(id, name, city, fb_page_name, position), client_contacts(id, name, role_label, is_primary)",
     )
     .eq("slug", slug)
     .maybeSingle();
@@ -89,6 +92,8 @@ export async function pobierzKlientaPoSlugu(slug: string): Promise<KartaKlienta 
     tier: data.tier,
     monthly_amount_net: data.monthly_amount_net,
     demo: data.demo,
+    status: data.status,
+    ended_at: data.ended_at,
     slack_channel: data.slack_channel,
     cooperation_started_on: data.cooperation_started_on,
     opiekun: Array.isArray(opiekun) ? (opiekun[0] ?? null) : opiekun,

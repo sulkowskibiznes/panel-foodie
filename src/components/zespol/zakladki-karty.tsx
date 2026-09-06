@@ -7,7 +7,7 @@ import { maUprawnienie, type Rola } from "@/lib/uprawnienia";
 
 type Zakladka = { klucz: string; etykieta: string; href: string | null; podpowiedz?: string };
 
-/** Zakładki karty klienta (SPEC rozdz. 12.2). Niedostępne w tej fazie: wyszarzone z podpisem „wkrótce"; Wdrożenie nieaktywne za flagą (rozdz. 11). */
+/** Zakładki karty klienta (SPEC rozdz. 12.2). Ustawienia (offboarding, rozdz. 17) dla admina i csm; Wdrożenie nieaktywne za flagą (rozdz. 11). */
 export function ZakladkiKarty({ slug, rola }: { slug: string; rola: Rola }) {
   const pathname = usePathname();
   const baza = `/zespol/klienci/${slug}`;
@@ -20,7 +20,7 @@ export function ZakladkiKarty({ slug, rola }: { slug: string; rola: Rola }) {
     ...(maUprawnienie(rola, "faktury", "podglad") ? [{ klucz: "faktury", etykieta: z.faktury, href: `${baza}/faktury` }] : []),
     ...(maUprawnienie(rola, "dokumenty", "podglad") ? [{ klucz: "dokumenty", etykieta: z.dokumenty, href: `${baza}/dokumenty` }] : []),
     ...(maUprawnienie(rola, "dostep", "pelne") ? [{ klucz: "dostep", etykieta: z.dostep, href: `${baza}/dostep` }] : []),
-    { klucz: "ustawienia", etykieta: z.ustawienia, href: null, podpowiedz: copy.zespol.karta.wkrotce },
+    ...(maUprawnienie(rola, "klienci", "pelne") ? [{ klucz: "ustawienia", etykieta: z.ustawienia, href: `${baza}/ustawienia` }] : []),
     { klucz: "wdrozenie", etykieta: z.wdrozenie, href: null, podpowiedz: copy.zespol.karta.wdrozenieWkrotce },
   ];
 

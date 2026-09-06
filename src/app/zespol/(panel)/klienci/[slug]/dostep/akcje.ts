@@ -40,6 +40,7 @@ export type WynikNowegoLinku = { ok: true; linkId: string; adres: string; pin: s
 export async function utworzLink(slug: string, dane: z.input<typeof schematNowegoLinku>): Promise<WynikNowegoLinku> {
   const { czlonek, klient } = await autoryzuj(slug);
   if (klient.demo) return { ok: false, blad: copy.zespol.dostep.bledy.klientDemo };
+  if (klient.status === "zakonczony") return { ok: false, blad: copy.zespol.dostep.bledy.klientZakonczony };
   const parsed = schematNowegoLinku.safeParse(dane);
   if (!parsed.success) return { ok: false, blad: copy.zespol.dostep.bledy.brakEtykiety };
   const { contactId, pinKind, canApprove } = parsed.data;

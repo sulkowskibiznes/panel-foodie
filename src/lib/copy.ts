@@ -445,6 +445,9 @@ export const copy = {
       kolumny: { klient: "Klient", kategoria: "Kategoria", pakiet: "Pakiet", doAkceptacji: "Do akceptacji", linki: "Aktywne linki" },
       otworz: "Otwórz kartę",
       miesiecznie: "mies. netto",
+      nieaktywni: "Współprace wstrzymane i zakończone",
+      nieaktywniOpis: "Nie ma ich na pulpicie, ale karta klienta działa: można wznowić współpracę albo usunąć dane.",
+      usunietoKlienta: "Dane klienta {klient} zostały usunięte.",
     },
     karta: {
       demo: "klient demonstracyjny",
@@ -923,6 +926,7 @@ export const copy = {
       status: { aktywny: "Aktywny", wygaszony: "Wygaszony", zablokowany: "Zablokowany do", tylkoPodglad: "tylko podgląd" },
       nigdy: "jeszcze nie",
       demo: "To klient demonstracyjny do pokazywania panelu. Nie wystawiamy mu linków dostępu ani faktur. Zespół ogląda go przez „Zobacz jak klient\".",
+      zakonczony: "Współpraca z tym klientem jest zakończona, linki są wygaszone. Żeby utworzyć nowy link, wznów współpracę w zakładce Ustawienia.",
       akcje: {
         pokazLink: "Pokaż link",
         ukryjLink: "Ukryj",
@@ -982,6 +986,7 @@ export const copy = {
       },
       bledy: {
         klientDemo: "Klient demonstracyjny nie dostaje linków dostępu.",
+        klientZakonczony: "Współpraca z tym klientem jest zakończona. Wznów ją w zakładce Ustawienia, zanim utworzysz link.",
         brakEtykiety: "Wpisz opis linku albo wybierz osobę kontaktową.",
         ogolny: "Nie udało się wykonać tej operacji. Odśwież stronę i spróbuj ponownie.",
       },
