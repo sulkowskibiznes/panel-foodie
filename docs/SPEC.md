@@ -201,7 +201,9 @@ create table team_members (
   name text not null,
   email text not null unique,
   role team_role not null,
-  active boolean not null default true
+  active boolean not null default true,
+  client_contact text                        -- faza 5: kanał kontaktu pokazywany klientowi w „Twój pakiet" (np. służbowy
+                                             -- WhatsApp); null = ogólny kontakt agencji. Nigdy e-mail ani telefon prywatny.
 );
 
 create table client_assignments (
@@ -433,7 +435,8 @@ create table reports (
   period_year int not null,
   period_month int not null,
   title text not null,                       -- „Raport miesięczny - sierpień 2026"
-  url text not null,                         -- https://raporty.foodiemedia.pl/r/<token>; host walidowany
+  url text not null,                         -- https://raporty.foodiemedia.pl/r/<token>; host walidowany w kodzie
+                                             -- i CHECK-iem w bazie (faza 5)
   cooperation_month int,
   published_at timestamptz not null default now(),
   source report_source not null default 'reczne',
@@ -494,7 +497,8 @@ create table service_interests (
   service_id uuid not null references services(id),
   note text,
   created_at timestamptz not null default now(),
-  handled_at timestamptz
+  handled_at timestamptz,
+  handled_by uuid references team_members(id) -- faza 5: kto z zespołu oznaczył jako załatwione
 );
 
 -- === WDROŻENIE (feature flag, wyłączone w MVP) ===
@@ -535,7 +539,9 @@ create table outbox (
   attempts int not null default 0,
   last_error text,
   created_at timestamptz not null default now(),
-  sent_at timestamptz
+  sent_at timestamptz,
+  next_attempt_at timestamptz not null default now()  -- faza 5: cron bierze pending z minionym terminem;
+                                                      -- nieudana próba przesuwa o 1, 5, 15, 60 min, piąta = failed
 );
 
 create table settings (

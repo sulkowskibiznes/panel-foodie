@@ -26,9 +26,14 @@ export function UkladZespolu({ czlonek, nieprzeczytaneUwagi = 0, children }: { c
               </Link>
             ) : null}
             {maUprawnienie(czlonek.role, "ustawienia", "pelne") ? (
-              <Link href="/zespol/ustawienia/zespol" className="font-medium text-foodie-czern hover:text-foodie-fiolet">
-                {n.ustawienia}
-              </Link>
+              <>
+                <Link href="/zespol/ustawienia/zespol" className="font-medium text-foodie-czern hover:text-foodie-fiolet">
+                  {n.ustawienia}
+                </Link>
+                <Link href="/zespol/ustawienia/powiadomienia" className="font-medium text-foodie-czern hover:text-foodie-fiolet" data-link-powiadomien>
+                  {n.powiadomienia}
+                </Link>
+              </>
             ) : null}
           </nav>
           <div className="ml-auto flex items-center gap-4 text-sm">

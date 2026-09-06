@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { MAKS_BAJTOW_OBRAZU, MAKS_BAJTOW_WIDEO, OSTRZEZENIE_BAJTOW_WIDEO, rozpoznajMagie, sprawdzPlik } from "@/lib/pliki/magia";
+import { czyMagiaPdf, MAKS_BAJTOW_OBRAZU, MAKS_BAJTOW_WIDEO, OSTRZEZENIE_BAJTOW_WIDEO, rozpoznajMagie, sprawdzPlik } from "@/lib/pliki/magia";
 
 const bajty = (...b: (number | string)[]) => {
   const wynik: number[] = [];
@@ -44,5 +44,11 @@ describe("magic bytes (SPEC rozdz. 16 pkt 11)", () => {
     expect(sprawdzPlik({ bajtyPoczatku: PNG, bytes: 10, zadeklarowanyMime: "video/mp4" })).toMatchObject({ ok: false, powod: "niezgodnyZDeklaracja" });
     expect(sprawdzPlik({ bajtyPoczatku: PNG, bytes: 10, zadeklarowanyMime: "image/jpeg" })).toMatchObject({ ok: true, rodzaj: "image/png" });
     expect(sprawdzPlik({ bajtyPoczatku: bajty("GIF89a"), bytes: 10, zadeklarowanyMime: "image/gif" })).toMatchObject({ ok: false, powod: "nieobslugiwany" });
+  });
+  it("PDF faktur i dokumentów: tylko nagłówek %PDF-, nigdy po rozszerzeniu", () => {
+    expect(czyMagiaPdf(bajty("%PDF-1.7"))).toBe(true);
+    expect(czyMagiaPdf(bajty("%PDF"))).toBe(false);
+    expect(czyMagiaPdf(JPEG)).toBe(false);
+    expect(czyMagiaPdf(Uint8Array.from([0x25, 0x50]))).toBe(false);
   });
 });

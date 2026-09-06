@@ -57,6 +57,10 @@ src/
       (panel)/plik/, awatar/          # pliki i zdjęcia profilowe przez signed URL po assertClientAccess
     p/[token]/            # token linku ALBO token podglądu „podglad.…" (impersonacja zespołu, tryb tylko do odczytu)
       (panel)/harmonogram/            # kalendarz klienta tylko do odczytu (kryterium 22)
+      (panel)/raporty/, faktury/      # raporty (link do raporty.foodiemedia.pl w nowej karcie), faktury i dokumenty (rozdz. 5.5, 5.6)
+      (panel)/faktura/[id], dokument/[id]   # PDF przez signed URL (10 min) po assertClientAccess; cudzy = 404
+      (panel)/pakiet/, uslugi/        # „Twój pakiet" (5.7), „Co jeszcze możemy zrobić" (5.8, akcje.ts: zainteresowanie + outbox)
+      (panel)/wdrozenie/              # 404 przy onboarding_enabled = false; kroki tylko do odczytu po włączeniu (rozdz. 11)
       podglad/wyjdz/                  # wyjście z podglądu (audyt)
     zespol/               # panel zespołu — wymaga Supabase Auth + roli
       (panel)/uwagi/                  # skrzynka uwag (rozdz. 12.5)
@@ -66,10 +70,16 @@ src/
       (panel)/klienci/[slug]/pakiety/[pakietId]/import/   # import z Dysku: karta weryfikacyjna, mapowanie, postęp (akcje.ts),
                                                           # miniatura/[fileId] przez podpisany token
       (panel)/klienci/[slug]/harmonogram/         # kalendarz zespołu z przeciąganiem (dnd-kit) + akcje.ts
+      (panel)/klienci/[slug]/raporty/, faktury/, dokumenty/   # zakładki z akcjami (akcje.ts); pliki-akcje.ts = upload PDF (lib/pliki/pdf.ts)
+      (panel)/klienci/[slug]/page.tsx             # podsumowanie + zgłoszenia „Chcę wiedzieć więcej" (akcje.ts: załatwione)
+      (panel)/faktura/[id], dokument/[id]         # PDF dla zespołu (uprawnienie + assertTeamClientAccess)
+      (panel)/ustawienia/powiadomienia/           # kolejka outbox do Zapiera, „Ponów" (admin)
       (panel)/plik/, awatar/          # pliki dla zespołu (assertTeamClientAccess)
     api/
-      ingest/report/      # webhook do rejestrowania raportów
+      ingest/report/      # webhook do rejestrowania raportów: Bearer INGEST_TOKEN, host tylko raporty.foodiemedia.pl (rozdz. 9)
       cron/auto-akceptacja/  # co godzinę (vercel.json), Bearer CRON_SECRET; logika w lib/pakiety/cron-auto-akceptacji.ts
+      cron/outbox/        # co minutę: wysyłka kolejki do Zapiera, 5 prób z narastającym odstępem (lib/outbox/wysylka.ts)
+      cron/faktury/       # codziennie 04:00 UTC (6:00 latem): do_zaplaty -> po_terminie (lib/faktury/status.ts)
   components/
     podglad/              # podglądy 1:1 — post/relacja/reels na FB, reklama/ w 6 placementach; czyste, bez danych
     pakiet/               # ekran pakietu wspólny dla klienta i zespołu: pasek decyzji, banery, wątki, sekcje
@@ -79,7 +89,12 @@ src/
     zespol/kreator/       # kreator pakietu (z linkami prowadzi do /import)
     zespol/import/        # karta weryfikacyjna, mapowanie (grafika ↔ opis), postęp importu
     zespol/pulpit/, zespol/skrzynka/  # „Pokaż link" na pulpicie, karta uwagi w skrzynce
+    zespol/raporty/, faktury/, dokumenty/  # dialogi i listy zakładek (faza 5)
+    zespol/pliki/         # upload PDF: use-upload-pdf (3 kroki jak materiały), pole-pdf
+    zespol/powiadomienia/, zespol/uslugi/  # kolejka outbox (admin), zgłoszenia usług na karcie klienta
     klient/pasek-podgladu.tsx         # stały pasek impersonacji
+    klient/wiecej-mobile.tsx          # arkusz „Więcej" w dolnej nawigacji (ikony po kluczu, nie funkcje)
+    klient/uslugi/        # karta usługi z modalem jednego pola
     ui/                   # shadcn
   lib/
     auth-klient.ts        # token linku, PIN, argon2id, hash-atrapa (czysty Node, używa go też seed)
@@ -94,16 +109,24 @@ src/
     krypto.ts             # sha256, HMAC, AES-GCM, HKDF z SESSION_SECRET
     limity.ts             # blokady linku i limit na IP (funkcje SQL zwieksz_limit, odnotuj_nieudane_logowanie)
     audyt.ts, outbox.ts   # zapiszAudyt(), dodajDoOutbox()
+    cron.ts               # czyAutoryzowanyCron(): Bearer CRON_SECRET w stałym czasie, wspólne dla trzech cronów
+    outbox/               # wysylka.ts (czysta: zajęcie wiersza, próby, odstępy 1/5/15/60 min, failed po 5.), baza.ts (Zapier przez fetch)
+    raporty/walidacja.ts  # host raportów, okres YYYY-MM, ciało webhooka (zod), lokal dla kat1 (czyste)
+    faktury/status.ts     # po_terminie z daty w Europe/Warsaw, brutto z netto, cron statusów (czyste)
+    wdrozenie/postep.ts   # pasek postępu kroków (czyste)
     zadanie.ts            # IP (hash), UA, ścieżka z nagłówka x-pathname
     dane/                 # zapytania do bazy: materialy.ts (pakiet → DTO), komentarze.ts, pliki.ts, ustawienia.ts,
                           # pakiety-klienta.ts, klienci-zespolu.ts, linki.ts, materialy-zespol.ts (mutacje materiałów,
-                          # plików, kampanii, kreator), harmonogram.ts, skrzynka.ts, import.ts (zadania, poprzednie użycia folderu)
-    dto/                  # kształty danych dla stron (materialy.ts, wynik.ts); nigdy surowe wiersze z bazy
+                          # plików, kampanii, kreator), harmonogram.ts, skrzynka.ts, import.ts (zadania, poprzednie użycia folderu),
+                          # raporty.ts (jeden na klient+lokal+miesiąc, nadpisanie), faktury.ts, dokumenty.ts, uslugi.ts,
+                          # twoj-pakiet.ts (opiekun bez danych prywatnych), powiadomienia.ts (kolejka outbox dla admina)
+    dto/                  # kształty danych dla stron (materialy.ts, klient.ts, wynik.ts); nigdy surowe wiersze z bazy
     pakiety/              # przejscia.ts (maszyna stanów, czysta), baza.ts (zmienStatusPakietu, JEDYNA droga zmiany statusu),
                           # auto-akceptacja.ts (72 h / pon-sob), cron-auto-akceptacji.ts, otwarcie.ts,
                           # zmiana-materialu.ts (skutki dodania/podmiany/edycji wg tabeli 12.6, czyste), terminy.ts (kolory terminów)
     pliki/                # magia.ts (magic bytes, limity; czyste), przetwarzanie.ts (EXIF, warianty, Storage: wspólne dla uploadu
-                          # i importu), upload.ts (pozwolenie, PUT do Storage z przeglądarki, podpisany opis pliku)
+                          # i importu), upload.ts (pozwolenie, PUT do Storage z przeglądarki, podpisany opis pliku),
+                          # pdf.ts (ta sama droga dla PDF faktur i dokumentów: buckety faktury/dokumenty, magic bytes %PDF-)
     drive/                # linki.ts (wklejone linki), nazwy.ts (sortowanie naturalne, numer i slajd z nazwy), opisy.ts (podział
                           # dokumentów, dokument reklam), docx.ts (tekst z Worda), parowanie.ts (grafika ↔ opis): wszystko czyste;
                           # api.ts (kontrakt), google.ts (konto usługi, JWT z google-jwt.ts), atrapa.ts (DRIVE_ATRAPA=1), klient.ts (wybór)
@@ -118,7 +141,7 @@ src/
     db-types.ts           # generowane
   proxy.ts                # TYLKO nagłówek x-pathname i odświeżanie cookies Auth zespołu; zero decyzji o dostępie
 supabase/migrations/
-supabase/seed/            # seed 3 klientów + zespół + usługi; grafiki zastępcze z sharp
+supabase/seed/            # seed 3 klientów + zespół + usługi; grafiki zastępcze z sharp, PDF-y z pdf.ts (umowy, faktury)
 supabase/templates/       # szablon maila z kodem OTP (lokalnie; w chmurze wklejany ręcznie)
 docs/SPEC.md              # źródło prawdy
 docs/PLAN-SESJA-STARTOWA.md  # plan faz 0 i 1, krytyka spec-u, decyzje (2026-09-02)
@@ -147,7 +170,9 @@ tests/e2e/                # Playwright na lokalnym Supabase, port 3100; zespół
 9. **Zmiana statusu pakietu zawsze przez `lib/pakiety/przejscia.ts`** — jedna maszyna stanów,
    która zapisuje `package_events` i wrzuca zdarzenie do `outbox`. Nie ustawiaj `status`
    bezpośrednio `update`em w handlerze.
-10. **Webhook nigdy nie blokuje odpowiedzi.** Zapis do `outbox`, wysyłka cronem.
+10. **Webhook nigdy nie blokuje odpowiedzi.** Zapis do `outbox`, wysyłka cronem co minutę
+    (`lib/outbox/wysylka.ts`): 5 prób z odstępami 1, 5, 15, 60 min, potem `failed` i „Ponów" w Ustawieniach.
+    Adres raportu w `reports` musi wskazywać `raporty.foodiemedia.pl` (kod i CHECK w bazie).
 11. **Materiały wchodzą wyłącznie z wklejonego linku do folderu albo z ręcznego uploadu.**
     Panel nigdy sam nie wylicza ścieżki na Dysku i nigdy nie importuje bez potwierdzenia
     karty weryfikacyjnej przez człowieka. To zabezpieczenie przed materiałami z innego miesiąca.
@@ -159,9 +184,10 @@ tests/e2e/                # Playwright na lokalnym Supabase, port 3100; zespół
     auto-akceptacji, `changed_after_approval`, zdarzenie i outbox biorą się stamtąd, nie z handlera.
 13. **Strony klienta dostają wyłącznie DTO z `lib/dto/`**, nigdy surowe wiersze z bazy. Pola
     zespołu (`internal_note`, `created_by`, hashe) nie mogą wyciec przez przypadkowy `select *`.
-14. **Pliki wchodzą tylko przez `lib/pliki/upload.ts`**: przeglądarka dostaje jednorazowy podpisany adres
-    do Storage, serwer sprawdza magic bytes i zdejmuje EXIF, a mutacja materiału przyjmuje wyłącznie
-    podpisany opis pliku. Nigdy ścieżki w Storage podane przez klienta akcji.
+14. **Pliki wchodzą tylko przez `lib/pliki/upload.ts`** (materiały) **albo `lib/pliki/pdf.ts`** (PDF faktur
+    i dokumentów): przeglądarka dostaje jednorazowy podpisany adres do Storage, serwer sprawdza magic bytes
+    (i zdejmuje EXIF z obrazów), a mutacja przyjmuje wyłącznie podpisany opis pliku. Nigdy ścieżki w Storage
+    podane przez klienta akcji.
 15. **Impersonacja wyłącznie do odczytu.** Kontekst `podglad` (token `podglad.…` plus sesja zespołu)
     nie zostawia śladów po stronie klienta: żadnych `first_opened_at`, `item_views`, komentarzy, decyzji.
 

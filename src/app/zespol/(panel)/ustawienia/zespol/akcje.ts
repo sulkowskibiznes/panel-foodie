@@ -58,3 +58,16 @@ export async function przelaczAktywnosc(id: string, active: boolean): Promise<vo
   await zapiszAudyt({ actor_kind: "zespol", actor_id: admin.id, actor_label: admin.name, action: "zespol.czlonek_zmieniony", entity: "team_member", entity_id: id, meta: { active } });
   revalidatePath("/zespol/ustawienia/zespol");
 }
+
+/** „Kontakt dla klienta" (SPEC rozdz. 5.7): to, co klient widzi przy imieniu opiekuna w „Twój pakiet". */
+export async function zapiszKontaktDlaKlienta(id: string, kontakt: string): Promise<{ ok: boolean }> {
+  const admin = await wymagajCzlonka();
+  wymagajUprawnienia(admin, "ustawienia", "pelne");
+  if (!czyUuid(id)) return { ok: false };
+  const tekst = String(kontakt ?? "").trim().slice(0, 200) || null;
+  const { error } = await supabaseSerwer().from("team_members").update({ client_contact: tekst }).eq("id", id);
+  if (error) return { ok: false };
+  await zapiszAudyt({ actor_kind: "zespol", actor_id: admin.id, actor_label: admin.name, action: "zespol.czlonek_zmieniony", entity: "team_member", entity_id: id, meta: { client_contact: tekst } });
+  revalidatePath("/zespol/ustawienia/zespol");
+  return { ok: true };
+}

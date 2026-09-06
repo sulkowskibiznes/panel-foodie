@@ -963,6 +963,7 @@ export type Database = {
           event: string
           id: number
           last_error: string | null
+          next_attempt_at: string
           payload: Json
           sent_at: string | null
           status: Database["public"]["Enums"]["outbox_status"]
@@ -973,6 +974,7 @@ export type Database = {
           event: string
           id?: number
           last_error?: string | null
+          next_attempt_at?: string
           payload: Json
           sent_at?: string | null
           status?: Database["public"]["Enums"]["outbox_status"]
@@ -983,6 +985,7 @@ export type Database = {
           event?: string
           id?: number
           last_error?: string | null
+          next_attempt_at?: string
           payload?: Json
           sent_at?: string | null
           status?: Database["public"]["Enums"]["outbox_status"]
@@ -1278,6 +1281,7 @@ export type Database = {
           contact_id: string | null
           created_at: string
           handled_at: string | null
+          handled_by: string | null
           id: string
           note: string | null
           service_id: string
@@ -1287,6 +1291,7 @@ export type Database = {
           contact_id?: string | null
           created_at?: string
           handled_at?: string | null
+          handled_by?: string | null
           id?: string
           note?: string | null
           service_id: string
@@ -1296,6 +1301,7 @@ export type Database = {
           contact_id?: string | null
           created_at?: string
           handled_at?: string | null
+          handled_by?: string | null
           id?: string
           note?: string | null
           service_id?: string
@@ -1313,6 +1319,13 @@ export type Database = {
             columns: ["contact_id"]
             isOneToOne: false
             referencedRelation: "client_contacts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "service_interests_handled_by_fkey"
+            columns: ["handled_by"]
+            isOneToOne: false
+            referencedRelation: "team_members"
             referencedColumns: ["id"]
           },
           {
@@ -1396,6 +1409,7 @@ export type Database = {
         Row: {
           active: boolean
           auth_user_id: string | null
+          client_contact: string | null
           created_at: string
           email: string
           id: string
@@ -1405,6 +1419,7 @@ export type Database = {
         Insert: {
           active?: boolean
           auth_user_id?: string | null
+          client_contact?: string | null
           created_at?: string
           email: string
           id?: string
@@ -1414,6 +1429,7 @@ export type Database = {
         Update: {
           active?: boolean
           auth_user_id?: string | null
+          client_contact?: string | null
           created_at?: string
           email?: string
           id?: string

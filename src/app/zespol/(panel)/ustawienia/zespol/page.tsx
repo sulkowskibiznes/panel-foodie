@@ -8,7 +8,7 @@ import { supabaseSerwer } from "@/lib/supabase/server";
 export default async function UstawieniaZespolu() {
   const admin = await wymagajCzlonka();
   wymagajUprawnienia(admin, "ustawienia", "pelne");
-  const { data } = await supabaseSerwer().from("team_members").select("id, name, email, role, active").order("name");
+  const { data } = await supabaseSerwer().from("team_members").select("id, name, email, role, active, client_contact").order("name");
   const u = copy.zespol.ustawienia.zespol;
   return (
     <div className="space-y-6">

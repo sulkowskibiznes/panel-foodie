@@ -20,7 +20,7 @@ import {
   timingSafeEqual,
 } from "node:crypto";
 
-export type CelKlucza = "cookie" | "token" | "ip" | "podglad" | "upload" | "import";
+export type CelKlucza = "cookie" | "token" | "ip" | "podglad" | "upload" | "import" | "upload-pdf";
 
 const SOL_HKDF = "panel-foodie";
 const DLUGOSC_KLUCZA = 32;

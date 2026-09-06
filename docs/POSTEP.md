@@ -349,3 +349,80 @@ Migracja `20260907100001_okres_pakietu.sql` wypchnięta do projektu chmurowego 2
 `main` = `zmiana/okres-pakietu`, wdrożenie produkcyjne z GitHuba. Sprawdzone lokalnie w przeglądarce: siatka okresu
 20.10 do 19.11 (6 tygodni, granice zaznaczone, podpis „1 lis"), ustawienia okresu, kreator z datami i ostrzeżeniem.
 Testy: 163 jednostkowe, 77 E2E, build zielone.
+
+## Faza 5: Reszta panelu klienta
+
+Gałąź `faza/5-reszta-panelu` (od `main` = 0016207), 2026-09-06. Zakres z SPEC rozdz. 5.5-5.8, 9, 10, 11, 15: raporty,
+faktury i dokumenty, „Twój pakiet", usługi dodatkowe, webhook do Zapiera z kolejki outbox, cron statusów faktur,
+wdrożenie za flagą. Po tej fazie pilotaż z jednym klientem.
+
+**Co działa:**
+- **Raporty** (rozdz. 9): `POST /api/ingest/report` z `Authorization: Bearer INGEST_TOKEN`, ciało z rozdz. 9 plus opcjonalne
+  `location` (kat1 z kilkoma restauracjami: raport per lokal, bez nazwy lokalu 422 z listą lokali; kat2/kat3 lokal ignorowany).
+  Host adresu wyłącznie `raporty.foodiemedia.pl` (walidacja w `lib/raporty/walidacja.ts` i CHECK w bazie: wyciek tokenu nie
+  podstawi obcego adresu). Ten sam miesiąc i lokal nadpisuje link (Zapier bywa wysyłany więcej niż raz), tytuł i numer miesiąca
+  współpracy zostają, gdy nowe wywołanie ich nie niesie. Zakładka Raporty w karcie klienta: lista ze źródłem (ręcznie / webhook),
+  „Dodaj raport" (link, miesiąc, lokal dla kat1, tytuł i numer miesiąca opcjonalne; podpowiedź numeru z ostatniego raportu),
+  „Usuń". Klient: karty z miesiącem, „X. miesiąc współpracy", nazwą lokalu i „Otwórz raport" w nowej karcie (bez iframe).
+- **Faktury** (rozdz. 10): zakładka Faktury z „Dodaj fakturę" (numer, daty, netto z podpowiedzią brutto 23 %, notatka
+  wewnętrzna, opcjonalny PDF), „Oznacz jako opłaconą" z datą wpłaty, „Cofnij opłacenie" (status z terminu, jak zrobiłby cron),
+  „Dodaj / Podmień PDF", „Usuń" (PDF zostaje w Storage). `po_terminie` wyłącznie z crona `GET /api/cron/faktury`
+  (04:00 UTC = 6:00 czasu letniego, 5:00 zimowego; `lib/faktury/status.ts`, dzień liczony w Europe/Warsaw). Klient demo bez
+  faktur (trigger + notka). Klient: tabela z numerem, terminem, netto/brutto, statusem („Po terminie" na czerwono z liczbą dni,
+  „Opłacona" z datą) i „Pobierz PDF"; na Starcie czerwony kafel z najstarszą fakturą po terminie.
+- **Dokumenty** (rozdz. 10, 17): zakładka Dokumenty tylko dla `admin` i `csm` (reszta 404, `content_creator` sprawdzony
+  w kryterium 23): rodzaj (umowa, aneks, powierzenie, inne), tytuł, „obowiązuje od", obowiązkowy PDF. Klient pobiera je
+  w sekcji Dokumenty pod fakturami.
+- **PDF tą samą drogą co materiały** (`lib/pliki/pdf.ts`, zasada 14): podpisane pozwolenie, PUT z przeglądarki do bucketu
+  `faktury` albo `dokumenty` (ścieżka `{client_id}/{uuid}.pdf`), magic bytes `%PDF-` i limit 25 MB po stronie serwera,
+  podpisany opis jako jedyne wejście mutacji. Pobieranie: `/p/[token]/faktura/[id]`, `/p/[token]/dokument/[id]`
+  (assertClientAccess, signed URL 10 min, audyt `klient.plik_pobrany`), dla zespołu `/zespol/faktura/[id]`, `/zespol/dokument/[id]`
+  (uprawnienie i assertTeamClientAccess). Cudza faktura i cudzy dokument = 404, także bez sesji.
+- **„Twój pakiet"** (rozdz. 5.7): nazwa pakietu, kwota netto miesięcznie, zakres z `copy.twojPakiet.zakresPakietow` per tier,
+  lokale, opiekun (`clients.opiekun_id`: imię plus nowe pole `team_members.client_contact`, wpisywane przez admina
+  w Ustawienia -> Zespół; puste = `kontakt@foodiemedia.pl`; nigdy e-mail ani telefon z `team_members`), data startu
+  współpracy. Zero brandingu klienta.
+- **„Co jeszcze możemy zrobić"** (rozdz. 5.8): karty z `services` (aktywne, `visible_for_tiers` z pakietem klienta), modal
+  z jednym polem (do 1000 znaków), zapis `service_interests` (z osobą kontaktową) i zdarzenie `usluga.zainteresowanie`
+  w outbox z ciałem z rozdz. 15 (bez okresu; `service`, `service_name`, `note`, link do karty klienta), potwierdzenie
+  „Odezwiemy się w ciągu jednego dnia roboczego", plakietka „Zgłoszone {data}" na karcie. W podglądzie zespołu przycisk
+  wyszarzony (zasada 15). Karta klienta w panelu zespołu: sekcja „Zainteresowanie usługami" z „Oznacz jako załatwione"
+  (`handled_at`, `handled_by`).
+- **Outbox do Zapiera** (rozdz. 15): `GET /api/cron/outbox` co minutę (`vercel.json`), czysta logika w `lib/outbox/wysylka.ts`
+  (testowana): wiersz zajmowany warunkowym UPDATE-em (dwa nakładające się przebiegi nie wyślą go dwa razy), POST JSON
+  (payload z bazy plus `event` z kolumny) z limitem 10 s, sukces = `sent`, porażka przesuwa `next_attempt_at` o 1, 5, 15,
+  60 min, piąta nieudana = `failed`. Bez `ZAPIER_WEBHOOK_URL` cron nie rusza kolejki. Ustawienia -> Powiadomienia (admin):
+  ostatnie 100 zdarzeń ze statusem, próbami, błędem i „Ponów"; ekran mówi tylko, CZY adres jest skonfigurowany.
+- **Wdrożenie** (rozdz. 11): `/p/[token]/wdrozenie` w układzie panelu, 404 przy `onboarding_enabled = false`, po włączeniu
+  kroki z `onboarding_steps` z paskiem postępu (tylko odczyt, linki do formularza i instrukcji); brak pozycji w nawigacji
+  klienta; w karcie klienta nieaktywna zakładka „Wdrożenie (wkrótce)".
+- **Start klienta** (rozdz. 5.1) dopełniony: pod kaflem pakietu najnowszy raport, najbliższa publikacja (post albo relacja
+  z datą w przyszłości w pakiecie zaakceptowanym lub zaplanowanym) i faktura po terminie.
+- **Nawigacja klienta**: Raporty, Faktury i dokumenty, Twój pakiet, Co jeszcze możemy zrobić aktywne; na telefonie dolny pasek
+  ma Start, Materiały, Harmonogram i „Więcej" (arkusz z resztą sekcji i wylogowaniem). Archiwum nadal „wkrótce".
+- Migracja `20260908100001_faza5_raporty_faktury_outbox.sql`: `outbox.next_attempt_at` z indeksem, CHECK hosta w `reports`,
+  `team_members.client_contact`, `service_interests.handled_by`. Seed: PDF-y faktur i dwa dokumenty (umowa, umowa powierzenia)
+  z generatora `supabase/seed/pdf.ts` (jednostronicowy PDF bez zależności), jedno nieobsłużone zgłoszenie usługi u Burger Brothers.
+- Testy: jednostkowe walidacja raportów, status faktur i cron, wysyłka outboxu (odstępy, failed, zajęty wiersz, wyjątek),
+  magic bytes PDF, postęp wdrożenia. E2E nowe pliki `raporty`, `faktury`, `pakiet-uslugi`, `outbox` (atrapa Zapiera jako serwer
+  HTTP w teście; `playwright.config.ts` wymusza `ZAPIER_WEBHOOK_URL` na atrapę, żeby testy nigdy nie strzelały w prawdziwego
+  Zapiera, i podstawia `INGEST_TOKEN`, gdy brak go w `.env.local`), kryterium 23 rozszerzone o Dokumenty i Raporty.
+
+**Odłożone:**
+- Archiwum materiałów (rozdz. 5.4) i zakładka Ustawienia karty klienta (w tym `internal_note`, domyślne godziny poza
+  harmonogramem): nie ma ich w zakresie fazy 5 z SPEC rozdz. 19; w nawigacji klienta Archiwum zostaje „wkrótce".
+- Sprzątanie PDF-ów po usuniętej fakturze i dokumencie ze Storage: faza 6 (retencja).
+- Edycja istniejącej faktury (numer, daty, kwoty): teraz „Usuń" i dodanie na nowo; jeśli w pilotażu okaże się potrzebna, to mały dialog.
+
+**Wymaga decyzji Szymona:**
+- Zakres pakietów w „Twój pakiet" (`copy.twojPakiet.zakresPakietow`: Foodie One, Foodie 360°, Sieć) to robocza treść
+  do przejrzenia; SPEC mówi tylko „stała w copy.ts per package_tier".
+- Godzina crona faktur: Vercel liczy w UTC, więc `0 4 * * *` daje 6:00 latem i 5:00 zimą. Alternatywa `0 5 * * *` (7:00 / 6:00).
+- Kontakt opiekuna dla klienta: wpisać w Ustawienia -> Zespół (np. służbowy WhatsApp Gosi); do tego czasu klient widzi
+  `kontakt@foodiemedia.pl`.
+- Przed pilotażem w Vercelu: `INGEST_TOKEN` (`openssl rand -hex 32`, ten sam w Zapierze) i `ZAPIER_WEBHOOK_URL` (Catch Hook).
+
+Stan na 2026-09-06 (wieczór): `pnpm typecheck && pnpm lint && pnpm test && pnpm build` zielone, 188 testów jednostkowych,
+94 E2E (5 pominiętych to testy jednego projektu Playwrighta). Migracja `20260908100001` jest na razie tylko w lokalnej bazie;
+wypchnięcie do chmury (`pnpm db:migrate`), merge do `main` i zmienne `INGEST_TOKEN` / `ZAPIER_WEBHOOK_URL` w Vercelu czekają
+na decyzję Szymona.

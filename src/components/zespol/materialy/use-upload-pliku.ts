@@ -22,7 +22,7 @@ export type AkcjeUploadu = {
 };
 
 /** PUT prosto do Storage z paskiem postępu (XHR, bo fetch nie raportuje postępu wysyłki). */
-function wyslijDoStorage(url: string, plik: File, onPostep: (procent: number) => void): Promise<boolean> {
+export function wyslijDoStorage(url: string, plik: File, onPostep: (procent: number) => void): Promise<boolean> {
   return new Promise((resolve) => {
     const xhr = new XMLHttpRequest();
     xhr.open("PUT", url);

@@ -74,6 +74,14 @@ export function sprawdzPlik(p: { bajtyPoczatku: Uint8Array; bytes: number; zadek
   return { ok: true, rodzaj, ostrzezenie: !czyObraz(rodzaj) && p.bytes > OSTRZEZENIE_BAJTOW_WIDEO ? "duzeWideo" : null };
 }
 
+/** Limit PDF faktur i dokumentów (buckety `faktury` i `dokumenty`: 25 MB). */
+export const MAKS_BAJTOW_PDF = 25 * MB;
+
+/** PDF zaczyna się od „%PDF-" (SPEC rozdz. 16 pkt 11: rozszerzenie nic nie znaczy). */
+export function czyMagiaPdf(bajty: Uint8Array): boolean {
+  return bajty.length >= 5 && ascii(bajty, 0, 5) === "%PDF-";
+}
+
 export function formatujMB(bajty: number): string {
   return `${Math.round((bajty / MB) * 10) / 10} MB`;
 }

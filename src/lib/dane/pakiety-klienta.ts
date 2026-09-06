@@ -1,5 +1,6 @@
 import "server-only";
-import type { KlientDlaKlienta, PakietDlaKlienta } from "@/lib/dto/klient";
+import type { Database } from "@/lib/db-types";
+import type { KlientDlaKlienta, NajblizszaPublikacja, PakietDlaKlienta } from "@/lib/dto/klient";
 import { supabaseSerwer } from "@/lib/supabase/server";
 
 type WierszPakietu = {
@@ -35,6 +36,12 @@ function naDto(w: WierszPakietu): PakietDlaKlienta {
 export async function pobierzKlienta(clientId: string): Promise<KlientDlaKlienta | null> {
   const { data } = await supabaseSerwer().from("clients").select("id, name").eq("id", clientId).maybeSingle();
   return data ? { id: data.id, nazwa: data.name } : null;
+}
+
+/** Pakiet cenowy klienta (filtr widoczności usług, SPEC rozdz. 5.8). */
+export async function pobierzTierKlienta(clientId: string): Promise<Database["public"]["Enums"]["package_tier"] | null> {
+  const { data } = await supabaseSerwer().from("clients").select("tier").eq("id", clientId).maybeSingle();
+  return data?.tier ?? null;
 }
 
 /** Pakiety czekające na decyzję klienta (kat1 może mieć kilka: jeden na lokal). */
@@ -74,4 +81,21 @@ export async function pobierzZasob(assetId: string): Promise<ZasobPliku | null> 
   const clientId = item?.packages?.client_id;
   if (!clientId) return null;
   return { clientId, storagePath: data.storage_path, previewPath: data.preview_path, thumbPath: data.thumb_path };
+}
+
+/** Najbliższa publikacja (SPEC rozdz. 5.1): post albo relacja z datą w przyszłości w pakiecie zaakceptowanym lub zaplanowanym. */
+export async function pobierzNajblizszaPublikacje(clientId: string, teraz: Date): Promise<NajblizszaPublikacja | null> {
+  const { data, error } = await supabaseSerwer()
+    .from("package_items")
+    .select("package_id, title, type, publish_at, packages!inner(client_id, status)")
+    .eq("packages.client_id", clientId)
+    .in("packages.status", ["zaakceptowany", "zaplanowany"])
+    .neq("type", "reklama")
+    .gte("publish_at", teraz.toISOString())
+    .order("publish_at", { ascending: true })
+    .limit(1)
+    .maybeSingle();
+  if (error) throw new Error(`pobierzNajblizszaPublikacje: ${error.message}`);
+  if (!data || !data.publish_at) return null;
+  return { pakietId: data.package_id, tytul: data.title ?? "", typ: data.type, publikacjaO: data.publish_at };
 }

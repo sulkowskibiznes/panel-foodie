@@ -19,9 +19,14 @@ test("23. content_creator dostaje 404 na trasie faktur, ale otwiera materiały",
     expect((await page.goto(`/zespol/klienci/${PRZYPISANY}/materialy`))?.status()).toBe(200);
     expect((await page.goto(`/zespol/klienci/${PRZYPISANY}/faktury`))?.status()).toBe(404);
     await expect(page.getByRole("heading", { level: 1 })).toHaveText(copy.nieZnaleziono.tytul);
-    // zakładka Faktury nie pojawia się w karcie klienta
+    // faza 5: dokumenty też są poza zasięgiem content creatora (SPEC rozdz. 2), raporty tylko do podglądu
+    expect((await page.goto(`/zespol/klienci/${PRZYPISANY}/dokumenty`))?.status()).toBe(404);
+    expect((await page.goto(`/zespol/klienci/${PRZYPISANY}/raporty`))?.status()).toBe(200);
+    await expect(page.locator("[data-dodaj-raport]")).toHaveCount(0);
+    // zakładki Faktury i Dokumenty nie pojawiają się w karcie klienta
     await page.goto(`/zespol/klienci/${PRZYPISANY}`);
     await expect(page.getByRole("link", { name: copy.zespol.karta.zakladki.faktury })).toHaveCount(0);
+    await expect(page.getByRole("link", { name: copy.zespol.karta.zakladki.dokumenty })).toHaveCount(0);
   } finally {
     await usunCzlonkaTestowego(czlonek);
   }

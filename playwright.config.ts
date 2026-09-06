@@ -12,6 +12,10 @@ const PORT = 3100;
 const baseURL = process.env.PLAYWRIGHT_BASE_URL ?? `http://localhost:${PORT}`;
 process.env.E2E_BASE_URL = baseURL;
 const stack = process.env.PLAYWRIGHT_BASE_URL ? null : lokalnyStack();
+// Outbox NIGDY nie strzela w prawdziwego Zapiera z testów: adres wskazuje atrapę, którą podnosi tests/e2e/outbox.spec.ts.
+process.env.ZAPIER_WEBHOOK_URL = "http://127.0.0.1:3190/zapier";
+// Webhook raportów potrzebuje tokenu; gdy .env.local go nie ma, testy i serwer dostają ten sam zastępczy.
+process.env.INGEST_TOKEN ||= "e2e-ingest-token";
 
 export default defineConfig({
   testDir: "tests/e2e",
@@ -40,6 +44,9 @@ export default defineConfig({
         url: baseURL,
         reuseExistingServer: !process.env.CI,
         timeout: 120_000,
+        // E2E_LOGI=1 pokazuje logi serwera Next (diagnoza błędów 500 w testach).
+        stdout: process.env.E2E_LOGI ? "pipe" : "ignore",
+        stderr: "pipe",
         env: {
           NEXT_PUBLIC_APP_URL: baseURL,
           SUPABASE_URL: stack.apiUrl,
@@ -48,6 +55,8 @@ export default defineConfig({
           // Import z Dysku na atrapie w pamięci (lib/drive/atrapa.ts): bez konta usługi, bez sieci.
           DRIVE_ATRAPA: "1",
           GOOGLE_DRIVE_ROOT_FOLDER_ID: "atrapa-materialy-klientow",
+          ZAPIER_WEBHOOK_URL: process.env.ZAPIER_WEBHOOK_URL,
+          INGEST_TOKEN: process.env.INGEST_TOKEN,
         },
       }
     : undefined,

@@ -48,7 +48,19 @@ export type AkcjaAudytu =
   | "zespol.import_wznowiony"
   | "zespol.import_ostrzezenie_zignorowane"
   | "zespol.import_pliku_z_dysku"
-  | "system.auto_akceptacja";
+  | "zespol.raport_dodany"
+  | "zespol.raport_usuniety"
+  | "zespol.faktura_dodana"
+  | "zespol.faktura_zmieniona"
+  | "zespol.faktura_usunieta"
+  | "zespol.dokument_dodany"
+  | "zespol.dokument_usuniety"
+  | "zespol.zainteresowanie_zalatwione"
+  | "zespol.powiadomienie_ponowione"
+  | "klient.zainteresowanie_usluga"
+  | "system.auto_akceptacja"
+  | "system.raport_webhook"
+  | "system.faktura_po_terminie";
 
 export type ZdarzenieAudytu = {
   actor_kind: Database["public"]["Enums"]["actor_kind"];

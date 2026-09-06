@@ -36,8 +36,11 @@ async function utworzKreatorem(z: Page, przesuniecie: number, content: string | 
   const okres = okresDlaProjektu(test.info().project.name, "import", przesuniecie);
   await z.goto(`/zespol/klienci/${KLIENT}/pakiety/nowy`);
   await expect(z.locator("[data-kreator-pakietu]")).toBeVisible();
+  // Pola są kontrolowane: wpis przed hydracją Reacta znika po niej (pierwsza kompilacja strony w przebiegu bywa długa).
+  await z.waitForLoadState("networkidle");
   await z.locator("#kreator-od").fill(okres.od);
   await z.locator("#kreator-do").fill(okres.do);
+  await expect(z.locator("#kreator-od")).toHaveValue(okres.od);
   if (content) await z.locator("[data-folder-contentu]").fill(content);
   for (const [i, k] of kampanie.entries()) {
     if (i > 0) await z.locator("[data-dodaj-kampanie-kreator]").click();

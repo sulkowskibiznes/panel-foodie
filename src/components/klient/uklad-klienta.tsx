@@ -1,26 +1,33 @@
 import { Archive, BarChart3, CalendarDays, FileText, Home, Inbox, Package, Sparkles } from "lucide-react";
 import Link from "next/link";
 import type { ReactNode } from "react";
+import { WiecejMobile, type IkonaMenu } from "@/components/klient/wiecej-mobile";
 import { Sygnet } from "@/components/marka/sygnet";
 import { copy } from "@/lib/copy";
 
 /**
- * Układ panelu klienta (SPEC rozdz. 5): dolna nawigacja na telefonie, boczna na desktopie.
- * Branding wyłącznie Foodie Media; nazwa klienta tylko tekstem.
+ * Układ panelu klienta (SPEC rozdz. 5): dolna nawigacja na telefonie (trzy pozycje plus „Więcej"), boczna na desktopie.
+ * Branding wyłącznie Foodie Media; nazwa klienta tylko tekstem. Wdrożenie nie ma pozycji w nawigacji (rozdz. 11).
  */
 export function UkladKlienta({ token, nazwaKlienta, etykietaOsoby, sciezka, podglad = false, children }: { token: string; nazwaKlienta: string; etykietaOsoby: string; sciezka: string; podglad?: boolean; children: ReactNode }) {
   const baza = `/p/${token}`;
   const biezaca = (href: string) => sciezka === href || sciezka.startsWith(`${href}/`);
-  const pozycje = [
-    { href: `${baza}/start`, etykieta: copy.nawigacja.start, Ikona: Home, aktywna: true },
-    { href: `${baza}/materialy`, etykieta: copy.nawigacja.materialy, Ikona: Inbox, aktywna: true },
-    { href: `${baza}/harmonogram`, etykieta: copy.nawigacja.harmonogram, Ikona: CalendarDays, aktywna: true },
-    { href: `${baza}/archiwum`, etykieta: copy.nawigacja.archiwum, Ikona: Archive, aktywna: false },
-    { href: `${baza}/raporty`, etykieta: copy.nawigacja.raporty, Ikona: BarChart3, aktywna: false },
-    { href: `${baza}/faktury`, etykieta: copy.nawigacja.faktury, Ikona: FileText, aktywna: false },
-    { href: `${baza}/pakiet`, etykieta: copy.nawigacja.pakiet, Ikona: Package, aktywna: false },
-    { href: `${baza}/uslugi`, etykieta: copy.nawigacja.uslugi, Ikona: Sparkles, aktywna: false },
-  ].map((p) => ({ ...p, biezaca: p.aktywna && biezaca(p.href) }));
+  const glowne = [
+    { href: `${baza}/start`, etykieta: copy.nawigacja.start, Ikona: Home },
+    { href: `${baza}/materialy`, etykieta: copy.nawigacja.materialy, Ikona: Inbox },
+    { href: `${baza}/harmonogram`, etykieta: copy.nawigacja.harmonogram, Ikona: CalendarDays },
+  ].map((p) => ({ ...p, aktywna: true, biezaca: biezaca(p.href) }));
+  // Pozostałe sekcje idą też do arkusza „Więcej" (komponent kliencki), więc ikona jest kluczem, nie funkcją.
+  const pozostaleZrodlo: Array<{ href: string; etykieta: string; ikona: IkonaMenu; aktywna: boolean }> = [
+    { href: `${baza}/archiwum`, etykieta: copy.nawigacja.archiwum, ikona: "archiwum", aktywna: false },
+    { href: `${baza}/raporty`, etykieta: copy.nawigacja.raporty, ikona: "raporty", aktywna: true },
+    { href: `${baza}/faktury`, etykieta: copy.nawigacja.faktury, ikona: "faktury", aktywna: true },
+    { href: `${baza}/pakiet`, etykieta: copy.nawigacja.pakiet, ikona: "pakiet", aktywna: true },
+    { href: `${baza}/uslugi`, etykieta: copy.nawigacja.uslugi, ikona: "uslugi", aktywna: true },
+  ];
+  const pozostale = pozostaleZrodlo.map((p) => ({ ...p, biezaca: p.aktywna && biezaca(p.href) }));
+  const IKONY: Record<IkonaMenu, typeof Home> = { archiwum: Archive, raporty: BarChart3, faktury: FileText, pakiet: Package, uslugi: Sparkles };
+  const pozycje = [...glowne, ...pozostale.map((p) => ({ ...p, Ikona: IKONY[p.ikona] }))];
 
   return (
     <div className="flex min-h-full flex-1 flex-col bg-szary-050 lg:flex-row">
@@ -58,29 +65,13 @@ export function UkladKlienta({ token, nazwaKlienta, etykietaOsoby, sciezka, podg
         </header>
         <main className="mx-auto w-full max-w-3xl flex-1 px-5 py-6 pb-24 sm:py-8 lg:pb-8">{children}</main>
         <nav aria-label={copy.marka.panel} className="fixed inset-x-0 bottom-0 z-40 grid grid-cols-4 border-t border-szary-100 bg-white lg:hidden">
-          {pozycje.slice(0, 3).map(({ href, etykieta, Ikona, aktywna, biezaca: tu }) =>
-            aktywna ? (
-              <Link key={href} href={href} aria-current={tu ? "page" : undefined} className={`flex flex-col items-center gap-1 px-2 py-2.5 text-[11px] font-medium ${tu ? "text-fiolet-700" : "text-szary-600"}`}>
-                <Ikona className="size-5" aria-hidden />
-                <span className="truncate">{etykieta}</span>
-              </Link>
-            ) : (
-              <span key={href} aria-disabled className="flex flex-col items-center gap-1 px-2 py-2.5 text-[11px] text-szary-600">
-                <Ikona className="size-5 opacity-60" aria-hidden />
-                <span className="truncate">{etykieta}</span>
-              </span>
-            ),
-          )}
-          {podglad ? (
-            <span className="flex flex-col items-center justify-center gap-1 px-2 py-2.5 text-[11px] text-szary-600">{copy.podgladKlienta.zalogowanyJako}</span>
-          ) : (
-            <form action={`${baza}/wyloguj`} method="post" className="contents">
-              <button type="submit" className="flex flex-col items-center gap-1 px-2 py-2.5 text-[11px] text-szary-600">
-                <span className="size-5 rounded-full border border-szary-300" aria-hidden />
-                {copy.nawigacja.wyloguj}
-              </button>
-            </form>
-          )}
+          {glowne.map(({ href, etykieta, Ikona, biezaca: tu }) => (
+            <Link key={href} href={href} aria-current={tu ? "page" : undefined} className={`flex flex-col items-center gap-1 px-2 py-2.5 text-[11px] font-medium ${tu ? "text-fiolet-700" : "text-szary-600"}`}>
+              <Ikona className="size-5" aria-hidden />
+              <span className="truncate">{etykieta}</span>
+            </Link>
+          ))}
+          <WiecejMobile pozycje={pozostale} token={token} podglad={podglad} />
         </nav>
       </div>
     </div>

@@ -18,6 +18,7 @@ import sharp from "sharp";
 import { generujPin, generujToken, hashujPin, hashujToken, tokenLookup } from "../../src/lib/auth-klient";
 import { wyprowadzKlucz, zaszyfruj } from "../../src/lib/krypto";
 import { KLIENCI, MIESIAC, ROK, USLUGI, ZESPOL, type KlientSeed, type PakietSeed } from "./dane";
+import { prostyPdf } from "./pdf";
 
 wczytajEnv({ path: ".env.local" });
 
@@ -198,6 +199,8 @@ async function sprzatajKlienta(slug: string): Promise<void> {
   const id = (wynik.data as { id: string }).id;
   await usunFolder("materialy", id);
   await usunFolder("awatary", id);
+  await usunFolder("faktury", id);
+  await usunFolder("dokumenty", id);
   // Komentarze wskazują osoby kontaktowe bez kaskady (comments.author_contact_id), więc idą pierwsze.
   const pakiety = await db.from("packages").select("id").eq("client_id", id);
   if (pakiety.error) throw new Error(`select packages ${slug}: ${pakiety.error.message}`);
@@ -285,9 +288,11 @@ async function seedKlienta(k: KlientSeed, zespol: Map<string, string>, dostepy: 
     dostepy.push({ klient: k.name, label, link: `${APP_URL}/p/${token}`, pin });
   }
 
-  await wstaw(
-    "invoices",
-    (k.demo ? [] : k.faktury).map((f) => ({
+  // Faktury: PDF z generatora w buckecie `faktury` (ścieżka bez nazwy klienta), jak przy ręcznym wgraniu z Fakturowo.
+  for (const f of k.demo ? [] : k.faktury) {
+    const sciezkaPdf = `${clientId}/${randomUUID()}.pdf`;
+    await wgraj("faktury", sciezkaPdf, prostyPdf(`Faktura ${f.number}`, `${k.name} - ${f.amount_net} zl netto, termin ${f.due_date}`), "application/pdf");
+    await wstawJeden("invoices", {
       client_id: clientId,
       number: f.number,
       issue_date: f.issue_date,
@@ -296,8 +301,28 @@ async function seedKlienta(k: KlientSeed, zespol: Map<string, string>, dostepy: 
       amount_gross: Math.round(f.amount_net * 1.23 * 100) / 100,
       status: f.status,
       paid_at: f.paid_at ?? null,
-    })),
-  );
+      pdf_path: sciezkaPdf,
+    });
+  }
+
+  // Dokumenty (SPEC rozdz. 10, 17): umowa i umowa powierzenia, PDF w buckecie `dokumenty`.
+  const dokumenty: Array<{ kind: string; title: string; valid_from: string | null }> = [
+    { kind: "umowa", title: `Umowa o współpracy - ${k.name}`, valid_from: k.cooperation_started_on },
+    { kind: "powierzenie", title: "Umowa powierzenia przetwarzania danych", valid_from: k.cooperation_started_on },
+  ];
+  for (const d of dokumenty) {
+    const sciezka = `${clientId}/${randomUUID()}.pdf`;
+    await wgraj("dokumenty", sciezka, prostyPdf(d.title, `${k.name}, obowiazuje od ${d.valid_from ?? "-"}`), "application/pdf");
+    await wstawJeden("documents", { client_id: clientId, kind: d.kind, title: d.title, file_path: sciezka, valid_from: d.valid_from, uploaded_by: opiekunId ?? null });
+  }
+
+  // Zainteresowanie usługą (rozdz. 5.8): jedno nieobsłużone zgłoszenie, żeby karta klienta miała co pokazać.
+  if (k.slug === "burger-brothers" && glownyKontakt) {
+    const usluga = await db.from("services").select("id").eq("slug", "sesja-zdjeciowa").maybeSingle();
+    if (usluga.data) {
+      await wstawJeden("service_interests", { client_id: clientId, contact_id: glownyKontakt.id, service_id: usluga.data.id, note: "Otwieramy szósty lokal w listopadzie, chcielibyśmy sesję zdjęciową wnętrza i nowego menu.", created_at: new Date(TERAZ - 30 * GODZINA).toISOString() });
+    }
+  }
 
   // Raport za poprzedni miesiąc: kat1 per lokal, reszta per klient
   const poprzedni = MIESIAC === 1 ? { rok: ROK - 1, miesiac: 12 } : { rok: ROK, miesiac: MIESIAC - 1 };
