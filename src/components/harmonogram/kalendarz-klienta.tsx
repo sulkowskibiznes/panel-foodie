@@ -1,36 +1,38 @@
 import Link from "next/link";
-import { EtykietaMaterialu, KLASA_STATUSU, SiatkaMiesiaca } from "@/components/harmonogram/wspolne";
+import { EtykietaMaterialu, KLASA_STATUSU, podpisDnia, SiatkaOkresu } from "@/components/harmonogram/wspolne";
 import { copy } from "@/lib/copy";
-import type { HarmonogramMiesiaca } from "@/lib/dto/harmonogram";
+import type { HarmonogramOkresu } from "@/lib/dto/harmonogram";
 import { formatujDate } from "@/lib/format";
-import { kluczMiesiaca } from "@/lib/harmonogram/kalendarz";
 
 /**
- * Kalendarz klienta (SPEC rozdz. 5.3, 8): ten sam widok miesiąca, wyłącznie do odczytu (kryterium 22: bez uchwytów,
- * bez pól daty, bez akcji), z „Skomentuj" prowadzącym do wątku materiału. Kampanie w osobnej sekcji pod kalendarzem.
+ * Kalendarz klienta (SPEC rozdz. 5.3, 8): ta sama siatka okresu pakietu, wyłącznie do odczytu (kryterium 22: bez uchwytów,
+ * bez pól daty, bez akcji), z „Skomentuj" prowadzącym do wątku materiału. Lista pod siatką pokazuje wszystkie datowane
+ * publikacje pakietów w widoku (także spoza okresu, żeby nic nie zniknęło). Kampanie w osobnej sekcji.
  */
-export function KalendarzKlienta({ harmonogram, token }: { harmonogram: HarmonogramMiesiaca; token: string }) {
+export function KalendarzKlienta({ harmonogram, token }: { harmonogram: HarmonogramOkresu; token: string }) {
   const h = copy.harmonogram;
-  const klucz = kluczMiesiaca(harmonogram.rok, harmonogram.miesiac);
+  const okres = harmonogram.pakiet.okres;
   const zaplanowane = harmonogram.materialy.filter((m) => m.data !== null).sort((a, b) => (a.publikacjaO ?? "").localeCompare(b.publikacjaO ?? ""));
+  const zLokalem = harmonogram.pakiety.length > 1;
+  const poczatki = new Set(harmonogram.pakiety.map((p) => p.okres.od));
+  const konce = new Set(harmonogram.pakiety.map((p) => p.okres.do));
   const adres = (pakietId: string, materialId: string) => `/p/${token}/materialy/${pakietId}#material-${materialId}`;
 
   return (
     <div className="space-y-4">
       <div className="rounded-xl bg-white p-3 shadow-miekki">
-        <SiatkaMiesiaca
-          rok={harmonogram.rok}
-          miesiac={harmonogram.miesiac}
+        <SiatkaOkresu
+          okres={okres}
           komorka={(dzien) => (
-            <div key={dzien.data} role="gridcell" data-dzien={dzien.data} className={`min-h-20 rounded-lg border border-szary-100 p-1 ${dzien.wMiesiacu ? "bg-white" : "bg-szary-050 opacity-70"}`}>
-              <div className={`text-right text-[11px] ${dzien.wMiesiacu ? "text-foodie-czern" : "text-szary-300"}`}>{dzien.dzien}</div>
+            <div key={dzien.data} role="gridcell" data-dzien={dzien.data} data-w-okresie={dzien.wOkresie ? "1" : "0"} className={`min-h-20 rounded-lg border border-szary-100 p-1 ${dzien.wOkresie ? "bg-white" : "bg-szary-050 opacity-70"} ${poczatki.has(dzien.data) ? "border-t-4 border-t-foodie-czern" : ""} ${konce.has(dzien.data) ? "border-b-4 border-b-foodie-czern" : ""}`}>
+              <div className={`text-right text-[11px] ${dzien.wOkresie ? "text-foodie-czern" : "text-szary-300"}`}>{podpisDnia(dzien)}</div>
               <ul className="mt-1 space-y-1">
                 {zaplanowane
                   .filter((m) => m.data === dzien.data)
                   .map((m) => (
                     <li key={m.id} data-material-kalendarza={m.id}>
                       <Link href={adres(m.pakietId, m.id)} className={`block rounded-md border px-1.5 py-1 text-[11px] leading-4 hover:underline ${KLASA_STATUSU[m.statusPakietu]}`}>
-                        <EtykietaMaterialu m={m} />
+                        <EtykietaMaterialu m={m} zLokalem={zLokalem} />
                       </Link>
                     </li>
                   ))}
@@ -42,30 +44,28 @@ export function KalendarzKlienta({ harmonogram, token }: { harmonogram: Harmonog
 
       <section className="rounded-xl bg-white p-4 shadow-miekki sm:p-5" data-lista-publikacji>
         <h2 className="font-naglowek text-lg text-foodie-czern">{h.lista}</h2>
-        {zaplanowane.filter((m) => m.data?.startsWith(klucz)).length === 0 ? (
+        {zaplanowane.length === 0 ? (
           <p className="mt-2 text-sm text-szary-600">{h.brak}</p>
         ) : (
           <ul className="mt-3 divide-y divide-szary-100">
-            {zaplanowane
-              .filter((m) => m.data?.startsWith(klucz))
-              .map((m) => (
-                <li key={m.id} className="flex flex-wrap items-center justify-between gap-2 py-2 text-sm">
-                  <span className="min-w-0">
-                    <span className="font-medium text-foodie-czern">{m.publikacjaO ? formatujDate(m.publikacjaO, { weekday: "short", day: "numeric", month: "long", hour: "2-digit", minute: "2-digit" }) : h.bezDaty}</span>
-                    <span className="text-szary-600"> · {h.typ[m.typ]} · {m.tytul}</span>
-                    {m.nazwaLokalu ? <span className="text-szary-600"> · {m.nazwaLokalu}</span> : null}
-                    <span className={`ml-2 rounded-full border px-1.5 text-[10px] ${KLASA_STATUSU[m.statusPakietu]}`}>{h.statusy[m.statusPakietu]}</span>
-                  </span>
-                  <Link href={adres(m.pakietId, m.id)} className="text-sm font-medium text-foodie-fiolet hover:underline">
-                    {m.statusPakietu === "zaplanowany" ? h.zobacz : h.skomentuj}
-                  </Link>
-                </li>
-              ))}
+            {zaplanowane.map((m) => (
+              <li key={m.id} className="flex flex-wrap items-center justify-between gap-2 py-2 text-sm">
+                <span className="min-w-0">
+                  <span className="font-medium text-foodie-czern">{m.publikacjaO ? formatujDate(m.publikacjaO, { weekday: "short", day: "numeric", month: "long", hour: "2-digit", minute: "2-digit" }) : h.bezDaty}</span>
+                  <span className="text-szary-600"> · {h.typ[m.typ]} · {m.tytul}</span>
+                  {m.nazwaLokalu ? <span className="text-szary-600"> · {m.nazwaLokalu}</span> : null}
+                  <span className={`ml-2 rounded-full border px-1.5 text-[10px] ${KLASA_STATUSU[m.statusPakietu]}`}>{h.statusy[m.statusPakietu]}</span>
+                </span>
+                <Link href={adres(m.pakietId, m.id)} className="text-sm font-medium text-foodie-fiolet hover:underline">
+                  {m.statusPakietu === "zaplanowany" ? h.zobacz : h.skomentuj}
+                </Link>
+              </li>
+            ))}
           </ul>
         )}
       </section>
 
-      <section className="rounded-xl bg-white p-4 shadow-miekki sm:p-5" data-kampanie-miesiaca>
+      <section className="rounded-xl bg-white p-4 shadow-miekki sm:p-5" data-kampanie-okresu>
         <h2 className="font-naglowek text-lg text-foodie-czern">{h.kampanie}</h2>
         {harmonogram.kampanie.length === 0 ? (
           <p className="mt-2 text-sm text-szary-600">{h.bezKampanii}</p>

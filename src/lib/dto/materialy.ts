@@ -1,4 +1,5 @@
 import type { Database } from "@/lib/db-types";
+import type { Okres } from "@/lib/harmonogram/kalendarz";
 
 /**
  * DTO ekranu pakietu i podglądów (CLAUDE.md, zasada 13): strony klienta i zespołu dostają wyłącznie
@@ -94,7 +95,8 @@ export type PakietSzczegoly = {
   tytul: string;
   status: StatusPakietu;
   runda: number;
-  okres: { rok: number; miesiac: number };
+  /** Okres pakietu od-do (YYYY-MM-DD), np. 20.09 do 19.10. */
+  okres: Okres;
   wyslanoO: string | null;
   autoWlaczona: boolean;
   /** `clients.auto_approve_default`: domyślna wartość checkboxa przy wysyłce (zespół). */
@@ -108,8 +110,6 @@ export type PakietSzczegoly = {
   zmienionePoAkceptacji: boolean;
   /** Wklejony link do folderu z contentem; tylko dla zespołu, klient dostaje null. */
   folderContentuUrl: string | null;
-  /** Dzień zakończenia pakietu (`period_to`, SPEC rozdz. 8) jako YYYY-MM-DD. */
-  koniecOkresu: string | null;
   lokale: StronaDto[];
   posty: MaterialDto[];
   relacje: MaterialDto[];
@@ -127,7 +127,7 @@ export type PakietNaLiscie = {
   tytul: string;
   status: StatusPakietu;
   runda: number;
-  okres: { rok: number; miesiac: number };
+  okres: Okres;
   nazwaLokalu: string | null;
   wyslanoO: string | null;
   autoAkceptacjaO: string | null;

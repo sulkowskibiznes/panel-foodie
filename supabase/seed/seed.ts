@@ -334,8 +334,6 @@ async function seedPakietu(
   const pakiet = await wstawJeden<{ id: string }>("packages", {
     client_id: clientId,
     location_id: lokalizacjaId,
-    period_year: ROK,
-    period_month: MIESIAC,
     cooperation_month: miesiacWspolpracy(k.cooperation_started_on),
     title: `Materiały - ${nazwaMiesiaca(MIESIAC)} ${ROK}`,
     status: p.status,
@@ -347,8 +345,9 @@ async function seedPakietu(
     approved_at: zaakceptowano !== null ? new Date(zaakceptowano).toISOString() : null,
     approved_by_contact_id: zaakceptowano !== null ? glownyKontaktId : null,
     approval_kind: zaakceptowano !== null ? "reczna" : null,
+    // Seed pokrywa cały miesiąc kalendarzowy; w panelu okres bywa dowolny (np. 20.09 do 19.10).
     period_from: `${ROK}-${String(MIESIAC).padStart(2, "0")}-01`,
-    period_to: `${ROK}-${String(MIESIAC).padStart(2, "0")}-30`,
+    period_to: `${ROK}-${String(MIESIAC).padStart(2, "0")}-${String(new Date(Date.UTC(ROK, MIESIAC, 0)).getUTCDate()).padStart(2, "0")}`,
     created_by: tworcaId,
   });
   const pakietId = pakiet.id;

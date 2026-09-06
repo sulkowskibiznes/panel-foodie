@@ -1,6 +1,7 @@
 import type { CelKampanii, StatusPakietu, TypMaterialu } from "@/lib/dto/materialy";
+import type { Okres } from "@/lib/harmonogram/kalendarz";
 
-/** Harmonogram miesiąca (SPEC rozdz. 8) dla zespołu (przeciąganie) i klienta (tylko odczyt). Nigdy surowe wiersze. */
+/** Harmonogram okresu pakietu (SPEC rozdz. 8) dla zespołu (przeciąganie) i klienta (tylko odczyt). Nigdy surowe wiersze. */
 export type MaterialWKalendarzu = {
   id: string;
   pakietId: string;
@@ -19,16 +20,16 @@ export type MaterialWKalendarzu = {
 
 export type KampaniaWKalendarzu = { id: string; pakietId: string; nazwa: string; cel: CelKampanii | null; notatka: string | null; statusPakietu: StatusPakietu };
 
-export type PakietWKalendarzu = { id: string; tytul: string; status: StatusPakietu; runda: number; nazwaLokalu: string | null; koniecOkresu: string | null };
+export type PakietWKalendarzu = { id: string; tytul: string; status: StatusPakietu; runda: number; nazwaLokalu: string | null; /** Okres od-do (YYYY-MM-DD). */ okres: Okres };
 
-export type HarmonogramMiesiaca = {
-  rok: number;
-  miesiac: number;
+/** Harmonogram okresu pakietu: pakiet ogniskowy, pakiety klienta zachodzące na jego okres (kat1: po jednym na lokal), ich materiały i kampanie. */
+export type HarmonogramOkresu = {
+  pakiet: PakietWKalendarzu;
   pakiety: PakietWKalendarzu[];
   materialy: MaterialWKalendarzu[];
   kampanie: KampaniaWKalendarzu[];
   /** Domyślne godziny publikacji klienta (clients.default_publish_hours). */
   domyslneGodziny: number[];
-  /** Miesiące, w których klient ma pakiety (nawigacja). */
-  miesiaceZPakietami: string[];
+  /** Poprzedni i następny pakiet klienta po dacie startu (nawigacja). */
+  nawigacja: { poprzedniId: string | null; nastepnyId: string | null };
 };

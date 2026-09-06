@@ -69,7 +69,7 @@ export default async function PakietZespolu({ params }: PageProps<"/zespol/klien
         }}
         akcjeMaterialow={akcjeMaterialow}
         uprawnienia={uprawnienia}
-        adresHarmonogramu={`/zespol/klienci/${slug}/harmonogram?m=${wynik.pakiet.okres.rok}-${String(wynik.pakiet.okres.miesiac).padStart(2, "0")}`}
+        adresHarmonogramu={`/zespol/klienci/${slug}/harmonogram?p=${wynik.pakiet.id}`}
         adresImportu={adresImportu}
       />
     </div>

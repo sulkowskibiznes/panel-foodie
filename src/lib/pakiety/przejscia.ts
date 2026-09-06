@@ -9,6 +9,7 @@
 import { copy } from "@/lib/copy";
 import type { Database } from "@/lib/db-types";
 import { etykietaOkresu } from "@/lib/format";
+import { kluczMiesiaca, miesiacZDaty, type Okres } from "@/lib/harmonogram/kalendarz";
 import { wyliczAutoAkceptacje, type UstawieniaAutoAkceptacji } from "@/lib/pakiety/auto-akceptacja";
 import type { ZdarzenieOutbox } from "@/lib/zdarzenia";
 
@@ -70,7 +71,7 @@ export type PakietDoPrzejscia = {
   status: StatusPakietu;
   round: number;
   tytul: string;
-  okres: { rok: number; miesiac: number };
+  okres: Okres;
   autoApproveEnabled: boolean;
   autoApproveAt: string | null;
   submittedAt: string | null;
@@ -150,8 +151,10 @@ function wypelnij(szablon: string, wartosci: Record<string, string | number | nu
   return szablon.replace(/\{(\w+)\}/g, (_, klucz: string) => String(wartosci[klucz] ?? ""));
 }
 
+/** Miesiąc startu pakietu jako „YYYY-MM": pole `period` webhooka z SPEC rozdz. 15 (okres od-do idzie osobno w `period_from`/`period_to`). */
 export function okresPakietu(pakiet: Pick<PakietDoPrzejscia, "okres">): string {
-  return `${pakiet.okres.rok}-${String(pakiet.okres.miesiac).padStart(2, "0")}`;
+  const m = miesiacZDaty(pakiet.okres.od);
+  return kluczMiesiaca(m.rok, m.miesiac);
 }
 
 /** Ciało webhooka z SPEC rozdz. 15 + pola pomocnicze (package_id, round) do deduplikacji w cronie. */
@@ -166,7 +169,7 @@ export function zbudujPayloadOutbox(
   const osoba = etykietaAktora(aktor);
   const summary = wypelnij(copy.zdarzenia.podsumowanie[event as keyof typeof copy.zdarzenia.podsumowanie] ?? event, {
     klient: pakiet.klient.name,
-    okres: etykietaOkresu(pakiet.okres.rok, pakiet.okres.miesiac),
+    okres: etykietaOkresu(pakiet.okres.od, pakiet.okres.do),
     osoba,
     wersja: runda,
     uwagi: typeof dodatkowe.uwagi === "number" ? dodatkowe.uwagi : undefined,
@@ -178,6 +181,8 @@ export function zbudujPayloadOutbox(
     client_name: pakiet.klient.name,
     slack_channel: pakiet.klient.slackChannel,
     period: okresPakietu(pakiet),
+    period_from: pakiet.okres.od,
+    period_to: pakiet.okres.do,
     actor: osoba,
     url,
     summary,

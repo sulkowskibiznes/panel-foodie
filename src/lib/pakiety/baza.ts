@@ -12,7 +12,7 @@ import { supabaseSerwer } from "@/lib/supabase/server";
 type Json = Database["public"]["Tables"]["package_events"]["Insert"]["payload"];
 
 const KOLUMNY_PAKIETU =
-  "id, client_id, status, round, title, period_year, period_month, auto_approve_enabled, auto_approve_at, submitted_at, clients!inner(slug, name, slack_channel, auto_approve_hours, auto_approve_default)";
+  "id, client_id, status, round, title, period_from, period_to, auto_approve_enabled, auto_approve_at, submitted_at, clients!inner(slug, name, slack_channel, auto_approve_hours, auto_approve_default)";
 
 type WierszPakietu = {
   id: string;
@@ -20,8 +20,8 @@ type WierszPakietu = {
   status: PakietDoPrzejscia["status"];
   round: number;
   title: string | null;
-  period_year: number;
-  period_month: number;
+  period_from: string;
+  period_to: string;
   auto_approve_enabled: boolean;
   auto_approve_at: string | null;
   submitted_at: string | null;
@@ -36,7 +36,7 @@ function naPakietDoPrzejscia(w: WierszPakietu): PakietDoPrzejscia {
     status: w.status,
     round: w.round,
     tytul: w.title ?? "",
-    okres: { rok: w.period_year, miesiac: w.period_month },
+    okres: { od: w.period_from, do: w.period_to },
     autoApproveEnabled: w.auto_approve_enabled,
     autoApproveAt: w.auto_approve_at,
     submittedAt: w.submitted_at,

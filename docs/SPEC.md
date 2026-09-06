@@ -266,10 +266,10 @@ create table packages (
   id uuid primary key default gen_random_uuid(),
   client_id uuid not null references clients(id) on delete cascade,
   location_id uuid references locations(id) on delete set null,  -- null = wspólny dla całego klienta
-  period_year int not null,
-  period_month int not null,
-  cooperation_month int,                     -- „5. miesiąc współpracy"
-  title text,                                -- domyślnie „Materiały — wrzesień 2026"
+  period_from date not null,                 -- pierwszy dzień okresu, np. 2026-09-20 (1.5: okres od-do zamiast miesiąca)
+  period_to date not null,                   -- ostatni dzień okresu, np. 2026-10-19; check (period_to >= period_from)
+  cooperation_month int,                     -- „5. miesiąc współpracy": podpowiedź = ostatni pakiet + 1, edytowalny w kreatorze
+  title text,                                -- domyślnie „Materiały 20.09 - 19.10.2026"
   status package_status not null default 'szkic',
   round int not null default 1,              -- 1, 2, 3… → UI pokazuje „Do akceptacji v2"
   content_folder_url text,                   -- WKLEJONY przez content creatora: posty i relacje
@@ -282,14 +282,11 @@ create table packages (
   approved_by_contact_id uuid references client_contacts(id),
   approval_kind approval_kind,
   changed_after_approval boolean not null default false,
-  period_from date,
-  period_to date,                            -- „dzień zakończenia" z planu contentu
   created_by uuid references team_members(id),
   created_at timestamptz not null default now(),
-  updated_at timestamptz not null default now(),
-  -- NULLS NOT DISTINCT: zwykły unique traktuje NULL jako różne wartości, więc dla kat2/kat3
-  -- (location_id = null) dałoby się założyć wiele pakietów na ten sam miesiąc.
-  unique nulls not distinct (client_id, location_id, period_year, period_month)
+  updated_at timestamptz not null default now()
+  -- 1.5: bez unikalności po miesiącu. Okresy tego samego klienta (i lokalu) mogą na siebie zachodzić;
+  -- kreator tylko ostrzega (rozdz. 20 poz. 35). Indeks (client_id, period_from desc).
 );
 
 -- Kampanii w miesiącu może być kilka: standardowa, na imprezy okolicznościowe,
@@ -659,7 +656,7 @@ na kartach, w nawigacji — nie pokazujemy logo ani kolorów klienta. Jedyny wyj
 i Instagrama, a nie brandingiem panelu.
 
 ### 5.1 Start
-- Jeden duży kafel akcji, gdy jest pakiet `do_akceptacji`: nazwa miesiąca, ile materiałów,
+- Jeden duży kafel akcji, gdy jest pakiet `do_akceptacji`: tytuł pakietu z okresem (np. „Materiały 20.09 - 19.10.2026"), ile materiałów,
   **licznik do auto-akceptacji**, przycisk „Przejrzyj materiały".
 - Pod spodem: najnowszy raport, najbliższa publikacja, faktura po terminie (jeśli jest).
 - Gdy nic nie czeka: „Wszystko na bieżąco" + skrót do harmonogramu.
@@ -667,14 +664,15 @@ i Instagrama, a nie brandingiem panelu.
 ### 5.2 Materiały do akceptacji — patrz rozdz. 6
 
 ### 5.3 Harmonogram
-- Widok miesiąca + lista. **Read-only dla klienta**, z możliwością komentarza do materiału.
+- Widok okresu pakietu (siatka tygodni od pierwszego do ostatniego dnia okresu, np. 20.09 do 19.10) + lista.
+  **Read-only dla klienta**, z możliwością komentarza do materiału. Nawigacja: poprzedni i następny pakiet.
 - Przy każdym poście i relacji **data publikacji**. Kampanie reklamowe **nie mają daty** —
-  wchodzą do osobnej sekcji „Kampanie w tym miesiącu" pod kalendarzem, każda z nazwą i celem.
+  wchodzą do osobnej sekcji „Kampanie w tym okresie" pod kalendarzem, każda z nazwą i celem.
 - Kolory statusów: szary = szkic, fiolet = do akceptacji, zielony = zaakceptowany,
   bursztyn = poprawki, czarny = opublikowany.
 
 ### 5.4 Archiwum
-Pakiety z poprzednich miesięcy, filtr po miesiącu i typie. Ten sam podgląd co w akceptacji,
+Pakiety z poprzednich okresów, filtr po miesiącu startu i typie. Ten sam podgląd co w akceptacji,
 tylko bez przycisków decyzji. Retencja 24 miesiące (konfigurowalna, rozdz. 17).
 
 ### 5.5 Raporty
@@ -713,7 +711,7 @@ Klient **nie edytuje** opisów. Może tylko komentować.
 Górny pasek (przyklejony, zawsze widoczny):
 
 ```
-Materiały — wrzesień 2026 · 6 postów · 10 relacji · 2 kampanie
+Materiały 20.09 - 19.10.2026 · 6 postów · 10 relacji · 2 kampanie
 Do akceptacji · Automatyczna akceptacja za 2 dni 4 godz.   [Zgłaszam uwagi]  [Akceptuję wszystko]
 ```
 
@@ -936,7 +934,10 @@ i porównują z zatwierdzonymi wzorcami.
 ## 8. Harmonogram
 
 **Zespół** (`content_creator`, `csm`, `admin`):
-- Widok miesiąca z **przeciąganiem** materiałów między dniami (dnd-kit).
+- Widok **okresu pakietu** (siatka tygodni od `period_from` do `period_to`, np. 20.09 do 19.10; granice okresu
+  zaznaczone) z **przeciąganiem** materiałów między dniami (dnd-kit). Nawigacja: poprzedni i następny pakiet
+  klienta po dacie startu (`?p=<id pakietu>`). Pakiety klienta zachodzące na ten okres (kat1: po jednym na lokal)
+  są w tym samym widoku. Materiał z datą spoza okresu trafia do panelu „Poza tym okresem".
 - Panel boczny „Niezaplanowane" — materiały bez `publish_at`.
 - Ustawianie godziny publikacji, domyślnie z ustawień klienta (np. 12:00 i 18:00).
 - Walidacja przy wysyłce do akceptacji: **każdy post i każda relacja musi mieć datę**;
@@ -944,7 +945,8 @@ i porównują z zatwierdzonymi wzorcami.
   Pakiet bez żadnej kampanii dostaje **ostrzeżenie**, nie blokadę (klient bez budżetu reklamowego
   w danym miesiącu to realny przypadek).
 - Kampanie reklamowe nie wchodzą do kalendarza — mają własną sekcję.
-- Data zakończenia pakietu (`period_to`) = „dzień zakończenia" z planu contentu.
+- Okres pakietu (`period_from`, `period_to`) = pierwszy i ostatni dzień publikacji z planu contentu; zespół
+  wpisuje go w kreatorze i może poprawić w ustawieniach harmonogramu (najwyżej rok, koniec nie wcześniej niż początek).
 
 **Klient**: ten sam kalendarz, tylko do odczytu, z komentarzem przy każdym materiale.
 
@@ -1004,11 +1006,11 @@ i wizytówki Google, instrukcje wideo.
 ### 12.1 Pulpit
 Jedna tabela, którą Gosia otwiera rano:
 
-| Klient | Miesiąc | Status | Wysłano | Czeka | Auto-akcept za | Uwagi | Akcja |
+| Klient | Okres | Status | Wysłano | Czeka | Auto-akcept za | Uwagi | Akcja |
 |---|---|---|---|---|---|---|---|
-| Nova Sushi | wrzesień | Do akceptacji v1 | 3 dni temu | 3 dni | **za 6 godz.** | 0 | Pokaż link |
-| HipHipKura | wrzesień | Poprawki | — | — | zatrzymane | 3 | Zobacz uwagi |
-| Bao Bar | wrzesień | **Auto-akceptacja wstrzymana** | 4 dni temu | 4 dni | minął | **2 nieprzeczytane** | Odpowiedz na uwagi |
+| Nova Sushi | 20.09 - 19.10.2026 | Do akceptacji v1 | 3 dni temu | 3 dni | **za 6 godz.** | 0 | Pokaż link |
+| HipHipKura | 01.09 - 30.09.2026 | Poprawki | — | — | zatrzymane | 3 | Zobacz uwagi |
+| Bao Bar | 05.09 - 04.10.2026 | **Auto-akceptacja wstrzymana** | 4 dni temu | 4 dni | minął | **2 nieprzeczytane** | Odpowiedz na uwagi |
 
 **Auto-akceptacja wstrzymana to osobny, wyróżniony stan na pulpicie (1.4, poz. 26):** pakiet w `do_akceptacji`,
 którego termin minął, a cron go nie zatwierdził z powodu nierozwiązanych uwag klienta, dostaje własny wiersz
@@ -1019,7 +1021,7 @@ samo zdarzenie `pakiet.auto_wstrzymana_uwagi` w Slacku to za mało.
 Kolorystyka terminów **taka sama jak w Bazie Klientów** (niebieski 6–7 dni, żółty 4–5,
 pomarańczowy 1–3, czerwony dziś, szary po terminie) — zespół zna ten kod.
 
-Filtry: moi klienci / wszyscy (wg roli), status, miesiąc.
+Filtry: moi klienci / wszyscy (wg roli), status, miesiąc startu pakietu.
 
 ### 12.2 Karta klienta
 Zakładki: **Materiały · Harmonogram · Raporty · Faktury · Dokumenty · Dostęp · Ustawienia**
@@ -1030,7 +1032,10 @@ Na górze: nazwa, kategoria, pakiet, kwota, lokale, kanał Slack, przycisk „Zo
 Content creator **nie szuka folderów** i panel ich **nie zgaduje**. Wkleja gotowe linki,
 bo to eliminuje najgorszy możliwy błąd: zaimportowanie materiałów z innego miesiąca.
 
-1. **Klient i miesiąc.** Panel proponuje `location_id` na podstawie kategorii klienta.
+1. **Klient i okres.** Zespół wpisuje ręcznie datę początku i końca okresu (np. 20.09 do 19.10; każdy klient
+   zaczyna miesiąc innego dnia, a po wstrzymaniu współpraca wraca od innego dnia). Panel podpowiada numer
+   miesiąca współpracy (ostatni pakiet klienta + 1) w edytowalnym polu i proponuje `location_id` na podstawie
+   kategorii klienta. Okres zachodzący na inny pakiet klienta daje ostrzeżenie, nie blokadę.
 2. **Link do folderu z contentem** — jeden folder, w którym są posty i relacje.
    Panel pokazuje **kartę weryfikacyjną** (rozdz. 13.2) i czeka na potwierdzenie.
 3. **Kampanie.** Przycisk „Dodaj kampanię": nazwa, cel, notatka dla klienta i **link do
@@ -1125,7 +1130,8 @@ Zanim cokolwiek trafi do bazy, panel pokazuje:
 I ostrzega, gdy:
 - folder **leży poza** „Materiałami klientów" → **import zablokowany**,
 - nazwa folderu klienta na Dysku nie pasuje do wybranego klienta → ostrzeżenie,
-- numer miesiąca w nazwie folderu nie zgadza się z wybranym miesiącem współpracy → ostrzeżenie,
+- numer miesiąca w nazwie folderu nie zgadza się z numerem miesiąca współpracy z kreatora, albo okres „RR-MM"
+  (lub nazwa miesiąca) w nazwie folderu nie pasuje ani do miesiąca startu, ani do miesiąca końca okresu → ostrzeżenie,
 - **ten sam folder był już importowany do innego pakietu** → ostrzeżenie z linkiem do tamtego
   pakietu i datą importu. To jest główne zabezpieczenie przed materiałami z innego miesiąca.
 
@@ -1205,11 +1211,15 @@ routuje do kanału klienta. Konfigurujesz Zapiera sam.
   "client_name": "Nova Sushi",
   "slack_channel": "#nova-sushi",
   "period": "2026-09",
+  "period_from": "2026-09-20",
+  "period_to": "2026-10-19",
   "actor": "Marek (właściciel)",
   "url": "https://panel.foodiemedia.pl/zespol/klienci/nova-sushi/pakiety/...",
-  "summary": "Nova Sushi zaakceptowała materiały na wrzesień."
+  "summary": "Nova Sushi zaakceptowała materiały na 20.09 - 19.10.2026."
 }
 ```
+
+`period` to miesiąc startu pakietu (`YYYY-MM`, zgodność wsteczna); `period_from` i `period_to` niosą pełny okres od-do (1.5).
 
 Zdarzenia:
 | event | kiedy |
@@ -1403,6 +1413,7 @@ Każda faza kończy się **działającym wdrożeniem na Vercelu**, nie tylko kod
 | 32 | Zdarzenia dla zespołu | Dopisane: `pakiet.nieotwarty_po_24h`, `pakiet.auto_za_24h`, `pakiet.auto_wstrzymana_uwagi`, `pakiet.wycofany`; w 1.4 także `pakiet.cofniety_do_poprawek` (poz. 31) | **potwierdzone** (2026-09-02) |
 | 33 | Obrazy | Bez `next/image` dla materiałów; warianty z importu + signed URL przez własną trasę | **potwierdzone** (2026-09-02) |
 | 34 | Next.js | 16.x (spec mówił „15+") | **potwierdzone** (2026-09-02) |
+| 35 | Okres pakietu | **1.5:** pakiet dotyczy dowolnego okresu od-do (`period_from`, `period_to`, NOT NULL), nie miesiąca kalendarzowego; `period_year`/`period_month` i unikalność po miesiącu usunięte. Nakładające się okresy klienta (i lokalu) dozwolone, kreator tylko ostrzega. Kalendarz zespołu i klienta to widok okresu pakietu z nawigacją między pakietami. Daty w kreatorze zawsze wpisywane ręcznie. Numer miesiąca współpracy podpowiadany jako „ostatni pakiet + 1" i edytowalny. Webhook: `period` = miesiąc startu, plus `period_from`/`period_to`. Raporty zostają miesięczne | **potwierdzone** (2026-09-05) |
 
 **Zadanie dla Ciebie, nie dla kodu:** dopisać zasadę auto-akceptacji do regulaminu panelu
 i wspomnieć o niej w umowie lub aneksie.

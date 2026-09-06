@@ -9,7 +9,7 @@ const baza: DaneDoOceny = {
   ],
   nazwaKlienta: "Nova Sushi",
   miesiacWspolpracy: 5,
-  okres: { rok: 2026, miesiac: 9 },
+  okres: { od: "2026-09-01", do: "2026-09-30" },
   rodzaj: "content",
   liczbaPlikow: 12,
   maPodfolderyContentu: true,
@@ -47,8 +47,18 @@ describe("karta weryfikacyjna (SPEC rozdz. 13.2)", () => {
     expect(ocenFolder({ ...baza, sciezka: sciezka("Content 26-08") }).ostrzezenia).toEqual([{ kod: "okres", wNazwie: "26-08", oczekiwany: "26-09" }]);
   });
 
+  it("okres na styku miesięcy: nazwa folderu z miesiącem startu albo końca nie ostrzega", () => {
+    const styk = { ...baza, okres: { od: "2026-09-20", do: "2026-10-19" } };
+    const sciezka = (nazwa: string) => [{ id: "k", nazwa: "Nova Sushi" }, { id: "m", nazwa }];
+    expect(ocenFolder({ ...styk, sciezka: sciezka("Content 26-09") }).ostrzezenia).toEqual([]);
+    expect(ocenFolder({ ...styk, sciezka: sciezka("Content 26-10") }).ostrzezenia).toEqual([]);
+    expect(ocenFolder({ ...styk, sciezka: sciezka("Content 26-11") }).ostrzezenia).toEqual([{ kod: "okres", wNazwie: "26-11", oczekiwany: "26-09" }]);
+    expect(ocenFolder({ ...styk, sciezka: sciezka("content październik") }).ostrzezenia).toEqual([]);
+    expect(ocenFolder({ ...styk, sciezka: sciezka("content listopad") }).ostrzezenia).toEqual([{ kod: "miesiac_kalendarzowy", wNazwie: "listopad", oczekiwany: "wrzesień" }]);
+  });
+
   it("folder użyty w innym pakiecie to ostrzeżenie z tamtym pakietem (kryterium 18)", () => {
-    const uzycie = { pakietId: "p1", slug: "nova-sushi", tytul: "Materiały - maj 2026", okres: { rok: 2026, miesiac: 5 }, zaimportowanoO: "2026-05-02T10:00:00Z" };
+    const uzycie = { pakietId: "p1", slug: "nova-sushi", tytul: "Materiały 01.05 - 31.05.2026", okres: { od: "2026-05-01", do: "2026-05-31" }, zaimportowanoO: "2026-05-02T10:00:00Z" };
     expect(ocenFolder({ ...baza, poprzednie: [uzycie] }).ostrzezenia).toEqual([{ kod: "powtorny", uzycie }]);
   });
 

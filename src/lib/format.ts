@@ -11,8 +11,19 @@ export function formatujDateCzas(iso: string | Date): string {
 
 export const NAZWY_MIESIECY = ["styczeń", "luty", "marzec", "kwiecień", "maj", "czerwiec", "lipiec", "sierpień", "wrzesień", "październik", "listopad", "grudzień"] as const;
 
-export function etykietaOkresu(rok: number, miesiac: number): string {
+/** „wrzesień 2026": miesiąc startu pakietu w filtrze pulpitu. */
+export function etykietaMiesiaca(rok: number, miesiac: number): string {
   return `${NAZWY_MIESIECY[miesiac - 1] ?? ""} ${rok}`;
+}
+
+/** Okres pakietu od-do: „20.09 - 19.10.2026", przez lata „20.12.2026 - 19.01.2027", jeden dzień „16.09.2026". Zwykły myślnik. */
+export function etykietaOkresu(od: string, do_: string): string {
+  const [ra, ma, da] = od.split("-");
+  const [rb, mb, db] = do_.split("-");
+  if (!ra || !ma || !da || !rb || !mb || !db) return `${od} - ${do_}`;
+  if (od === do_) return `${da}.${ma}.${ra}`;
+  if (ra === rb) return `${da}.${ma} - ${db}.${mb}.${rb}`;
+  return `${da}.${ma}.${ra} - ${db}.${mb}.${rb}`;
 }
 
 function odmien(n: number, jeden: string, kilka: string, wiele: string): string {

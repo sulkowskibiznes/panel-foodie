@@ -5,8 +5,8 @@ import { copy } from "@/lib/copy";
 import { pobierzIdsMoichKlientow, pobierzKlientowDla } from "@/lib/dane/klienci-zespolu";
 import { pobierzPakietyNaPulpit, type PakietNaPulpicie } from "@/lib/dane/materialy";
 import type { StatusPakietu } from "@/lib/dto/materialy";
-import { etykietaOkresu, formatujKwote, liczebnik, tekstOdliczania } from "@/lib/format";
-import { kluczMiesiaca, parsujMiesiac } from "@/lib/harmonogram/kalendarz";
+import { etykietaMiesiaca, etykietaOkresu, formatujKwote, liczebnik, tekstOdliczania } from "@/lib/format";
+import { kluczMiesiaca, miesiacZDaty, parsujMiesiac } from "@/lib/harmonogram/kalendarz";
 import { KLASA_TERMINU, kolorTerminu } from "@/lib/pakiety/terminy";
 import { MOZE_ODSZYFROWAC_TOKEN, WIDZI_WSZYSTKICH_KLIENTOW } from "@/lib/uprawnienia";
 
@@ -48,7 +48,13 @@ function odczytajFiltry(sp: Record<string, string | string[] | undefined>, widzi
   };
 }
 
-/** Pulpit (SPEC rozdz. 12.1): pakiety w toku z osobnym stanem „Auto-akceptacja wstrzymana" (1.4, poz. 26), filtry moi/wszyscy, status, miesiąc; pod spodem klienci. */
+/** Miesiąc startu pakietu jako „YYYY-MM": filtr pulpitu po miesiącu, w którym pakiet się zaczyna (okres bywa na styku dwóch miesięcy). */
+function miesiacStartu(p: PakietNaPulpicie): string {
+  const m = miesiacZDaty(p.okres.od);
+  return kluczMiesiaca(m.rok, m.miesiac);
+}
+
+/** Pulpit (SPEC rozdz. 12.1): pakiety w toku z osobnym stanem „Auto-akceptacja wstrzymana" (1.4, poz. 26), filtry moi/wszyscy, status, miesiąc startu; pod spodem klienci. */
 export default async function Pulpit({ searchParams }: PageProps<"/zespol">) {
   const czlonek = await wymagajCzlonka();
   const widziWszystkich = WIDZI_WSZYSTKICH_KLIENTOW.includes(czlonek.role);
@@ -56,8 +62,8 @@ export default async function Pulpit({ searchParams }: PageProps<"/zespol">) {
   const klienci = await pobierzKlientowDla(czlonek);
   const zakres = !widziWszystkich ? klienci.map((k) => k.id) : filtry.zakres === "moi" ? await pobierzIdsMoichKlientow(czlonek.id) : null;
   const wszystkiePakiety = await pobierzPakietyNaPulpit(zakres);
-  const pakiety = wszystkiePakiety.filter((p) => (filtry.status === null ? true : filtry.status === "wstrzymana" ? p.wstrzymana : p.status === filtry.status)).filter((p) => (filtry.miesiac ? kluczMiesiaca(p.okres.rok, p.okres.miesiac) === filtry.miesiac : true));
-  const miesiace = [...new Set(wszystkiePakiety.map((p) => kluczMiesiaca(p.okres.rok, p.okres.miesiac)))].sort().reverse();
+  const pakiety = wszystkiePakiety.filter((p) => (filtry.status === null ? true : filtry.status === "wstrzymana" ? p.wstrzymana : p.status === filtry.status)).filter((p) => (filtry.miesiac ? miesiacStartu(p) === filtry.miesiac : true));
+  const miesiace = [...new Set(wszystkiePakiety.map(miesiacStartu))].sort().reverse();
   const k = copy.zespol.pulpit.kolumny;
   const t = copy.zespol.pulpitPakiety;
   const f = t.filtry;
@@ -99,7 +105,7 @@ export default async function Pulpit({ searchParams }: PageProps<"/zespol">) {
               {miesiace.map((m) => {
                 const o = parsujMiesiac(m);
                 return (
-                  <option key={m} value={m}>{o ? etykietaOkresu(o.rok, o.miesiac) : m}</option>
+                  <option key={m} value={m}>{o ? etykietaMiesiaca(o.rok, o.miesiac) : m}</option>
                 );
               })}
             </select>
@@ -115,7 +121,7 @@ export default async function Pulpit({ searchParams }: PageProps<"/zespol">) {
               <thead className="text-left text-xs uppercase tracking-wide text-szary-600">
                 <tr>
                   <th className="px-4 py-3">{t.kolumny.klient}</th>
-                  <th className="px-4 py-3">{t.kolumny.miesiac}</th>
+                  <th className="px-4 py-3">{t.kolumny.okres}</th>
                   <th className="px-4 py-3">{t.kolumny.status}</th>
                   <th className="px-4 py-3">{t.kolumny.wyslano}</th>
                   <th className="px-4 py-3">{t.kolumny.czeka}</th>
@@ -132,7 +138,7 @@ export default async function Pulpit({ searchParams }: PageProps<"/zespol">) {
                     <tr key={p.id} data-pakiet-wiersz={p.id} data-wstrzymana={p.wstrzymana ? "true" : undefined} className={`border-t border-szary-100 ${p.wstrzymana ? "bg-amber-50" : ""}`}>
                       <td className="px-4 py-3 font-medium text-foodie-czern">{p.klient.name}</td>
                       <td className="px-4 py-3 text-szary-600">
-                        {etykietaOkresu(p.okres.rok, p.okres.miesiac)}
+                        {etykietaOkresu(p.okres.od, p.okres.do)}
                         {p.nazwaLokalu ? <span className="block text-xs">{p.nazwaLokalu}</span> : null}
                       </td>
                       <td className="px-4 py-3">

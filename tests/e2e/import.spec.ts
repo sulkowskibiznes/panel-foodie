@@ -25,8 +25,7 @@ let pakietC: string | null = null;
 test.beforeAll(async () => {
   clientId = await idKlienta(KLIENT);
   const projekt = test.info().project.name;
-  const miesiace = [0, 1, 2].map((i) => okresDlaProjektu(projekt, "import", i).miesiac);
-  for (const id of await pakietyKlientaWOkresie(KLIENT, 2034, miesiace)) await usunPakiet(id);
+  for (const id of await pakietyKlientaWOkresie(KLIENT, okresDlaProjektu(projekt, "import", 0).od, okresDlaProjektu(projekt, "import", 2).do)) await usunPakiet(id);
 });
 test.afterAll(async () => {
   for (const id of [pakietA, pakietB, pakietC]) if (id) await usunPakiet(id);
@@ -37,8 +36,8 @@ async function utworzKreatorem(z: Page, przesuniecie: number, content: string | 
   const okres = okresDlaProjektu(test.info().project.name, "import", przesuniecie);
   await z.goto(`/zespol/klienci/${KLIENT}/pakiety/nowy`);
   await expect(z.locator("[data-kreator-pakietu]")).toBeVisible();
-  await z.locator("#kreator-rok").fill(String(okres.rok));
-  await z.locator("#kreator-miesiac").selectOption(String(okres.miesiac));
+  await z.locator("#kreator-od").fill(okres.od);
+  await z.locator("#kreator-do").fill(okres.do);
   if (content) await z.locator("[data-folder-contentu]").fill(content);
   for (const [i, k] of kampanie.entries()) {
     if (i > 0) await z.locator("[data-dodaj-kampanie-kreator]").click();

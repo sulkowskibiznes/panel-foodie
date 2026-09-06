@@ -9,42 +9,69 @@ import { Button } from "@/components/ui/button";
 import { copy } from "@/lib/copy";
 import { rozpoznajLinkDysku } from "@/lib/drive/linki";
 import type { KategoriaKlienta } from "@/lib/dto/materialy";
-import { etykietaOkresu, NAZWY_MIESIECY } from "@/lib/format";
-import { miesiacWspolpracy } from "@/lib/harmonogram/kalendarz";
+import { etykietaOkresu } from "@/lib/format";
+import { czyOkresyZachodza, dlugoscOkresuDni, kolejnyMiesiacWspolpracy } from "@/lib/harmonogram/kalendarz";
 
-export type DaneKreatora = { rok: number; miesiac: number; lokalId: string | null; tytul: string; folder: string | null; kampanie: Array<Omit<DaneKampaniiFormularz, "potwierdzono">> };
+export type DaneKreatora = { od: string; do: string; miesiacWspolpracy: number | null; lokalId: string | null; tytul: string; folder: string | null; kampanie: Array<Omit<DaneKampaniiFormularz, "potwierdzono">> };
+
+/** Istniejący pakiet klienta: do podpowiedzi numeru miesiąca współpracy i ostrzeżenia o zachodzących okresach. */
+export type IstniejacyPakiet = { id: string; tytul: string; lokalId: string | null; od: string; do: string; miesiacWspolpracy: number | null };
+
+const DATA = /^\d{4}-\d{2}-\d{2}$/;
 
 /**
- * Kreator pakietu na wklejanych linkach (SPEC rozdz. 12.3): klient i miesiąc, link do folderu z contentem,
- * kampanie z osobnymi folderami reklam (bywa ich kilka). Pakiet powstaje w szkicu; z wklejonymi linkami
- * kreator prowadzi od razu do karty weryfikacyjnej i importu (faza 4), bez nich zostaje „Dodaj materiał".
+ * Kreator pakietu na wklejanych linkach (SPEC rozdz. 12.3): klient i okres od-do (obie daty wpisywane ręcznie,
+ * bo każdy klient zaczyna miesiąc innego dnia), numer miesiąca współpracy podpowiadany z ostatniego pakietu
+ * i edytowalny, link do folderu z contentem, kampanie z osobnymi folderami reklam (bywa ich kilka).
+ * Zachodzące okresy tylko ostrzegają. Pakiet powstaje w szkicu; z linkami kreator prowadzi do karty weryfikacyjnej.
  */
-export function KreatorPakietu({ slug, kategoria, lokale, startWspolpracy, domyslnyOkres, zajeteOkresy, utworz }: { slug: string; kategoria: KategoriaKlienta; lokale: { id: string; name: string }[]; startWspolpracy: string | null; domyslnyOkres: { rok: number; miesiac: number }; /** „YYYY-MM" albo „YYYY-MM:lokalId" dla kat1 */ zajeteOkresy: string[]; utworz: (dane: DaneKreatora) => Promise<WynikKreatora> }) {
+export function KreatorPakietu({ slug, kategoria, lokale, startWspolpracy, istniejace, utworz }: { slug: string; kategoria: KategoriaKlienta; lokale: { id: string; name: string }[]; startWspolpracy: string | null; istniejace: IstniejacyPakiet[]; utworz: (dane: DaneKreatora) => Promise<WynikKreatora> }) {
   const router = useRouter();
   const k = copy.zespol.kreator;
-  const [rok, setRok] = useState(domyslnyOkres.rok);
-  const [miesiac, setMiesiac] = useState(domyslnyOkres.miesiac);
+  const [od, setOd] = useState("");
+  const [do_, setDo] = useState("");
   const [lokalId, setLokalId] = useState<string>(lokale[0]?.id ?? "");
   const [tytulWlasny, setTytulWlasny] = useState<string | null>(null);
+  const [numerWlasny, setNumerWlasny] = useState<string | null>(null);
   const [folder, setFolder] = useState("");
   const [kampanie, setKampanie] = useState<DaneKampaniiFormularz[]>([{ ...pusteDaneKampanii(), nazwa: "Kampania standardowa" }]);
   const [blad, setBlad] = useState<string | null>(null);
   const [trwa, startTransition] = useTransition();
-  const tytul = tytulWlasny ?? `Materiały - ${etykietaOkresu(rok, miesiac)}`;
+
+  const datyPoprawne = DATA.test(od) && DATA.test(do_);
+  const kolejnoscZla = datyPoprawne && od > do_;
+  const zaDlugi = datyPoprawne && !kolejnoscZla && dlugoscOkresuDni(od, do_) > 366;
+  const okresGotowy = datyPoprawne && !kolejnoscZla && !zaDlugi;
+  const tytul = tytulWlasny ?? (okresGotowy ? `Materiały ${etykietaOkresu(od, do_)}` : "Materiały");
   const linkContentu = folder ? rozpoznajLinkDysku(folder) : null;
-  const klucz = `${rok}-${String(miesiac).padStart(2, "0")}${kategoria === "kat1" ? `:${lokalId}` : ""}`;
-  const zajety = zajeteOkresy.includes(klucz);
-  const nrWspolpracy = miesiacWspolpracy(startWspolpracy, rok, miesiac);
+  const dlaLokalu = kategoria === "kat1" ? istniejace.filter((p) => p.lokalId === lokalId) : istniejace;
+  const ostatni = dlaLokalu[0] ?? null;
+  const podpowiedz = DATA.test(od) ? kolejnyMiesiacWspolpracy(ostatni?.miesiacWspolpracy ?? null, startWspolpracy, od) : null;
+  const numerTekst = numerWlasny ?? (podpowiedz !== null ? String(podpowiedz) : "");
+  const numer = numerTekst.trim() === "" ? null : Number(numerTekst);
+  const nachodzace = okresGotowy ? dlaLokalu.filter((p) => czyOkresyZachodza({ od, do: do_ }, p)) : [];
 
   function wyslij(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
     setBlad(null);
+    if (!datyPoprawne) {
+      setBlad(k.bledy.brakOkresu);
+      return;
+    }
+    if (kolejnoscZla) {
+      setBlad(k.bledy.zlyOkres);
+      return;
+    }
+    if (zaDlugi) {
+      setBlad(k.bledy.zaDlugiOkres);
+      return;
+    }
     if (kampanie.some((x) => !x.nazwa.trim())) {
       setBlad(k.bledy.brakNazwyKampanii);
       return;
     }
     startTransition(async () => {
-      const w = await utworz({ rok, miesiac, lokalId: kategoria === "kat1" ? lokalId : null, tytul: tytul.trim(), folder: folder.trim() || null, kampanie: kampanie.map(({ nazwa, cel, notatka, folder: f }) => ({ nazwa: nazwa.trim(), cel, notatka: notatka?.trim() || null, folder: f?.trim() || null })) });
+      const w = await utworz({ od, do: do_, miesiacWspolpracy: numer !== null && Number.isInteger(numer) && numer >= 1 ? numer : null, lokalId: kategoria === "kat1" ? lokalId : null, tytul: tytul.trim(), folder: folder.trim() || null, kampanie: kampanie.map(({ nazwa, cel, notatka, folder: f }) => ({ nazwa: nazwa.trim(), cel, notatka: notatka?.trim() || null, folder: f?.trim() || null })) });
       if (!w.ok) {
         setBlad(w.blad);
         return;
@@ -60,21 +87,17 @@ export function KreatorPakietu({ slug, kategoria, lokale, startWspolpracy, domys
         <h2 className="font-naglowek text-lg text-foodie-czern">{k.krokKlient}</h2>
         <div className="mt-3 grid gap-3 sm:grid-cols-3">
           <div>
-            <label htmlFor="kreator-miesiac" className="block text-sm font-medium text-foodie-czern">{k.miesiac}</label>
-            <select id="kreator-miesiac" value={miesiac} onChange={(e) => setMiesiac(Number(e.target.value))} className={POLE}>
-              {NAZWY_MIESIECY.map((n, i) => (
-                <option key={n} value={i + 1}>{n}</option>
-              ))}
-            </select>
+            <label htmlFor="kreator-od" className="block text-sm font-medium text-foodie-czern">{k.od}</label>
+            <input id="kreator-od" type="date" required value={od} min="2024-01-01" max="2100-12-31" onChange={(e) => { setOd(e.target.value); setNumerWlasny(null); }} className={POLE} data-kreator-od />
           </div>
           <div>
-            <label htmlFor="kreator-rok" className="block text-sm font-medium text-foodie-czern">{k.rok}</label>
-            <input id="kreator-rok" type="number" min={2024} max={2100} value={rok} onChange={(e) => setRok(Number(e.target.value))} className={POLE} />
+            <label htmlFor="kreator-do" className="block text-sm font-medium text-foodie-czern">{k.do}</label>
+            <input id="kreator-do" type="date" required value={do_} min={od || "2024-01-01"} max="2100-12-31" onChange={(e) => setDo(e.target.value)} className={POLE} data-kreator-do />
           </div>
           {kategoria === "kat1" ? (
             <div>
               <label htmlFor="kreator-lokal" className="block text-sm font-medium text-foodie-czern">{k.lokal}</label>
-              <select id="kreator-lokal" value={lokalId} onChange={(e) => setLokalId(e.target.value)} className={POLE} data-kreator-lokal>
+              <select id="kreator-lokal" value={lokalId} onChange={(e) => { setLokalId(e.target.value); setNumerWlasny(null); }} className={POLE} data-kreator-lokal>
                 {lokale.map((l) => (
                   <option key={l.id} value={l.id}>{l.name}</option>
                 ))}
@@ -85,12 +108,25 @@ export function KreatorPakietu({ slug, kategoria, lokale, startWspolpracy, domys
             <p className="self-end pb-2 text-xs text-szary-600">{k.lokalWspolny}</p>
           )}
         </div>
-        <div className="mt-3">
-          <label htmlFor="kreator-tytul" className="block text-sm font-medium text-foodie-czern">{k.tytulPakietu}</label>
-          <input id="kreator-tytul" value={tytul} onChange={(e) => setTytulWlasny(e.target.value)} maxLength={160} className={POLE} />
-          {nrWspolpracy !== null && nrWspolpracy > 0 ? <p className="mt-1 text-xs text-szary-600">{k.miesiacWspolpracy.replace("{n}", String(nrWspolpracy))}</p> : null}
+        <p className="mt-1 text-xs text-szary-600">{k.okresOpis}</p>
+        {kolejnoscZla ? <p role="alert" className="mt-2 rounded-lg bg-red-50 px-3 py-2 text-sm text-czerwony" data-zly-okres>{k.bledy.zlyOkres}</p> : null}
+        {zaDlugi ? <p role="alert" className="mt-2 rounded-lg bg-red-50 px-3 py-2 text-sm text-czerwony" data-zly-okres>{k.bledy.zaDlugiOkres}</p> : null}
+        <div className="mt-3 grid gap-3 sm:grid-cols-[1fr_12rem]">
+          <div>
+            <label htmlFor="kreator-tytul" className="block text-sm font-medium text-foodie-czern">{k.tytulPakietu}</label>
+            <input id="kreator-tytul" value={tytul} onChange={(e) => setTytulWlasny(e.target.value)} maxLength={160} className={POLE} />
+          </div>
+          <div>
+            <label htmlFor="kreator-miesiac-wspolpracy" className="block text-sm font-medium text-foodie-czern">{k.miesiacWspolpracyPole}</label>
+            <input id="kreator-miesiac-wspolpracy" type="number" min={1} max={999} value={numerTekst} onChange={(e) => setNumerWlasny(e.target.value)} className={POLE} data-miesiac-wspolpracy />
+          </div>
         </div>
-        {zajety ? <p role="alert" className="mt-3 rounded-lg bg-amber-50 px-3 py-2 text-sm text-bursztyn" data-okres-zajety>{copy.zespol.materialy.bledy.istnieje}</p> : null}
+        <p className="mt-1 text-xs text-szary-600">{k.miesiacWspolpracyOpis}</p>
+        {nachodzace.length > 0 ? (
+          <p role="status" className="mt-3 rounded-lg bg-amber-50 px-3 py-2 text-sm text-bursztyn" data-okres-nachodzi>
+            {k.okresNachodzi.replace("{pakiety}", nachodzace.map((p) => `${p.tytul || etykietaOkresu(p.od, p.do)} (${etykietaOkresu(p.od, p.do)})`).join(", "))}
+          </p>
+        ) : null}
       </section>
 
       <section className="rounded-xl bg-white p-5 shadow-miekki sm:p-6">
@@ -127,7 +163,7 @@ export function KreatorPakietu({ slug, kategoria, lokale, startWspolpracy, domys
 
       {blad ? <p role="alert" className="rounded-lg bg-red-50 px-3 py-2 text-sm text-czerwony" data-blad-kreatora>{blad}</p> : null}
       <div className="flex flex-wrap gap-2">
-        <Button type="submit" size="lg" disabled={trwa || zajety || (!!folder && !linkContentu)} data-utworz-pakiet>{trwa ? k.tworzenie : k.utworz}</Button>
+        <Button type="submit" size="lg" disabled={trwa || !okresGotowy || (!!folder && !linkContentu)} data-utworz-pakiet>{trwa ? k.tworzenie : k.utworz}</Button>
         <Button type="button" variant="outline" size="lg" onClick={() => router.push(`/zespol/klienci/${slug}/materialy`)}>{k.anuluj}</Button>
       </div>
     </form>

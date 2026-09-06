@@ -1,6 +1,7 @@
 import "server-only";
 import type { Database } from "@/lib/db-types";
 import type { StanImportu, ZadanieImportuDto } from "@/lib/dto/import";
+import type { Okres } from "@/lib/harmonogram/kalendarz";
 import type { PoprzednieUzycie } from "@/lib/import/ocena";
 import { planSchemat, policzPostep, type Plan } from "@/lib/import/plan";
 import { supabaseSerwer } from "@/lib/supabase/server";
@@ -69,17 +70,17 @@ export function ostatniaSeria(stan: StanImportu): StanImportu {
  */
 export async function poprzednieUzyciaFolderu(folderId: string, pomijajPakietId: string): Promise<PoprzednieUzycie[]> {
   const db = supabaseSerwer();
-  type Pakiet = { id: string; title: string | null; period_year: number; period_month: number; clients: { slug: string } };
+  type Pakiet = { id: string; title: string | null; period_from: string; period_to: string; clients: { slug: string } };
   const [importy, pakiety, kampanie] = await Promise.all([
-    db.from("import_jobs").select("package_id, finished_at, packages!inner(id, title, period_year, period_month, clients!inner(slug))").eq("source_folder_id", folderId).eq("status", "zakonczony").neq("package_id", pomijajPakietId).order("finished_at", { ascending: false }),
-    db.from("packages").select("id, title, period_year, period_month, clients!inner(slug)").eq("content_folder_id", folderId).neq("id", pomijajPakietId),
-    db.from("campaigns").select("packages!inner(id, title, period_year, period_month, clients!inner(slug))").eq("ads_folder_id", folderId).neq("package_id", pomijajPakietId),
+    db.from("import_jobs").select("package_id, finished_at, packages!inner(id, title, period_from, period_to, clients!inner(slug))").eq("source_folder_id", folderId).eq("status", "zakonczony").neq("package_id", pomijajPakietId).order("finished_at", { ascending: false }),
+    db.from("packages").select("id, title, period_from, period_to, clients!inner(slug)").eq("content_folder_id", folderId).neq("id", pomijajPakietId),
+    db.from("campaigns").select("packages!inner(id, title, period_from, period_to, clients!inner(slug))").eq("ads_folder_id", folderId).neq("package_id", pomijajPakietId),
   ]);
   const wynik = new Map<string, PoprzednieUzycie>();
   const dodaj = (p: Pakiet, kiedy: string | null) => {
     const stare = wynik.get(p.id);
     if (stare && (stare.zaimportowanoO || !kiedy)) return;
-    wynik.set(p.id, { pakietId: p.id, slug: p.clients.slug, tytul: p.title ?? "", okres: { rok: p.period_year, miesiac: p.period_month }, zaimportowanoO: kiedy });
+    wynik.set(p.id, { pakietId: p.id, slug: p.clients.slug, tytul: p.title ?? "", okres: { od: p.period_from, do: p.period_to }, zaimportowanoO: kiedy });
   };
   for (const w of importy.data ?? []) dodaj(w.packages as unknown as Pakiet, w.finished_at);
   for (const p of pakiety.data ?? []) dodaj(p as unknown as Pakiet, null);
@@ -92,7 +93,7 @@ export type PakietDoImportuDto = {
   clientId: string;
   status: Database["public"]["Enums"]["package_status"];
   miesiacWspolpracy: number | null;
-  okres: { rok: number; miesiac: number };
+  okres: Okres;
   folderContentuId: string | null;
   folderContentuUrl: string | null;
   kampanie: Array<{ id: string; nazwa: string; folderReklamId: string | null; folderReklamUrl: string | null }>;
@@ -100,14 +101,14 @@ export type PakietDoImportuDto = {
 
 /** Pakiet z linkami do folderów (content i każda kampania) na potrzeby kart weryfikacyjnych. Wywołujący sprawdza klienta. */
 export async function pobierzPakietDoImportu(pakietId: string): Promise<PakietDoImportuDto | null> {
-  const { data } = await supabaseSerwer().from("packages").select("id, client_id, status, cooperation_month, period_year, period_month, content_folder_id, content_folder_url, campaigns(id, name, position, ads_folder_id, ads_folder_url)").eq("id", pakietId).maybeSingle();
+  const { data } = await supabaseSerwer().from("packages").select("id, client_id, status, cooperation_month, period_from, period_to, content_folder_id, content_folder_url, campaigns(id, name, position, ads_folder_id, ads_folder_url)").eq("id", pakietId).maybeSingle();
   if (!data) return null;
   return {
     id: data.id,
     clientId: data.client_id,
     status: data.status,
     miesiacWspolpracy: data.cooperation_month,
-    okres: { rok: data.period_year, miesiac: data.period_month },
+    okres: { od: data.period_from, do: data.period_to },
     folderContentuId: data.content_folder_id,
     folderContentuUrl: data.content_folder_url,
     kampanie: [...(data.campaigns ?? [])].sort((a, b) => a.position - b.position).map((k) => ({ id: k.id, nazwa: k.name, folderReklamId: k.ads_folder_id, folderReklamUrl: k.ads_folder_url })),

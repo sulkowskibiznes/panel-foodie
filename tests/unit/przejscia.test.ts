@@ -30,8 +30,8 @@ function pakiet(nadpisania: Partial<PakietDoPrzejscia> = {}): PakietDoPrzejscia 
     clientId: "eeeeeeee-eeee-4eee-8eee-eeeeeeeeeeee",
     status: "szkic",
     round: 1,
-    tytul: "Materiały - wrzesień 2026",
-    okres: { rok: 2026, miesiac: 9 },
+    tytul: "Materiały 01.09 - 30.09.2026",
+    okres: { od: "2026-09-01", do: "2026-09-30" },
     autoApproveEnabled: true,
     autoApproveAt: null,
     submittedAt: null,
@@ -150,7 +150,7 @@ describe("wykonajPrzejscie: skutki każdego przejścia", () => {
     expect(zdarzenia).toHaveLength(1);
     expect(zdarzenia[0]).toMatchObject({ package_id: PAKIET_ID, kind: "wyslany", actor_kind: "zespol", actor_id: ZESPOL.rodzaj === "zespol" ? ZESPOL.memberId : null });
     expect(outbox).toHaveLength(1);
-    expect(outbox[0]).toMatchObject({ event: "pakiet.wyslany", payload: { client_slug: "nova-sushi", client_name: "Nova Sushi", slack_channel: "#nova-sushi", period: "2026-09", actor: "Gosia", round: 1 } });
+    expect(outbox[0]).toMatchObject({ event: "pakiet.wyslany", payload: { client_slug: "nova-sushi", client_name: "Nova Sushi", slack_channel: "#nova-sushi", period: "2026-09", period_from: "2026-09-01", period_to: "2026-09-30", actor: "Gosia", round: 1 } });
     expect(String(outbox[0]?.payload.url)).toContain("/zespol/klienci/nova-sushi/pakiety/");
     expect(String(outbox[0]?.payload.summary)).toContain("Nova Sushi");
   });
@@ -322,7 +322,7 @@ describe("ciało webhooka (SPEC rozdz. 15)", () => {
       period: "2026-09",
       actor: "Marek - właściciel",
       url: "https://panel.test/x",
-      summary: "Marek - właściciel (Nova Sushi) zaakceptował(a) materiały na wrzesień 2026.",
+      summary: "Marek - właściciel (Nova Sushi) zaakceptował(a) materiały na 01.09 - 30.09.2026.",
       package_id: PAKIET_ID,
       round: 1,
     });

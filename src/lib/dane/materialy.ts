@@ -57,8 +57,8 @@ type WierszPakietu = {
   title: string | null;
   status: Enums["package_status"];
   round: number;
-  period_year: number;
-  period_month: number;
+  period_from: string;
+  period_to: string;
   submitted_at: string | null;
   auto_approve_enabled: boolean;
   auto_approve_at: string | null;
@@ -66,13 +66,12 @@ type WierszPakietu = {
   approval_kind: Enums["approval_kind"] | null;
   changed_after_approval: boolean;
   content_folder_url: string | null;
-  period_to: string | null;
   zaakceptowal: { name: string } | null;
   clients: { category: Enums["client_category"]; auto_approve_default: boolean };
 };
 
 const KOLUMNY_PAKIETU =
-  "id, client_id, location_id, title, status, round, period_year, period_month, submitted_at, auto_approve_enabled, auto_approve_at, approved_at, approval_kind, changed_after_approval, content_folder_url, period_to, zaakceptowal:client_contacts!packages_approved_by_contact_id_fkey(name), clients!inner(category, auto_approve_default)";
+  "id, client_id, location_id, title, status, round, period_from, period_to, submitted_at, auto_approve_enabled, auto_approve_at, approved_at, approval_kind, changed_after_approval, content_folder_url, zaakceptowal:client_contacts!packages_approved_by_contact_id_fkey(name), clients!inner(category, auto_approve_default)";
 const KOLUMNY_MATERIALU =
   "id, type, position, title, caption, publish_at, location_ids, campaign_id, updated_in_round, added_after_submit, item_assets(id, kind, preview_path, thumb_path, width, height, duration_ms, position, original_name, superseded_at), ad_variants(id, kind, position, label, value_text, asset_id, location_id)";
 const KOLUMNY_KOMENTARZA =
@@ -192,7 +191,7 @@ export async function pobierzPakietSzczegoly(pakietId: string, o: OpcjeSzczegolo
       tytul: p.title ?? "",
       status: p.status,
       runda: p.round,
-      okres: { rok: p.period_year, miesiac: p.period_month },
+      okres: { od: p.period_from, do: p.period_to },
       wyslanoO: p.submitted_at,
       autoWlaczona: p.auto_approve_enabled,
       autoDomyslnaKlienta: p.clients.auto_approve_default,
@@ -203,7 +202,6 @@ export async function pobierzPakietSzczegoly(pakietId: string, o: OpcjeSzczegolo
       cofniecie,
       zmienionePoAkceptacji: p.changed_after_approval,
       folderContentuUrl: o.strona.rodzaj === "zespol" ? p.content_folder_url : null,
-      koniecOkresu: p.period_to,
       lokale: lokaleDto,
       posty,
       relacje,
@@ -223,8 +221,8 @@ type WierszListy = {
   title: string | null;
   status: Enums["package_status"];
   round: number;
-  period_year: number;
-  period_month: number;
+  period_from: string;
+  period_to: string;
   submitted_at: string | null;
   auto_approve_enabled: boolean;
   auto_approve_at: string | null;
@@ -235,7 +233,7 @@ type WierszListy = {
 };
 
 const KOLUMNY_LISTY =
-  "id, client_id, title, status, round, period_year, period_month, submitted_at, auto_approve_enabled, auto_approve_at, lokal:locations(name), package_items(type), campaigns(id), comments(author_kind, round, resolved_at, seen_by_team_at)";
+  "id, client_id, title, status, round, period_from, period_to, submitted_at, auto_approve_enabled, auto_approve_at, lokal:locations(name), package_items(type), campaigns(id), comments(author_kind, round, resolved_at, seen_by_team_at)";
 
 function naPakietNaLiscie(w: WierszListy): PakietNaLiscie {
   const typy = w.package_items.map((i) => i.type);
@@ -245,7 +243,7 @@ function naPakietNaLiscie(w: WierszListy): PakietNaLiscie {
     tytul: w.title ?? "",
     status: w.status,
     runda: w.round,
-    okres: { rok: w.period_year, miesiac: w.period_month },
+    okres: { od: w.period_from, do: w.period_to },
     nazwaLokalu: w.lokal?.name ?? null,
     wyslanoO: w.submitted_at,
     autoAkceptacjaO: w.auto_approve_enabled ? w.auto_approve_at : null,
@@ -260,7 +258,7 @@ function naPakietNaLiscie(w: WierszListy): PakietNaLiscie {
 
 /** Lista pakietów klienta widoczna dla klienta (bez szkiców) albo dla zespołu (wszystkie). */
 export async function pobierzPakietyKlienta(clientId: string, o: { zeSzkicami: boolean }): Promise<PakietNaLiscie[]> {
-  let zapytanie = supabaseSerwer().from("packages").select(KOLUMNY_LISTY).eq("client_id", clientId).order("period_year", { ascending: false }).order("period_month", { ascending: false }).order("created_at", { ascending: false });
+  let zapytanie = supabaseSerwer().from("packages").select(KOLUMNY_LISTY).eq("client_id", clientId).order("period_from", { ascending: false }).order("created_at", { ascending: false });
   if (!o.zeSzkicami) zapytanie = zapytanie.neq("status", "szkic");
   const { data, error } = await zapytanie;
   if (error) throw new Error(`pobierzPakietyKlienta: ${error.message}`);

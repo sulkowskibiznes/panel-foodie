@@ -3,7 +3,7 @@ import { copy } from "../../src/lib/copy";
 import { zlozDateLokalna } from "../../src/lib/harmonogram/kalendarz";
 import { usunLinkTestowy, utworzLinkTestowy, wyczyscLimity, type LinkTestowy } from "./pomocnicze/baza";
 import { zalogujKlienta } from "./pomocnicze/klient";
-import { materialyPakietu, okresDlaProjektu, sklonujPakiet, stanMaterialu, usunPakiet } from "./pomocnicze/pakiety";
+import { materialyPakietu, okresDlaProjektu, sklonujPakiet, stanMaterialu, ustawDatePublikacji, usunPakiet } from "./pomocnicze/pakiety";
 
 /** postgres.js zwraca timestamptz jako Date; porównujemy w ISO. */
 async function publikacja(itemId: string): Promise<string | null> {
@@ -13,8 +13,8 @@ async function publikacja(itemId: string): Promise<string | null> {
 import { PLIK_SESJI_ZESPOLU } from "./pomocnicze/zespol";
 
 /**
- * Harmonogram (SPEC rozdz. 8): zespół przeciąga i ustawia daty, klient tylko ogląda (kryterium 22).
- * Klony pakietu Pierogarni Babci w roku 2031, miesiące per projekt Playwrighta.
+ * Harmonogram (SPEC rozdz. 8): widok okresu pakietu (`?p=`), zespół przeciąga i ustawia daty, klient tylko ogląda (kryterium 22).
+ * Klony pakietu Pierogarni Babci w roku 2031, okresy (całe miesiące) per projekt Playwrighta.
  */
 test.describe.configure({ mode: "serial" });
 test.setTimeout(150_000);
@@ -37,12 +37,14 @@ test("zespół: przeciągnięcie na inny dzień, pole daty i godziny, panel Niez
   const p = await sklonujPakiet(KLIENT, { ...okres, status: "szkic" });
   const zespol = await browser.newContext({ storageState: PLIK_SESJI_ZESPOLU, viewport: { width: 1440, height: 1000 } });
   try {
-    // klon dziedziczy daty z września 2026, więc materiały są „poza tym miesiącem"; przenosimy je polem daty
+    // klon dziedziczy daty publikacji z września 2026, a jego okres to inny miesiąc, więc materiały są „poza tym okresem"; przenosimy je polem daty
     const post1 = (await materialyPakietu(p.id)).find((m) => m.type === "post" && m.position === 1)!;
     const z = await zespol.newPage();
-    await z.goto(`/zespol/klienci/${KLIENT}/harmonogram?m=${okres.rok}-${dwie(okres.miesiac)}`);
+    await z.goto(`/zespol/klienci/${KLIENT}/harmonogram?p=${p.id}`);
     await expect(z.locator("[data-harmonogram-zespolu]")).toBeVisible();
-    await expect(z.locator("[data-poza-miesiacem]")).toBeVisible();
+    await expect(z.locator("[data-nawigacja-okresu] [data-okres]")).toHaveAttribute("data-okres", `${okres.od}..${okres.do}`);
+    await expect(z.locator(`[data-dzien="${okres.od}"]`)).toHaveAttribute("data-w-okresie", "1");
+    await expect(z.locator("[data-poza-okresem]")).toBeVisible();
 
     const kafelek = z.locator(`[data-material-kalendarza="${post1.id}"]`);
     await kafelek.locator("[data-otworz-date]").click();
@@ -85,24 +87,30 @@ test("zespół: przeciągnięcie na inny dzień, pole daty i godziny, panel Niez
 test("22. klient nie może przesunąć materiału: kalendarz bez uchwytów, bez pól daty, bez endpointu", async ({ page }) => {
   const okres = okresDlaProjektu(test.info().project.name, "harmonogram", 1);
   const p = await sklonujPakiet(KLIENT, okres);
+  const szkic = await sklonujPakiet(KLIENT, { ...okresDlaProjektu(test.info().project.name, "harmonogram", 2), status: "szkic" });
   try {
-    // klon ma daty z września 2026 (seed): kalendarz klienta pokazuje ten miesiąc
+    // klon ma daty z września 2026 (seed); jeden post dostaje datę w okresie klonu, żeby trafił do siatki, reszta jest na liście publikacji
+    const post1 = (await materialyPakietu(p.id)).find((m) => m.type === "post" && m.position === 1)!;
+    await ustawDatePublikacji(post1.id, zlozDateLokalna(`${okres.rok}-${dwie(okres.miesiac)}-10`, 12, 0).toISOString());
     await zalogujKlienta(page, link.token, link.pin);
-    await page.goto(`/p/${link.token}/harmonogram?m=2026-09`);
+    await page.goto(`/p/${link.token}/harmonogram?p=${p.id}`);
     await expect(page.locator("[data-harmonogram-klienta]")).toBeVisible();
-    await expect(page.locator("[data-material-kalendarza]").first()).toBeVisible();
+    await expect(page.locator("[data-nawigacja-okresu] [data-okres]")).toHaveAttribute("data-okres", `${okres.od}..${okres.do}`);
+    await expect(page.locator(`[data-dzien="${okres.rok}-${dwie(okres.miesiac)}-10"] [data-material-kalendarza="${post1.id}"]`)).toBeVisible();
+    await expect(page.locator("[data-lista-publikacji] li")).toHaveCount((await materialyPakietu(p.id)).filter((m) => m.type !== "reklama").length);
     await expect(page.locator("[data-uchwyt]")).toHaveCount(0);
     await expect(page.locator('input[type="date"], input[type="datetime-local"], input[type="time"]')).toHaveCount(0);
     await expect(page.locator("[data-formularz-daty]")).toHaveCount(0);
     await expect(page.locator("[draggable='true']")).toHaveCount(0);
     await expect(page.getByRole("link", { name: copy.harmonogram.skomentuj }).first()).toBeVisible();
-    await expect(page.locator("[data-kampanie-miesiaca]")).toContainText("Kampania standardowa");
+    await expect(page.locator("[data-kampanie-okresu]")).toContainText("Kampania standardowa");
     // nie ma trasy do przesuwania po stronie klienta
     expect((await page.request.post(`/p/${link.token}/harmonogram/przesun`, { data: {} })).status()).toBe(404);
-    // klient nie widzi szkiców w kalendarzu
-    await page.goto(`/p/${link.token}/harmonogram?m=${okres.rok}-${dwie(okres.miesiac)}`);
-    await expect(page.locator("[data-material-kalendarza]")).toHaveCount(0);
+    // szkic nie istnieje dla klienta: 404, nigdy 403
+    const odpowiedz = await page.goto(`/p/${link.token}/harmonogram?p=${szkic.id}`);
+    expect(odpowiedz?.status()).toBe(404);
   } finally {
     await usunPakiet(p.id);
+    await usunPakiet(szkic.id);
   }
 });

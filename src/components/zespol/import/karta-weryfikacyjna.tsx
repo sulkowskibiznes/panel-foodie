@@ -29,7 +29,7 @@ function TrescOstrzezenia({ o }: { o: OstrzezenieFolderu }) {
     case "powtorny":
       return (
         <>
-          {wstaw(t.powtorny, { tytul: o.uzycie.tytul, okres: etykietaOkresu(o.uzycie.okres.rok, o.uzycie.okres.miesiac), data: o.uzycie.zaimportowanoO ? wstaw(t.powtornyData, { data: formatujDateCzas(o.uzycie.zaimportowanoO) }) : "" })}{" "}
+          {wstaw(t.powtorny, { tytul: o.uzycie.tytul, okres: etykietaOkresu(o.uzycie.okres.od, o.uzycie.okres.do), data: o.uzycie.zaimportowanoO ? wstaw(t.powtornyData, { data: formatujDateCzas(o.uzycie.zaimportowanoO) }) : "" })}{" "}
           <Link href={`/zespol/klienci/${o.uzycie.slug}/pakiety/${o.uzycie.pakietId}`} className="font-medium underline" data-link-poprzedniego-pakietu>
             {t.powtornyLink}
           </Link>

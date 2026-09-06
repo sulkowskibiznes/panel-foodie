@@ -1,5 +1,6 @@
 import "server-only";
 import type { Database } from "@/lib/db-types";
+import type { Okres } from "@/lib/harmonogram/kalendarz";
 import { supabaseSerwer } from "@/lib/supabase/server";
 
 type Enums = Database["public"]["Enums"];
@@ -18,7 +19,7 @@ export type UwagaWSkrzynce = {
   pakietId: string;
   pakietTytul: string;
   statusPakietu: Enums["package_status"];
-  okres: { rok: number; miesiac: number };
+  okres: Okres;
   klient: { id: string; slug: string; name: string };
   materialId: string | null;
   materialTytul: string | null;
@@ -40,12 +41,12 @@ type Wiersz = {
   variant_id: string | null;
   package_id: string;
   kontakt: { name: string } | null;
-  packages: { id: string; title: string | null; status: Enums["package_status"]; period_year: number; period_month: number; client_id: string; clients: { id: string; slug: string; name: string } };
+  packages: { id: string; title: string | null; status: Enums["package_status"]; period_from: string; period_to: string; client_id: string; clients: { id: string; slug: string; name: string } };
   package_items: { type: Enums["item_type"]; title: string | null; position: number } | null;
 };
 
 const KOLUMNY =
-  "id, body, created_at, author_label, seen_by_team_at, after_approval, round, item_id, variant_id, package_id, kontakt:client_contacts!comments_author_contact_id_fkey(name), packages!inner(id, title, status, period_year, period_month, client_id, clients!inner(id, slug, name)), package_items(type, title, position)";
+  "id, body, created_at, author_label, seen_by_team_at, after_approval, round, item_id, variant_id, package_id, kontakt:client_contacts!comments_author_contact_id_fkey(name), packages!inner(id, title, status, period_from, period_to, client_id, clients!inner(id, slug, name)), package_items(type, title, position)";
 
 export type FiltrySkrzynki = { clientId?: string | null; typ?: TypUwagi | null };
 
@@ -77,7 +78,7 @@ export async function pobierzNierozwiazaneUwagi(clientIds: string[] | null, filt
     pakietId: w.packages.id,
     pakietTytul: w.packages.title ?? "",
     statusPakietu: w.packages.status,
-    okres: { rok: w.packages.period_year, miesiac: w.packages.period_month },
+    okres: { od: w.packages.period_from, do: w.packages.period_to },
     klient: w.packages.clients,
     materialId: w.item_id,
     materialTytul: w.package_items ? (w.package_items.title ?? `${w.package_items.type} ${w.package_items.position}`) : null,

@@ -21,8 +21,9 @@ async function zBaza<T>(fn: (s: ReturnType<typeof postgres>) => Promise<T>): Pro
 export type StatusTestowy = "szkic" | "do_akceptacji" | "poprawki" | "zaakceptowany" | "zaplanowany";
 
 export type OpcjeKlonu = {
-  rok: number;
-  miesiac: number;
+  /** Okres klonu (YYYY-MM-DD, włącznie); z `okresDlaProjektu` to cały izolowany miesiąc. */
+  od: string;
+  do: string;
   status?: StatusTestowy;
   /** godziny temu; domyślnie 24 */
   wyslanoGodzinTemu?: number;
@@ -34,14 +35,21 @@ export type OpcjeKlonu = {
 export type PlikTestow = "akceptacja" | "cron" | "reklamy" | "zespol" | "harmonogram" | "kreator" | "skrzynka" | "import";
 const ROK_PLIKU: Record<PlikTestow, number> = { akceptacja: 2027, cron: 2028, reklamy: 2029, zespol: 2030, harmonogram: 2031, kreator: 2032, skrzynka: 2033, import: 2034 };
 
+export type OkresTestowy = { rok: number; miesiac: number; od: string; do: string };
+
 /**
  * Okres na klony: osobny rok na plik testów i osobne półrocze na projekt Playwrighta (mobile 1-6, desktop 7-12),
- * żeby równoległe pliki i projekty nie kolidowały na unique (client, location, rok, miesiac). Przesunięcie 0-5.
+ * żeby równoległe pliki i projekty pracowały na rozłącznych okresach (sprzątanie w `sklonujPakiet` idzie po `period_from`).
+ * Przesunięcie 0-5. `od`/`do` to cały miesiąc kalendarzowy; `rok`/`miesiac` zostają do budowania dat w testach.
  */
-export function okresDlaProjektu(nazwaProjektu: string, plik: PlikTestow, przesuniecie = 0): { rok: number; miesiac: number } {
+export function okresDlaProjektu(nazwaProjektu: string, plik: PlikTestow, przesuniecie = 0): OkresTestowy {
   if (przesuniecie < 0 || przesuniecie > 5) throw new Error("przesuniecie musi być w zakresie 0-5");
   const baza = nazwaProjektu.startsWith("mobile") ? 1 : 7;
-  return { rok: ROK_PLIKU[plik], miesiac: baza + przesuniecie };
+  const rok = ROK_PLIKU[plik];
+  const miesiac = baza + przesuniecie;
+  const mm = String(miesiac).padStart(2, "0");
+  const ostatni = new Date(Date.UTC(rok, miesiac, 0)).getUTCDate();
+  return { rok, miesiac, od: `${rok}-${mm}-01`, do: `${rok}-${mm}-${String(ostatni).padStart(2, "0")}` };
 }
 
 /**
@@ -59,15 +67,15 @@ export async function sklonujPakiet(slug: string, o: OpcjeKlonu): Promise<{ id: 
         where c.slug = ${slug} order by p.created_at limit 1`;
       if (!zrodlo) throw new Error(`Brak pakietu klienta ${slug}`);
       // Pozostałość po przerwanym przebiegu w tym samym okresie: sprzątamy, zamiast wywracać test na unique.
-      await tx`delete from public.comments where package_id in (select id from public.packages where client_id = ${zrodlo.client_id} and period_year = ${o.rok} and period_month = ${o.miesiac} and title like '% (test E2E)')`;
-      await tx`delete from public.packages where client_id = ${zrodlo.client_id} and period_year = ${o.rok} and period_month = ${o.miesiac} and title like '% (test E2E)'`;
+      await tx`delete from public.comments where package_id in (select id from public.packages where client_id = ${zrodlo.client_id} and period_from = ${o.od}::date and title like '% (test E2E)')`;
+      await tx`delete from public.packages where client_id = ${zrodlo.client_id} and period_from = ${o.od}::date and title like '% (test E2E)'`;
       const zaakceptowano = status === "zaakceptowany" || status === "zaplanowany" ? new Date().toISOString() : null;
       const [nowy] = await tx<{ id: string }[]>`
-        insert into public.packages (client_id, location_id, period_year, period_month, cooperation_month, title, status, round,
+        insert into public.packages (client_id, location_id, cooperation_month, title, status, round,
           submitted_at, auto_approve_enabled, auto_approve_at, approved_at, approval_kind, period_from, period_to, created_by)
-        select client_id, location_id, ${o.rok}, ${o.miesiac}, cooperation_month, title || ' (test E2E)', ${status}::public.package_status, 1,
+        select client_id, location_id, cooperation_month, title || ' (test E2E)', ${status}::public.package_status, 1,
           ${wyslano}::timestamptz, ${o.autoWlaczona ?? true}, ${auto}::timestamptz, ${zaakceptowano}::timestamptz,
-          ${zaakceptowano ? "reczna" : null}::public.approval_kind, period_from, period_to, created_by
+          ${zaakceptowano ? "reczna" : null}::public.approval_kind, ${o.od}::date, ${o.do}::date, created_by
         from public.packages where id = ${zrodlo.id} returning id`;
       if (!nowy) throw new Error("Nie udało się sklonować pakietu");
       await tx`create temp table map_k on commit drop as select id as old_id, gen_random_uuid() as new_id from public.campaigns where package_id = ${zrodlo.id}`;
@@ -248,16 +256,16 @@ export async function idKlienta(slug: string): Promise<string> {
   });
 }
 
-export type SzczegolyPakietu = { status: StatusTestowy; content_folder_id: string | null; content_folder_url: string | null; location_id: string | null; cooperation_month: number | null; kampanie: Array<{ name: string; goal: string | null; ads_folder_id: string | null; position: number }>; reklamy: number };
+export type SzczegolyPakietu = { status: StatusTestowy; content_folder_id: string | null; content_folder_url: string | null; location_id: string | null; cooperation_month: number | null; period_from: string; period_to: string; kampanie: Array<{ name: string; goal: string | null; ads_folder_id: string | null; position: number }>; reklamy: number };
 
 /** Pakiet z kreatora: foldery, lokal, kampanie i liczba materiałów `reklama` (SPEC rozdz. 12.3). */
 export async function szczegolyPakietu(id: string): Promise<SzczegolyPakietu> {
   return zBaza(async (s) => {
-    const [p] = await s<Array<Omit<SzczegolyPakietu, "kampanie" | "reklamy">>>`select status, content_folder_id, content_folder_url, location_id, cooperation_month from public.packages where id = ${id}`;
+    const [p] = await s<Array<Omit<SzczegolyPakietu, "kampanie" | "reklamy" | "period_from" | "period_to"> & { period_from: Date | string; period_to: Date | string }>>`select status, content_folder_id, content_folder_url, location_id, cooperation_month, period_from::text, period_to::text from public.packages where id = ${id}`;
     if (!p) throw new Error(`Brak pakietu ${id}`);
     const kampanie = await s<SzczegolyPakietu["kampanie"]>`select name, goal, ads_folder_id, position from public.campaigns where package_id = ${id} order by position`;
     const [r] = await s<{ n: number }[]>`select count(*)::int as n from public.package_items where package_id = ${id} and type = 'reklama'`;
-    return { ...p, kampanie, reklamy: r?.n ?? 0 };
+    return { ...p, period_from: String(p.period_from), period_to: String(p.period_to), kampanie, reklamy: r?.n ?? 0 };
   });
 }
 
@@ -285,10 +293,10 @@ export async function plikiPakietu(pakietId: string): Promise<PlikPakietuTestowy
     where i.package_id = ${pakietId} order by i.type, i.position, a.position`);
 }
 
-/** Pakiety klienta w danym roku i miesiącach (sprzątanie po przerwanych testach importu, które tworzą pakiety kreatorem). */
-export async function pakietyKlientaWOkresie(slug: string, rok: number, miesiace: number[]): Promise<string[]> {
+/** Pakiety klienta zaczynające się w zakresie dat (sprzątanie po przerwanych testach importu, które tworzą pakiety kreatorem). */
+export async function pakietyKlientaWOkresie(slug: string, od: string, do_: string): Promise<string[]> {
   return zBaza(async (s) => {
-    const w = await s<{ id: string }[]>`select p.id from public.packages p join public.clients c on c.id = p.client_id where c.slug = ${slug} and p.period_year = ${rok} and p.period_month = any(${miesiace}::int[])`;
+    const w = await s<{ id: string }[]>`select p.id from public.packages p join public.clients c on c.id = p.client_id where c.slug = ${slug} and p.period_from between ${od}::date and ${do_}::date`;
     return w.map((x) => x.id);
   });
 }

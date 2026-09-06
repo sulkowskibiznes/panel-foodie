@@ -6,9 +6,11 @@ o zakresie — gdy coś tu i tam się rozjeżdża, wygrywa `SPEC.md`, a ten plik
 ## Czym jest ten projekt
 
 Panel dla ok. 80 restauracji-klientów agencji Foodie Media, pod `panel.foodiemedia.pl`.
-Klient akceptuje w nim miesięczny pakiet materiałów (6 postów, 10 relacji i **co najmniej
-jedna kampania reklamowa** — bywa ich w miesiącu kilka), ogląda harmonogram publikacji,
+Klient akceptuje w nim pakiet materiałów na okres od-do (6 postów, 10 relacji i **co najmniej
+jedna kampania reklamowa** — bywa ich w pakiecie kilka), ogląda harmonogram publikacji,
 raporty, faktury i dokumenty. Zespół zarządza tym wszystkim z części administracyjnej.
+**Okres pakietu to dowolny zakres dat** (`period_from`, `period_to`, np. 20.09 do 19.10), nie miesiąc
+kalendarzowy: każdy klient zaczyna miesiąc innego dnia, a po wstrzymaniu wraca od innego dnia.
 
 **Content (posty, relacje, Reels) podglądamy na Facebooku. Reklamy w sześciu placementach:
 cztery na Facebooku, dwa na Instagramie.**
@@ -108,7 +110,7 @@ src/
     import/               # ocena.ts (ostrzeżenia i blokada karty, czyste), plan.ts (plan po mapowaniu, limity, zod), weryfikacja.ts
                           # (karta: ścieżka do korzenia, listowanie), mapowanie.ts (propozycja + miniatury), zadania.ts (import_jobs,
                           # worker w after(), wznowienie), pojedynczy.ts (plik z Dysku dla Dodaj/Podmień)
-    harmonogram/kalendarz.ts  # siatka miesiąca, daty lokalne Europe/Warsaw (czyste)
+    harmonogram/kalendarz.ts  # siatka okresu od-do, zachodzenie okresów, numer miesiąca współpracy, daty lokalne Europe/Warsaw (czyste)
     reklamy/warianty.ts   # składanie wariantu reklamy dla lokalu (czyste, testowane)
     podglad/tekst.ts      # hashtagi i linki w tekście posta
     format.ts, walidacja.ts

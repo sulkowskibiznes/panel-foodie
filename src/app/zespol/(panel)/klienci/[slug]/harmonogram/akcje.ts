@@ -10,7 +10,7 @@ import { wolnaGodzina } from "@/lib/dane/harmonogram";
 import { pobierzKlientaPoSlugu } from "@/lib/dane/klienci-zespolu";
 import { edytujMaterial, edytujPakiet } from "@/lib/dane/materialy-zespol";
 import type { WynikAkcji } from "@/lib/dto/wynik";
-import { czasLokalny, czyPoprawnaDataLokalna, dataLokalna, zlozDateLokalna } from "@/lib/harmonogram/kalendarz";
+import { czasLokalny, czyPoprawnaDataLokalna, dataLokalna, dlugoscOkresuDni, zlozDateLokalna } from "@/lib/harmonogram/kalendarz";
 import { pobierzPakietDoPrzejscia } from "@/lib/pakiety/baza";
 import { supabaseSerwer } from "@/lib/supabase/server";
 import { czyUuid } from "@/lib/walidacja";
@@ -88,18 +88,20 @@ export async function przesunMaterialAkcja(slug: string, dane: z.input<typeof sc
   return { ok: true, publikacjaO };
 }
 
-const schematUstawien = z.object({ pakietId: z.string(), koniecOkresu: z.string().nullable().optional(), godziny: z.string().max(60).optional() });
+const schematUstawien = z.object({ pakietId: z.string(), okres: z.object({ od: z.string().max(10), do: z.string().max(10) }).optional(), godziny: z.string().max(60).optional() });
 
-/** Dzień zakończenia pakietu (period_to) i domyślne godziny publikacji klienta. */
+/** Okres pakietu (period_from, period_to) i domyślne godziny publikacji klienta. Okres: od <= do, lata 2024-2100, najwyżej rok. */
 export async function zapiszUstawieniaHarmonogramu(slug: string, dane: z.input<typeof schematUstawien>): Promise<WynikAkcji> {
   const parsed = schematUstawien.safeParse(dane);
   if (!parsed.success || !czyUuid(parsed.data.pakietId)) return { ok: false, blad: copy.zespol.harmonogram.bledy.zlaData };
   const { czlonek, clientId } = await autoryzuj(slug);
   const pakiet = await pobierzPakietDoPrzejscia(parsed.data.pakietId);
   if (!pakiet || pakiet.clientId !== clientId) notFound();
-  if (parsed.data.koniecOkresu !== undefined) {
-    if (parsed.data.koniecOkresu && !czyPoprawnaDataLokalna(parsed.data.koniecOkresu)) return { ok: false, blad: copy.zespol.harmonogram.bledy.zlaData };
-    await edytujPakiet(pakiet.id, { periodTo: parsed.data.koniecOkresu || null });
+  if (parsed.data.okres !== undefined) {
+    const o = parsed.data.okres;
+    if (!czyPoprawnaDataLokalna(o.od) || !czyPoprawnaDataLokalna(o.do)) return { ok: false, blad: copy.zespol.harmonogram.bledy.zlaData };
+    if (o.od > o.do || o.od < "2024-01-01" || o.do > "2100-12-31" || dlugoscOkresuDni(o.od, o.do) > 366) return { ok: false, blad: copy.zespol.harmonogram.bledy.zlyOkres };
+    await edytujPakiet(pakiet.id, { periodFrom: o.od, periodTo: o.do });
   }
   if (parsed.data.godziny !== undefined) {
     const godziny = parsed.data.godziny.split(/[,\s;]+/).filter(Boolean).map(Number);
@@ -108,7 +110,7 @@ export async function zapiszUstawieniaHarmonogramu(slug: string, dane: z.input<t
     if (error) throw new Error(`zapiszUstawieniaHarmonogramu: ${error.message}`);
   }
   const { ipHash } = await infoZadania();
-  await zapiszAudyt({ actor_kind: "zespol", actor_id: czlonek.id, actor_label: czlonek.name, action: "zespol.pakiet_zmieniony", entity: "package", entity_id: pakiet.id, client_id: clientId, ip_hash: ipHash, meta: { koniec_okresu: parsed.data.koniecOkresu, godziny: parsed.data.godziny } });
+  await zapiszAudyt({ actor_kind: "zespol", actor_id: czlonek.id, actor_label: czlonek.name, action: "zespol.pakiet_zmieniony", entity: "package", entity_id: pakiet.id, client_id: clientId, ip_hash: ipHash, meta: { okres: parsed.data.okres ?? null, godziny: parsed.data.godziny } });
   odswiez(slug, pakiet.id);
   return { ok: true };
 }

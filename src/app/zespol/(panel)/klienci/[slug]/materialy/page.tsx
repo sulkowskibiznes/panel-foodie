@@ -39,7 +39,7 @@ export default async function MaterialyKlientaZespol({ params }: PageProps<"/zes
           <table aria-label={t.tytul} className="w-full min-w-[640px] text-sm">
             <thead className="text-left text-xs uppercase tracking-wide text-szary-600">
               <tr>
-                <th className="py-2 pr-4">{t.kolumny.miesiac}</th>
+                <th className="py-2 pr-4">{t.kolumny.okres}</th>
                 <th className="py-2 pr-4">{t.kolumny.status}</th>
                 <th className="py-2 pr-4">{t.kolumny.wyslano}</th>
                 <th className="py-2 pr-4">{t.kolumny.auto}</th>
@@ -51,7 +51,7 @@ export default async function MaterialyKlientaZespol({ params }: PageProps<"/zes
               {pakiety.map((p) => (
                 <tr key={p.id} className="border-t border-szary-100">
                   <td className="py-3 pr-4 font-medium text-foodie-czern">
-                    {etykietaOkresu(p.okres.rok, p.okres.miesiac)}
+                    {etykietaOkresu(p.okres.od, p.okres.do)}
                     {p.nazwaLokalu ? <span className="block text-xs font-normal text-szary-600">{p.nazwaLokalu}</span> : null}
                   </td>
                   <td className="py-3 pr-4 text-szary-600">

@@ -1,6 +1,8 @@
 /**
  * Kalendarz harmonogramu (SPEC rozdz. 8) w strefie Europe/Warsaw, bez bibliotek dat. Czysta logika
  * wspólna dla widoku zespołu (przeciąganie) i klienta (tylko odczyt) oraz testów.
+ * Pakiet obejmuje dowolny okres od-do (np. 20.09 do 19.10), więc siatka jest siatką okresu, nie miesiąca.
+ * Daty to napisy „YYYY-MM-DD" porównywane jako napisy; arytmetyka dni w UTC, żeby zmiana czasu nic nie psuła.
  */
 export const STREFA = "Europe/Warsaw";
 const MS_DNIA = 86_400_000;
@@ -71,25 +73,60 @@ export function dniWMiesiacu(rok: number, miesiac: number): number {
   return new Date(Date.UTC(rok, miesiac, 0)).getUTCDate();
 }
 
-export type DzienSiatki = { data: string; dzien: number; wMiesiacu: boolean };
+/** Okres pakietu: pierwszy i ostatni dzień publikacji (YYYY-MM-DD, włącznie). */
+export type Okres = { od: string; do: string };
 
-/** Tygodnie od poniedziałku, z dniami sąsiednich miesięcy na brzegach (zawsze pełne wiersze). */
-export function siatkaMiesiaca(rok: number, miesiac: number): DzienSiatki[][] {
-  const pierwszy = Date.UTC(rok, miesiac - 1, 1);
-  const dzienTygodnia = (new Date(pierwszy).getUTCDay() + 6) % 7; // 0 = poniedziałek
-  const start = pierwszy - dzienTygodnia * MS_DNIA;
-  const dni = dniWMiesiacu(rok, miesiac);
-  const wierszy = Math.ceil((dzienTygodnia + dni) / 7);
+export type DzienSiatki = { data: string; dzien: number; /** Dzień w okresie pakietu (poza nim szare brzegi tygodni). */ wOkresie: boolean; /** Pierwszy dzień miesiąca albo pierwsza komórka siatki: tu pokazujemy nazwę miesiąca. */ nowyMiesiac: boolean };
+
+function msDaty(data: string): number {
+  const [r, m, d] = data.split("-").map(Number);
+  if (!r || !m || !d) throw new Error(`zła data ${data}`);
+  return Date.UTC(r, m - 1, d);
+}
+
+function dataZMs(ms: number): string {
+  const d = new Date(ms);
+  return `${d.getUTCFullYear()}-${dwie(d.getUTCMonth() + 1)}-${dwie(d.getUTCDate())}`;
+}
+
+/** Tygodnie od poniedziałku przed `od` do niedzieli po `do`, zawsze pełne wiersze. Cały wrzesień daje tę samą siatkę co dawna siatka miesiąca. */
+export function siatkaOkresu(od: string, do_: string): DzienSiatki[][] {
+  const poczatek = msDaty(od);
+  const koniecOkresu = msDaty(do_);
+  if (koniecOkresu < poczatek) throw new Error("siatkaOkresu: koniec przed początkiem");
+  const start = poczatek - ((new Date(poczatek).getUTCDay() + 6) % 7) * MS_DNIA;
+  const koniec = koniecOkresu + (6 - ((new Date(koniecOkresu).getUTCDay() + 6) % 7)) * MS_DNIA;
+  const wierszy = Math.round(((koniec - start) / MS_DNIA + 1) / 7);
+  if (wierszy > 60) throw new Error("siatkaOkresu: okres dłuższy niż rok");
   const tygodnie: DzienSiatki[][] = [];
   for (let t = 0; t < wierszy; t++) {
     const tydzien: DzienSiatki[] = [];
     for (let i = 0; i < 7; i++) {
-      const d = new Date(start + (t * 7 + i) * MS_DNIA);
-      tydzien.push({ data: `${d.getUTCFullYear()}-${dwie(d.getUTCMonth() + 1)}-${dwie(d.getUTCDate())}`, dzien: d.getUTCDate(), wMiesiacu: d.getUTCMonth() + 1 === miesiac && d.getUTCFullYear() === rok });
+      const ms = start + (t * 7 + i) * MS_DNIA;
+      const data = dataZMs(ms);
+      const dzien = new Date(ms).getUTCDate();
+      tydzien.push({ data, dzien, wOkresie: od <= data && data <= do_, nowyMiesiac: dzien === 1 || (t === 0 && i === 0) });
     }
     tygodnie.push(tydzien);
   }
   return tygodnie;
+}
+
+/** Okresy zachodzą na siebie, gdy mają choć jeden wspólny dzień (włącznie z brzegami). */
+export function czyOkresyZachodza(a: Okres, b: Okres): boolean {
+  return a.od <= b.do && b.od <= a.do;
+}
+
+/** Liczba dni okresu włącznie z oboma brzegami. */
+export function dlugoscOkresuDni(od: string, do_: string): number {
+  return Math.round((msDaty(do_) - msDaty(od)) / MS_DNIA) + 1;
+}
+
+/** Rok i miesiąc z daty „YYYY-MM-DD" (miesiąc startu pakietu: filtr pulpitu, webhook, ostrzeżenia importu). */
+export function miesiacZDaty(data: string): { rok: number; miesiac: number } {
+  const [r, m] = data.split("-").map(Number);
+  if (!r || !m) throw new Error(`zła data ${data}`);
+  return { rok: r, miesiac: m };
 }
 
 export function kluczMiesiaca(rok: number, miesiac: number): string {
@@ -105,15 +142,17 @@ export function parsujMiesiac(wartosc: string | null | undefined): { rok: number
   return { rok, miesiac };
 }
 
-export function przesunMiesiac(rok: number, miesiac: number, delta: number): { rok: number; miesiac: number } {
-  const indeks = rok * 12 + (miesiac - 1) + delta;
-  return { rok: Math.floor(indeks / 12), miesiac: (indeks % 12) + 1 };
-}
-
-/** Miesiąc współpracy (n-ty od startu), jak w seedzie: start w kwietniu i pakiet na wrzesień = 6. */
-export function miesiacWspolpracy(start: string | null, rok: number, miesiac: number): number | null {
-  if (!start) return null;
-  const [sr, sm] = start.split("-").map(Number);
-  if (!sr || !sm) return null;
-  return (rok - sr) * 12 + (miesiac - sm) + 1;
+/**
+ * Podpowiedź numeru miesiąca współpracy dla nowego pakietu: ostatni pakiet klienta plus jeden; bez poprzedniego
+ * pakietu liczymy z daty startu współpracy i daty początku okresu (start w kwietniu, pakiet od września = 6).
+ * Po przerwach numer bywa inny, dlatego pole w kreatorze jest edytowalne. `null` = brak podstaw do podpowiedzi.
+ */
+export function kolejnyMiesiacWspolpracy(ostatniNumer: number | null, startWspolpracy: string | null, od: string): number | null {
+  if (ostatniNumer !== null && ostatniNumer >= 1) return ostatniNumer + 1;
+  if (!startWspolpracy) return null;
+  const [sr, sm] = startWspolpracy.split("-").map(Number);
+  const [r, m] = od.split("-").map(Number);
+  if (!sr || !sm || !r || !m) return null;
+  const numer = (r - sr) * 12 + (m - sm) + 1;
+  return numer >= 1 ? numer : null;
 }

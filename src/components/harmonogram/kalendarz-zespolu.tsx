@@ -4,12 +4,12 @@ import { DndContext, DragOverlay, KeyboardSensor, PointerSensor, pointerWithin, 
 import { useRouter } from "next/navigation";
 import { useMemo, useState, useTransition, type ReactNode } from "react";
 import type { WynikHarmonogramu } from "@/app/zespol/(panel)/klienci/[slug]/harmonogram/akcje";
-import { EtykietaMaterialu, KLASA_STATUSU, SiatkaMiesiaca } from "@/components/harmonogram/wspolne";
+import { EtykietaMaterialu, KLASA_STATUSU, podpisDnia, SiatkaOkresu } from "@/components/harmonogram/wspolne";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { copy } from "@/lib/copy";
-import type { HarmonogramMiesiaca, MaterialWKalendarzu } from "@/lib/dto/harmonogram";
-import { kluczMiesiaca, type DzienSiatki } from "@/lib/harmonogram/kalendarz";
+import type { HarmonogramOkresu, MaterialWKalendarzu } from "@/lib/dto/harmonogram";
+import type { DzienSiatki } from "@/lib/harmonogram/kalendarz";
 
 export type Przesun = (dane: { pakietId: string; materialId: string; data: string | null; godzina: string | null; potwierdzono?: boolean }) => Promise<WynikHarmonogramu>;
 
@@ -22,16 +22,16 @@ const kolizje: CollisionDetection = (args) => {
 };
 const POLE = "h-8 rounded-lg border border-szary-300 bg-white px-2 text-xs text-foodie-czern outline-none focus:border-foodie-fiolet";
 
-function Kafelek({ m, przeciagany = false }: { m: MaterialWKalendarzu; przeciagany?: boolean }) {
+function Kafelek({ m, przeciagany = false, zLokalem = false }: { m: MaterialWKalendarzu; przeciagany?: boolean; zLokalem?: boolean }) {
   return (
     <span className={`block w-full rounded-md border px-1.5 py-1 text-left text-[11px] leading-4 ${KLASA_STATUSU[m.statusPakietu]} ${przeciagany ? "shadow-miekki" : ""}`}>
-      <EtykietaMaterialu m={m} />
+      <EtykietaMaterialu m={m} zLokalem={zLokalem} />
     </span>
   );
 }
 
 /** Kafelek z uchwytem przeciągania i rozwijanym polem daty i godziny (dostępność, telefon, testy). */
-function Material({ m, godziny, onUstaw, zajety }: { m: MaterialWKalendarzu; godziny: number[]; onUstaw: (data: string | null, godzina: string | null) => void; zajety: boolean }) {
+function Material({ m, godziny, onUstaw, zajety, zLokalem }: { m: MaterialWKalendarzu; godziny: number[]; onUstaw: (data: string | null, godzina: string | null) => void; zajety: boolean; zLokalem: boolean }) {
   const { attributes, listeners, setNodeRef, isDragging } = useDraggable({ id: m.id, data: { pakietId: m.pakietId } });
   const [otwarty, setOtwarty] = useState(false);
   const [data, setData] = useState(m.data ?? "");
@@ -44,7 +44,7 @@ function Material({ m, godziny, onUstaw, zajety }: { m: MaterialWKalendarzu; god
           ⋮⋮
         </button>
         <button type="button" onClick={() => setOtwarty((o) => !o)} className="min-w-0 flex-1" aria-expanded={otwarty} data-otworz-date>
-          <Kafelek m={m} />
+          <Kafelek m={m} zLokalem={zLokalem} />
         </button>
       </div>
       {otwarty ? (
@@ -75,11 +75,12 @@ function Material({ m, godziny, onUstaw, zajety }: { m: MaterialWKalendarzu; god
   );
 }
 
-function Dzien({ dzien, dzieci, koniecOkresu }: { dzien: DzienSiatki; dzieci: ReactNode; koniecOkresu: boolean }) {
+/** Komórka dnia: droppable `dzien-YYYY-MM-DD`; początek i koniec okresu pakietu zaznaczone grubą krawędzią. */
+function Dzien({ dzien, dzieci, poczatekOkresu, koniecOkresu }: { dzien: DzienSiatki; dzieci: ReactNode; poczatekOkresu: boolean; koniecOkresu: boolean }) {
   const { setNodeRef, isOver } = useDroppable({ id: `dzien-${dzien.data}`, data: { data: dzien.data } });
   return (
-    <div ref={setNodeRef} role="gridcell" data-dzien={dzien.data} className={`min-h-24 rounded-lg border p-1 ${dzien.wMiesiacu ? "bg-white" : "bg-szary-050 opacity-70"} ${isOver ? "border-foodie-fiolet ring-2 ring-foodie-fiolet/30" : "border-szary-100"} ${koniecOkresu ? "border-b-4 border-b-foodie-czern" : ""}`}>
-      <div className={`text-right text-[11px] ${dzien.wMiesiacu ? "text-foodie-czern" : "text-szary-300"}`}>{dzien.dzien}</div>
+    <div ref={setNodeRef} role="gridcell" data-dzien={dzien.data} data-w-okresie={dzien.wOkresie ? "1" : "0"} className={`min-h-24 rounded-lg border p-1 ${dzien.wOkresie ? "bg-white" : "bg-szary-050 opacity-70"} ${isOver ? "border-foodie-fiolet ring-2 ring-foodie-fiolet/30" : "border-szary-100"} ${poczatekOkresu ? "border-t-4 border-t-foodie-czern" : ""} ${koniecOkresu ? "border-b-4 border-b-foodie-czern" : ""}`}>
+      <div className={`text-right text-[11px] ${dzien.wOkresie ? "text-foodie-czern" : "text-szary-300"}`}>{podpisDnia(dzien)}</div>
       <ul className="mt-1 space-y-1">{dzieci}</ul>
     </div>
   );
@@ -99,11 +100,12 @@ function Niezaplanowane({ dzieci, pusto }: { dzieci: ReactNode; pusto: boolean }
 }
 
 /**
- * Kalendarz zespołu (SPEC rozdz. 8): przeciąganie materiałów między dniami i do panelu „Niezaplanowane" (dnd-kit),
- * do tego pole daty i godziny w każdym kafelku. Zmiana w wysłanym albo zaakceptowanym pakiecie wraca z prośbą
- * o potwierdzenie (ta sama tabela co przy podmianie, rozdz. 12.6).
+ * Kalendarz zespołu (SPEC rozdz. 8): siatka okresu pakietu (od-do), przeciąganie materiałów między dniami
+ * i do panelu „Niezaplanowane" (dnd-kit), pole daty i godziny w każdym kafelku, panel „Poza tym okresem"
+ * dla dat spoza okresu. Zmiana w wysłanym albo zaakceptowanym pakiecie wraca z prośbą o potwierdzenie
+ * (ta sama tabela co przy podmianie, rozdz. 12.6).
  */
-export function KalendarzZespolu({ harmonogram, przesun }: { harmonogram: HarmonogramMiesiaca; przesun: Przesun }) {
+export function KalendarzZespolu({ harmonogram, przesun }: { harmonogram: HarmonogramOkresu; przesun: Przesun }) {
   const router = useRouter();
   const h = copy.zespol.harmonogram;
   /** Nadpisania po udanych zapisach: props z serwera zostają źródłem prawdy, a odświeżenie nie przerywa przeciągania (bez remountu). */
@@ -115,10 +117,11 @@ export function KalendarzZespolu({ harmonogram, przesun }: { harmonogram: Harmon
   const [potwierdzono, setPotwierdzono] = useState(false);
   const [trwa, startTransition] = useTransition();
   const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 6 } }), useSensor(KeyboardSensor));
-  const klucz = kluczMiesiaca(harmonogram.rok, harmonogram.miesiac);
-  const wMiesiacu = useMemo(() => materialy.filter((m) => m.data?.startsWith(klucz)), [materialy, klucz]);
+  const okres = harmonogram.pakiet.okres;
+  const wOkresie = useMemo(() => materialy.filter((m) => m.data !== null && okres.od <= m.data && m.data <= okres.do), [materialy, okres]);
   const niezaplanowane = materialy.filter((m) => m.data === null);
-  const pozaMiesiacem = materialy.filter((m) => m.data !== null && !m.data.startsWith(klucz));
+  const pozaOkresem = materialy.filter((m) => m.data !== null && (m.data < okres.od || m.data > okres.do));
+  const zLokalem = harmonogram.pakiety.length > 1;
 
   function zastosuj(m: MaterialWKalendarzu, data: string | null, godzina: string | null, potwierdzenie = false) {
     setBlad(null);
@@ -157,23 +160,25 @@ export function KalendarzZespolu({ harmonogram, przesun }: { harmonogram: Harmon
     if (data && data !== m.data) zastosuj(m, data, null);
   }
 
-  const kafelek = (m: MaterialWKalendarzu) => <Material key={m.id} m={m} godziny={harmonogram.domyslneGodziny} zajety={trwa} onUstaw={(data, godzina) => zastosuj(m, data, godzina)} />;
-  const koniec = new Set(harmonogram.pakiety.map((p) => p.koniecOkresu).filter((x): x is string => !!x));
+  const kafelek = (m: MaterialWKalendarzu) => <Material key={m.id} m={m} godziny={harmonogram.domyslneGodziny} zajety={trwa} zLokalem={zLokalem} onUstaw={(data, godzina) => zastosuj(m, data, godzina)} />;
+  const poczatki = new Set(harmonogram.pakiety.map((p) => p.okres.od));
+  const konce = new Set(harmonogram.pakiety.map((p) => p.okres.do));
 
   return (
     <DndContext sensors={sensors} collisionDetection={kolizje} onDragStart={naStart} onDragEnd={naKoniec} onDragCancel={() => setAktywny(null)}>
       <div className="grid gap-4 lg:grid-cols-[1fr_280px]">
         <div className="rounded-xl bg-white p-3 shadow-miekki">
-          <SiatkaMiesiaca rok={harmonogram.rok} miesiac={harmonogram.miesiac} komorka={(dzien) => <Dzien key={dzien.data} dzien={dzien} koniecOkresu={koniec.has(dzien.data)} dzieci={wMiesiacu.filter((m) => m.data === dzien.data).sort((a, b) => (a.godzina ?? "").localeCompare(b.godzina ?? "")).map(kafelek)} />} />
+          <SiatkaOkresu okres={okres} komorka={(dzien) => <Dzien key={dzien.data} dzien={dzien} poczatekOkresu={poczatki.has(dzien.data)} koniecOkresu={konce.has(dzien.data)} dzieci={wOkresie.filter((m) => m.data === dzien.data).sort((a, b) => (a.godzina ?? "").localeCompare(b.godzina ?? "")).map(kafelek)} />} />
           {blad ? <p role="alert" className="mt-3 rounded-lg bg-red-50 px-3 py-2 text-sm text-czerwony">{blad}</p> : null}
           {trwa ? <p className="mt-2 text-xs text-szary-600">{h.zapisywanie}</p> : null}
         </div>
         <div className="space-y-4">
           <Niezaplanowane pusto={niezaplanowane.length === 0} dzieci={niezaplanowane.map(kafelek)} />
-          {pozaMiesiacem.length > 0 ? (
-            <section className="rounded-xl bg-white p-3 shadow-miekki" data-poza-miesiacem>
-              <h3 className="font-naglowek text-base text-foodie-czern">{h.pozaMiesiacem}</h3>
-              <ul className="mt-2 space-y-1">{pozaMiesiacem.map(kafelek)}</ul>
+          {pozaOkresem.length > 0 ? (
+            <section className="rounded-xl bg-white p-3 shadow-miekki" data-poza-okresem>
+              <h3 className="font-naglowek text-base text-foodie-czern">{h.pozaOkresem}</h3>
+              <p className="mt-1 text-xs text-szary-600">{h.pozaOkresemOpis}</p>
+              <ul className="mt-2 space-y-1">{pozaOkresem.map(kafelek)}</ul>
             </section>
           ) : null}
         </div>

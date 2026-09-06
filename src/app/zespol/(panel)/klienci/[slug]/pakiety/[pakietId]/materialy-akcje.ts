@@ -327,7 +327,7 @@ export async function usunKampanieAkcja(slug: string, pakietId: string, kampania
 
 // ---------- Pakiet ----------
 
-const schematPakietu = z.object({ tytul: z.string().trim().min(1).max(160).optional(), folder: z.string().trim().max(500).nullable().optional(), koniecOkresu: z.string().nullable().optional() });
+const schematPakietu = z.object({ tytul: z.string().trim().min(1).max(160).optional(), folder: z.string().trim().max(500).nullable().optional() });
 
 export async function edytujPakietAkcja(slug: string, pakietId: string, dane: z.input<typeof schematPakietu>): Promise<WynikZmiany> {
   const parsed = schematPakietu.safeParse(dane);
@@ -345,10 +345,6 @@ export async function edytujPakietAkcja(slug: string, pakietId: string, dane: z.
       zmiany.folderContentuUrl = null;
       zmiany.folderContentuId = null;
     }
-  }
-  if (parsed.data.koniecOkresu !== undefined) {
-    if (parsed.data.koniecOkresu && !czyPoprawnaDataLokalna(parsed.data.koniecOkresu)) return { ok: false, blad: copy.zespol.materialy.bledy.zle_dane };
-    zmiany.periodTo = parsed.data.koniecOkresu || null;
   }
   await edytujPakiet(k.pakiet.id, zmiany);
   await audyt(k, "zespol.pakiet_zmieniony", null, { pola: Object.keys(zmiany) });

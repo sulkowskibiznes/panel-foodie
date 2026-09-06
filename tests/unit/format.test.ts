@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { etykietaOkresu, liczebnik, tekstOdliczania } from "@/lib/format";
+import { etykietaMiesiaca, etykietaOkresu, liczebnik, tekstOdliczania } from "@/lib/format";
 
 describe("format", () => {
   const teraz = new Date("2026-09-02T10:00:00Z");
@@ -17,7 +17,10 @@ describe("format", () => {
     expect(liczebnik(12, "post", "posty", "postów")).toBe("12 postów");
     expect(liczebnik(22, "post", "posty", "postów")).toBe("22 posty");
   });
-  it("etykieta okresu", () => {
-    expect(etykietaOkresu(2026, 9)).toBe("wrzesień 2026");
+  it("etykieta okresu od-do i miesiąca", () => {
+    expect(etykietaOkresu("2026-09-20", "2026-10-19")).toBe("20.09 - 19.10.2026");
+    expect(etykietaOkresu("2026-12-20", "2027-01-19")).toBe("20.12.2026 - 19.01.2027");
+    expect(etykietaOkresu("2026-09-16", "2026-09-16")).toBe("16.09.2026");
+    expect(etykietaMiesiaca(2026, 9)).toBe("wrzesień 2026");
   });
 });

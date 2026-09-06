@@ -49,7 +49,7 @@ export function UwagaWSkrzynceKarta({ u }: { u: UwagaWSkrzynce }) {
     <li data-uwaga-skrzynki={u.id} className="rounded-xl bg-white p-4 shadow-miekki">
       <div className="flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-szary-600">
         <span className="font-semibold text-foodie-czern">{u.klient.name}</span>
-        <span>· {etykietaOkresu(u.okres.rok, u.okres.miesiac)}</span>
+        <span>· {etykietaOkresu(u.okres.od, u.okres.do)}</span>
         <span>· {s.typ[u.typ]}{u.materialTytul ? `: ${u.materialTytul}` : ""}</span>
         {u.runda > 1 ? <span>· {copy.pakiet.wersja} {u.runda}</span> : null}
         {u.nieprzeczytana ? <span className="rounded-full bg-fiolet-050 px-2 py-0.5 font-medium text-fiolet-700">{s.nieprzeczytana}</span> : null}

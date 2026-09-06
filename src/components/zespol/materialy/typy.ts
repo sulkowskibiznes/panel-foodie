@@ -21,7 +21,7 @@ export type AkcjeMaterialow = {
   dodajKampanie: (dane: DaneKampaniiFormularz) => Promise<WynikZmiany & { kampaniaId?: string }>;
   edytujKampanie: (kampaniaId: string, dane: DaneKampaniiFormularz) => Promise<WynikZmiany>;
   usunKampanie: (kampaniaId: string) => Promise<WynikZmiany>;
-  edytujPakiet: (dane: { tytul?: string; folder?: string | null; koniecOkresu?: string | null }) => Promise<WynikZmiany>;
+  edytujPakiet: (dane: { tytul?: string; folder?: string | null }) => Promise<WynikZmiany>;
 };
 
 export type UprawnieniaMaterialow = { content: boolean; kampanie: boolean };

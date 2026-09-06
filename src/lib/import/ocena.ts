@@ -1,5 +1,6 @@
 import { czyNazwyPasuja, numerMiesiacaZNazwy, okresZNazwy } from "@/lib/drive/nazwy";
 import { NAZWY_MIESIECY } from "@/lib/format";
+import { miesiacZDaty, type Okres } from "@/lib/harmonogram/kalendarz";
 
 /**
  * Ocena folderu na karcie weryfikacyjnej (SPEC rozdz. 13.2). Czysta logika na danych, które zebrał serwer:
@@ -9,7 +10,7 @@ import { NAZWY_MIESIECY } from "@/lib/format";
  */
 export type SegmentSciezki = { id: string; nazwa: string };
 
-export type PoprzednieUzycie = { pakietId: string; slug: string; tytul: string; okres: { rok: number; miesiac: number }; zaimportowanoO: string | null };
+export type PoprzednieUzycie = { pakietId: string; slug: string; tytul: string; okres: Okres; zaimportowanoO: string | null };
 
 export type OstrzezenieFolderu =
   | { kod: "klient"; folder: string; klient: string }
@@ -29,7 +30,8 @@ export type DaneDoOceny = {
   sciezka: SegmentSciezki[] | null;
   nazwaKlienta: string;
   miesiacWspolpracy: number | null;
-  okres: { rok: number; miesiac: number };
+  /** Okres pakietu od-do; nazwa folderu może wskazywać miesiąc startu albo końca (pakiet 20.09-19.10 to „26-09" albo „26-10"). */
+  okres: Okres;
   rodzaj: "content" | "reklamy";
   liczbaPlikow: number;
   maPodfolderyContentu: boolean;
@@ -52,14 +54,16 @@ export function ocenFolder(d: DaneDoOceny): OcenaFolderu {
   if (wlasny) {
     const okresWNazwie = okresZNazwy(wlasny.nazwa);
     const numer = numerMiesiacaZNazwy(wlasny.nazwa);
-    if (okresWNazwie && (okresWNazwie.rok !== d.okres.rok || okresWNazwie.miesiac !== d.okres.miesiac)) {
+    const start = miesiacZDaty(d.okres.od);
+    const miesiace = [start, miesiacZDaty(d.okres.do)];
+    if (okresWNazwie && !miesiace.some((m) => m.rok === okresWNazwie.rok && m.miesiac === okresWNazwie.miesiac)) {
       const rrmm = (o: { rok: number; miesiac: number }) => `${String(o.rok % 100).padStart(2, "0")}-${String(o.miesiac).padStart(2, "0")}`;
-      ostrzezenia.push({ kod: "okres", wNazwie: rrmm(okresWNazwie), oczekiwany: rrmm(d.okres) });
+      ostrzezenia.push({ kod: "okres", wNazwie: rrmm(okresWNazwie), oczekiwany: rrmm(start) });
     }
     if (numer !== null && d.miesiacWspolpracy !== null && numer !== d.miesiacWspolpracy) ostrzezenia.push({ kod: "miesiac", wNazwie: numer, oczekiwany: d.miesiacWspolpracy });
     const nazwaMiesiaca = nazwaMiesiacaWTekscie(wlasny.nazwa);
-    const oczekiwana = NAZWY_MIESIECY[d.okres.miesiac - 1];
-    if (!okresWNazwie && numer === null && nazwaMiesiaca && oczekiwana && nazwaMiesiaca !== oczekiwana) ostrzezenia.push({ kod: "miesiac_kalendarzowy", wNazwie: nazwaMiesiaca, oczekiwany: oczekiwana });
+    const oczekiwana = NAZWY_MIESIECY[start.miesiac - 1];
+    if (!okresWNazwie && numer === null && nazwaMiesiaca && oczekiwana && !miesiace.some((m) => NAZWY_MIESIECY[m.miesiac - 1] === nazwaMiesiaca)) ostrzezenia.push({ kod: "miesiac_kalendarzowy", wNazwie: nazwaMiesiaca, oczekiwany: oczekiwana });
   }
   for (const u of d.poprzednie) ostrzezenia.push({ kod: "powtorny", uzycie: u });
   if (d.liczbaPlikow === 0) ostrzezenia.push({ kod: "pusty" });

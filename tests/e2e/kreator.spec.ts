@@ -6,7 +6,8 @@ import { PLIK_SESJI_ZESPOLU } from "./pomocnicze/zespol";
 
 /**
  * Kreator pakietu na wklejanych linkach (SPEC rozdz. 12.3) i „Dodaj materiał" z komputera (12.6).
- * Klient kat1 (Grupa Smakosz): pakiet per lokal. Miesiąc w roku 2032 zależny od projektu Playwrighta.
+ * Klient kat1 (Grupa Smakosz): pakiet per lokal. Okres (cały miesiąc) w roku 2032 zależny od projektu Playwrighta;
+ * daty wpisywane ręcznie, numer miesiąca współpracy podpowiadany i edytowalny, zachodzące okresy tylko ostrzegają.
  */
 test.describe.configure({ mode: "serial" });
 test.setTimeout(150_000);
@@ -25,9 +26,18 @@ test("kreator: klient i miesiąc, link do folderu z contentem, dwie kampanie z o
     await z.goto(`/zespol/klienci/${KLIENT}/materialy`);
     await z.locator("[data-nowy-pakiet]").click();
     await expect(z.locator("[data-kreator-pakietu]")).toBeVisible();
-    await z.locator("#kreator-rok").fill(String(okres.rok));
-    await z.locator("#kreator-miesiac").selectOption(String(okres.miesiac));
     await z.locator("[data-kreator-lokal]").selectOption({ label: "Ramen Ichi" });
+    // bez dat nie da się utworzyć; koniec przed początkiem daje ostrzeżenie
+    await expect(z.locator("[data-utworz-pakiet]")).toBeDisabled();
+    await z.locator("#kreator-od").fill(okres.od);
+    await z.locator("#kreator-do").fill(`${okres.rok - 1}-12-31`);
+    await expect(z.locator("[data-zly-okres]")).toBeVisible();
+    await z.locator("#kreator-do").fill(okres.do);
+    await expect(z.locator("[data-zly-okres]")).toHaveCount(0);
+    await expect(z.locator("#kreator-tytul")).toHaveValue(/^Materiały \d{2}\.\d{2} - \d{2}\.\d{2}\.\d{4}$/);
+    // numer miesiąca współpracy jest podpowiedziany i edytowalny (projekty Playwrighta tworzą pakiety równolegle, więc wpisujemy jawną wartość)
+    await expect(z.locator("[data-miesiac-wspolpracy]")).not.toHaveValue("");
+    await z.locator("[data-miesiac-wspolpracy]").fill("12");
 
     // zły link nie przechodzi, dobry jest rozpoznany po identyfikatorze folderu
     await z.locator("[data-folder-contentu]").fill("content 5 mies");
@@ -55,7 +65,8 @@ test("kreator: klient i miesiąc, link do folderu z contentem, dwie kampanie z o
     expect(p.status).toBe("szkic");
     expect(p.content_folder_id).toBe("1AbCdEfGhIjKlMnOpQrStUvWxYz");
     expect(p.location_id).not.toBeNull();
-    expect(p.cooperation_month).toBe((okres.rok - 2026) * 12 + (okres.miesiac - 4) + 1);
+    expect(p.cooperation_month).toBe(12);
+    expect([p.period_from, p.period_to]).toEqual([okres.od, okres.do]);
     expect(p.kampanie.map((k) => [k.name, k.goal, k.ads_folder_id])).toEqual([
       ["Kampania standardowa", "sprzedaz", "1ReklamyStandardowe0000000"],
       ["Imprezy okolicznościowe", "leady", "1ReklamyImprezy00000000000"],
@@ -86,13 +97,17 @@ test("kreator: klient i miesiąc, link do folderu z contentem, dwie kampanie z o
     expect(pliki).toHaveLength(1);
     expect(pliki[0]?.original_name).toBe("ramen.png");
 
-    // ten sam miesiąc i lokal drugi raz: kreator ostrzega i blokuje
+    // zachodzący okres w tym samym lokalu: kreator ostrzega (z tytułem tamtego pakietu), ale nie blokuje; podpowiedź numeru to 12 + 1
     await z.goto(`/zespol/klienci/${KLIENT}/pakiety/nowy`);
-    await z.locator("#kreator-rok").fill(String(okres.rok));
-    await z.locator("#kreator-miesiac").selectOption(String(okres.miesiac));
     await z.locator("[data-kreator-lokal]").selectOption({ label: "Ramen Ichi" });
-    await expect(z.locator("[data-okres-zajety]")).toBeVisible();
-    await expect(z.locator("[data-utworz-pakiet]")).toBeDisabled();
+    await z.locator("#kreator-od").fill(`${okres.rok}-${String(okres.miesiac).padStart(2, "0")}-15`);
+    await z.locator("#kreator-do").fill(okres.do);
+    await expect(z.locator("[data-okres-nachodzi]")).toBeVisible();
+    await expect(z.locator("[data-miesiac-wspolpracy]")).toHaveValue("13");
+    await expect(z.locator("[data-utworz-pakiet]")).toBeEnabled();
+    // inny lokal: brak ostrzeżenia
+    await z.locator("[data-kreator-lokal]").selectOption({ label: "Trattoria Bella" });
+    await expect(z.locator("[data-okres-nachodzi]")).toHaveCount(0);
   } finally {
     await zespol.close();
     if (pakietId) await usunPakiet(pakietId);

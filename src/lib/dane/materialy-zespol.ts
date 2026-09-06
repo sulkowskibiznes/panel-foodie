@@ -18,7 +18,7 @@ type Json = Database["public"]["Tables"]["package_events"]["Insert"]["payload"];
 export type AktorZespolu = Extract<Aktor, { rodzaj: "zespol" }>;
 export type TypMaterialu = Enums["item_type"];
 
-export type PowodMutacji = "wymaga_potwierdzenia" | "brak_materialu" | "brak_pliku" | "zly_typ" | "brak_kampanii" | "ostatni_plik" | "tylko_szkic" | "istnieje" | "zle_dane";
+export type PowodMutacji = "wymaga_potwierdzenia" | "brak_materialu" | "brak_pliku" | "zly_typ" | "brak_kampanii" | "ostatni_plik" | "tylko_szkic" | "zle_dane";
 export type WynikMutacji = { ok: true; materialId: string | null; skutki: SkutkiZmiany | null } | { ok: false; powod: PowodMutacji };
 
 const GRUPA_POZYCJI: Record<TypMaterialu, TypMaterialu[]> = { post: ["post", "reels"], reels: ["post", "reels"], relacja: ["relacja"], reklama: ["reklama"] };
@@ -413,8 +413,9 @@ export async function usunKampanie(pakiet: PakietDoPrzejscia, kampaniaId: string
 // ---------- Kreator pakietu ----------
 
 export type NowyPakiet = {
-  rok: number;
-  miesiac: number;
+  /** Okres od-do (YYYY-MM-DD), wpisany ręcznie w kreatorze; sprawdzony wcześniej (od <= do, lata 2024-2100, do roku długości). */
+  od: string;
+  do: string;
   lokalId: string | null;
   tytul: string;
   miesiacWspolpracy: number | null;
@@ -424,39 +425,35 @@ export type NowyPakiet = {
 };
 
 /**
- * Kreator pakietu (SPEC rozdz. 12.3): pakiet w szkicu z wklejonymi linkami do folderów i kampaniami
+ * Kreator pakietu (SPEC rozdz. 12.3): pakiet w szkicu na okres od-do z wklejonymi linkami do folderów i kampaniami
  * (każda z własnym folderem reklam i jednym materiałem `reklama`). Materiały wchodzą potem ręcznie
- * („Dodaj materiał") albo importem z Dysku (faza 4). Nigdy z wyliczonej ścieżki (CLAUDE.md, zasada 11).
+ * („Dodaj materiał") albo importem z Dysku. Nigdy z wyliczonej ścieżki (CLAUDE.md, zasada 11).
+ * Nakładające się okresy tego samego klienta są dozwolone; kreator tylko ostrzega (decyzja z 2026-09-05).
  */
-export async function utworzPakiet(clientId: string, n: NowyPakiet, aktor: AktorZespolu): Promise<{ ok: true; pakietId: string } | { ok: false; powod: "istnieje" | "zle_dane" }> {
+export async function utworzPakiet(clientId: string, n: NowyPakiet, aktor: AktorZespolu): Promise<{ ok: true; pakietId: string } | { ok: false; powod: "zle_dane" }> {
   const db = supabaseSerwer();
   const { kategoria, ids } = await lokaleKlienta(clientId);
   if (kategoria === "kat1" && (!n.lokalId || !ids.includes(n.lokalId))) return { ok: false, powod: "zle_dane" };
+  if (n.od > n.do) return { ok: false, powod: "zle_dane" };
   const lokalId = kategoria === "kat1" ? n.lokalId : null;
-  const ostatniDzien = new Date(Date.UTC(n.rok, n.miesiac, 0)).getUTCDate();
   const { data: pakiet, error } = await db
     .from("packages")
     .insert({
       client_id: clientId,
       location_id: lokalId,
-      period_year: n.rok,
-      period_month: n.miesiac,
       cooperation_month: n.miesiacWspolpracy,
       title: n.tytul,
       status: "szkic",
       round: 1,
       content_folder_url: n.folderContentuUrl,
       content_folder_id: n.folderContentuId,
-      period_from: `${n.rok}-${String(n.miesiac).padStart(2, "0")}-01`,
-      period_to: `${n.rok}-${String(n.miesiac).padStart(2, "0")}-${String(ostatniDzien).padStart(2, "0")}`,
+      period_from: n.od,
+      period_to: n.do,
       created_by: aktor.memberId,
     })
     .select("id")
     .single();
-  if (error) {
-    if (error.code === "23505") return { ok: false, powod: "istnieje" };
-    throw new Error(`utworzPakiet: ${error.message}`);
-  }
+  if (error) throw new Error(`utworzPakiet: ${error.message}`);
   if (!pakiet) throw new Error("utworzPakiet: brak wiersza");
   const lokaleMaterialu = kategoria === "kat1" ? [] : ids;
   for (const [i, k] of n.kampanie.entries()) {
@@ -469,14 +466,15 @@ export async function utworzPakiet(clientId: string, n: NowyPakiet, aktor: Aktor
   return { ok: true, pakietId: pakiet.id };
 }
 
-export type ZmianyPakietu = { tytul?: string; folderContentuUrl?: string | null; folderContentuId?: string | null; periodTo?: string | null };
+export type ZmianyPakietu = { tytul?: string; folderContentuUrl?: string | null; folderContentuId?: string | null; periodFrom?: string; periodTo?: string };
 
-/** Tytuł, link do folderu z contentem i dzień zakończenia (period_to). Bez skutków dla klienta. */
+/** Tytuł, link do folderu z contentem i okres od-do (period_from, period_to; wywołujący sprawdza daty). Bez skutków dla klienta. */
 export async function edytujPakiet(pakietId: string, z: ZmianyPakietu): Promise<void> {
   const zmiany: Database["public"]["Tables"]["packages"]["Update"] = {};
   if (z.tytul !== undefined) zmiany.title = z.tytul;
   if (z.folderContentuUrl !== undefined) zmiany.content_folder_url = z.folderContentuUrl;
   if (z.folderContentuId !== undefined) zmiany.content_folder_id = z.folderContentuId;
+  if (z.periodFrom !== undefined) zmiany.period_from = z.periodFrom;
   if (z.periodTo !== undefined) zmiany.period_to = z.periodTo;
   if (Object.keys(zmiany).length === 0) return;
   const { error } = await supabaseSerwer().from("packages").update(zmiany).eq("id", pakietId);

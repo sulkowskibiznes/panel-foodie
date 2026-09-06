@@ -313,3 +313,34 @@ chmurowego 2026-09-05 (`pnpm db:migrate`). `main` = `faza/4-import`, wdrożenie 
 jego stronie: na Vercelu ustawić `GOOGLE_SERVICE_ACCOUNT_JSON` i `GOOGLE_DRIVE_ROOT_FOLDER_ID` dla production i preview
 (`DRIVE_ATRAPA` puste); bez nich strona importu pokazuje notkę „nie skonfigurowany", a reszta panelu działa jak dotąd.
 Udostępnienie „Materiałów klientów" dla konta usługi już działa (sprawdzone tylko do odczytu).
+
+## Zmiana 1.5: okres pakietu od-do (2026-09-06)
+
+Gałąź `zmiana/okres-pakietu` (od `main` = 4479036). Decyzje Szymona z 2026-09-05 (SPEC rozdz. 20 poz. 35):
+okres pakietu to dowolny zakres dat (np. 20.09.2026 do 19.10.2026), bo każdy klient zaczyna miesiąc innego dnia,
+a po wstrzymaniu współpraca wraca od innego dnia; nakładające się okresy tylko ostrzegają; kalendarz to widok
+okresu pakietu; daty zawsze wpisywane ręcznie; numer miesiąca współpracy podpowiadany („ostatni + 1") i edytowalny.
+
+**Co się zmieniło:**
+- Migracja `20260907100001_okres_pakietu.sql`: `period_from`/`period_to` NOT NULL z `check (period_to >= period_from)`
+  i zakresem lat 2024-2100, `period_year`/`period_month` oraz unikalność po miesiącu usunięte, indeks
+  `(client_id, period_from desc)`. Backfill z miesiąca dla starych wierszy. `reports` bez zmian (miesięczne).
+- Czysta logika: `siatkaOkresu(od, do)` (tygodnie od poniedziałku przed startem do niedzieli po końcu; cały wrzesień
+  daje dawną siatkę miesiąca), `czyOkresyZachodza`, `dlugoscOkresuDni`, `miesiacZDaty`, `kolejnyMiesiacWspolpracy`;
+  `etykietaOkresu(od, do)` = „20.09 - 19.10.2026" (przez lata „20.12.2026 - 19.01.2027"), `etykietaMiesiaca` dla
+  filtra pulpitu. `DzienSiatki.wOkresie` i `nowyMiesiac` (podpis „1 paź" na styku miesięcy).
+- Kreator: pola Od i Do (puste, wymagane, `min` dla Do), numer miesiąca współpracy podpowiedziany i edytowalny,
+  tytuł domyślny „Materiały 20.09 - 19.10.2026", ostrzeżenie `data-okres-nachodzi` przy zachodzeniu (przycisk aktywny),
+  blokada tylko dla końca przed początkiem i okresu ponad rok. Serwer sprawdza to samo.
+- Harmonogram zespołu i klienta: `?p=<id pakietu>` (brak = pakiet w toku, inaczej najnowszy), `NawigacjaOkresu`
+  (poprzedni/następny pakiet po dacie startu), `SiatkaOkresu` z zaznaczonym początkiem i końcem każdego pakietu
+  w widoku, pakiety klienta zachodzące na okres w tym samym widoku (kat1: lokale), „Poza tym okresem" zamiast
+  „Poza tym miesiącem", lista publikacji klienta bez filtra po miesiącu, ustawienia z polami Od i Do per pakiet.
+  Szkic albo cudzy pakiet u klienta = 404.
+- Pulpit: kolumna „Okres", filtr „Miesiąc startu"; lista pakietów, skrzynka, karta weryfikacyjna importu z etykietą okresu.
+- Webhook (SPEC rozdz. 15): `period` = miesiąc startu (`YYYY-MM`, zgodność), dodane `period_from`, `period_to`;
+  podsumowania z etykietą okresu. Karta weryfikacyjna importu uznaje miesiąc startu albo końca w nazwie folderu.
+- Teksty: „cały pakiet" zamiast „cały miesiąc", „Poprzedni/Następny pakiet", „w tym okresie", „Okres pakietu".
+- Seed: okres = cały wrzesień 2026 (ostatni dzień liczony). E2E: `okresDlaProjektu` zwraca `{ rok, miesiac, od, do }`
+  (nadal osobny rok na plik i półrocze na projekt, sprzątanie po `period_from`); kreator, harmonogram i import
+  na nowych polach; nowe asercje: ostrzeżenie o zachodzeniu, numer miesiąca, siatka okresu, 404 szkicu u klienta.

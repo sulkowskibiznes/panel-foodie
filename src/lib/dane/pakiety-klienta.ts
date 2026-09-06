@@ -11,13 +11,11 @@ type WierszPakietu = {
   submitted_at: string | null;
   auto_approve_at: string | null;
   auto_approve_enabled: boolean;
-  period_year: number;
-  period_month: number;
   package_items: { type: string }[];
   campaigns: { id: string }[];
 };
 
-const KOLUMNY = "id, client_id, title, status, round, submitted_at, auto_approve_at, auto_approve_enabled, period_year, period_month, package_items(type), campaigns(id)";
+const KOLUMNY = "id, client_id, title, status, round, submitted_at, auto_approve_at, auto_approve_enabled, package_items(type), campaigns(id)";
 
 function naDto(w: WierszPakietu): PakietDlaKlienta {
   const typy = w.package_items.map((i) => i.type);

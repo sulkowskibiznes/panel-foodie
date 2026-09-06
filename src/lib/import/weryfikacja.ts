@@ -4,6 +4,7 @@ import { poprzednieUzyciaFolderu } from "@/lib/dane/import";
 import { BladDysku, MIME_FOLDERU, type DriveApi, type MetadaneDysku, type PlikDysku } from "@/lib/drive/api";
 import type { KonfiguracjaDysku } from "@/lib/drive/klient";
 import { rodzajPodfolderu, sortujNaturalnie } from "@/lib/drive/nazwy";
+import type { Okres } from "@/lib/harmonogram/kalendarz";
 import type { BladKarty, KartaWeryfikacyjna, RodzajFolderu } from "@/lib/dto/import";
 import { ocenFolder, type SegmentSciezki } from "@/lib/import/ocena";
 import { czyObslugiwanyMime, duzeWideo, sprawdzLimity } from "@/lib/import/plan";
@@ -71,7 +72,7 @@ export type WejscieKarty = {
   folderId: string | null;
   url: string | null;
   klient: { name: string };
-  pakiet: { id: string; miesiacWspolpracy: number | null; okres: { rok: number; miesiac: number } };
+  pakiet: { id: string; miesiacWspolpracy: number | null; okres: Okres };
 };
 
 function pustaKarta(w: WejscieKarty, stan: KartaWeryfikacyjna["stan"], blad: BladKarty | null = null): KartaWeryfikacyjna {
@@ -143,7 +144,7 @@ export async function zbudujKarte(k: KonfiguracjaDysku, w: WejscieKarty): Promis
 export type PakietDoWeryfikacji = {
   id: string;
   miesiacWspolpracy: number | null;
-  okres: { rok: number; miesiac: number };
+  okres: Okres;
   folderContentuId: string | null;
   folderContentuUrl: string | null;
   kampanie: Array<{ id: string; nazwa: string; folderReklamId: string | null; folderReklamUrl: string | null }>;

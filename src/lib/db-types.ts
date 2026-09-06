@@ -1113,10 +1113,8 @@ export type Database = {
           first_opened_at: string | null
           id: string
           location_id: string | null
-          period_from: string | null
-          period_month: number
-          period_to: string | null
-          period_year: number
+          period_from: string
+          period_to: string
           round: number
           status: Database["public"]["Enums"]["package_status"]
           submitted_at: string | null
@@ -1139,10 +1137,8 @@ export type Database = {
           first_opened_at?: string | null
           id?: string
           location_id?: string | null
-          period_from?: string | null
-          period_month: number
-          period_to?: string | null
-          period_year: number
+          period_from: string
+          period_to: string
           round?: number
           status?: Database["public"]["Enums"]["package_status"]
           submitted_at?: string | null
@@ -1165,10 +1161,8 @@ export type Database = {
           first_opened_at?: string | null
           id?: string
           location_id?: string | null
-          period_from?: string | null
-          period_month?: number
-          period_to?: string | null
-          period_year?: number
+          period_from?: string
+          period_to?: string
           round?: number
           status?: Database["public"]["Enums"]["package_status"]
           submitted_at?: string | null
