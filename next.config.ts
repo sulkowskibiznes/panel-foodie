@@ -1,6 +1,6 @@
 import type { NextConfig } from "next";
 
-// Nagłówki bezpieczeństwa z SPEC rozdz. 16.6 i 16.10. Pełne CSP z nonce dochodzi w fazie 6.
+// Nagłówki bezpieczeństwa z SPEC rozdz. 16.6 i 16.10. Content-Security-Policy z nonce ustawia src/proxy.ts (lib/csp.ts).
 const naglowkiBezpieczenstwa = [
   { key: "Strict-Transport-Security", value: "max-age=63072000; includeSubDomains" },
   { key: "X-Content-Type-Options", value: "nosniff" },
