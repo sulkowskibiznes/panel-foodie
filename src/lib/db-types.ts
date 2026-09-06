@@ -375,6 +375,7 @@ export type Database = {
           default_publish_hours: number[]
           demo: boolean
           drive_folder_url: string | null
+          ended_at: string | null
           extra_locations_count: number
           id: string
           monthly_amount_net: number | null
@@ -396,6 +397,7 @@ export type Database = {
           default_publish_hours?: number[]
           demo?: boolean
           drive_folder_url?: string | null
+          ended_at?: string | null
           extra_locations_count?: number
           id?: string
           monthly_amount_net?: number | null
@@ -417,6 +419,7 @@ export type Database = {
           default_publish_hours?: number[]
           demo?: boolean
           drive_folder_url?: string | null
+          ended_at?: string | null
           extra_locations_count?: number
           id?: string
           monthly_amount_net?: number | null
@@ -1275,6 +1278,79 @@ export type Database = {
           },
         ]
       }
+      retention_reviews: {
+        Row: {
+          client_id: string
+          created_at: string
+          decided_at: string | null
+          decided_by: string | null
+          decision: Database["public"]["Enums"]["retention_decision"] | null
+          deleted_at: string | null
+          files_count: number
+          flagged_at: string
+          id: string
+          keep_until: string | null
+          package_id: string | null
+          package_title: string
+          period_from: string
+          period_to: string
+        }
+        Insert: {
+          client_id: string
+          created_at?: string
+          decided_at?: string | null
+          decided_by?: string | null
+          decision?: Database["public"]["Enums"]["retention_decision"] | null
+          deleted_at?: string | null
+          files_count?: number
+          flagged_at?: string
+          id?: string
+          keep_until?: string | null
+          package_id?: string | null
+          package_title: string
+          period_from: string
+          period_to: string
+        }
+        Update: {
+          client_id?: string
+          created_at?: string
+          decided_at?: string | null
+          decided_by?: string | null
+          decision?: Database["public"]["Enums"]["retention_decision"] | null
+          deleted_at?: string | null
+          files_count?: number
+          flagged_at?: string
+          id?: string
+          keep_until?: string | null
+          package_id?: string | null
+          package_title?: string
+          period_from?: string
+          period_to?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "retention_reviews_client_id_fkey"
+            columns: ["client_id"]
+            isOneToOne: false
+            referencedRelation: "clients"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "retention_reviews_decided_by_fkey"
+            columns: ["decided_by"]
+            isOneToOne: false
+            referencedRelation: "team_members"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "retention_reviews_package_id_fkey"
+            columns: ["package_id"]
+            isOneToOne: true
+            referencedRelation: "packages"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       service_interests: {
         Row: {
           client_id: string
@@ -1502,6 +1578,7 @@ export type Database = {
       package_tier: "foodie_one" | "foodie_360" | "siec"
       pin_kind: "pin4" | "pin6" | "haslo"
       report_source: "reczne" | "webhook"
+      retention_decision: "zachowaj" | "usun"
       team_role: "admin" | "csm" | "content_creator" | "media_buyer" | "sales"
       variant_kind: "grafika" | "tekst" | "naglowek" | "opis" | "cta" | "link"
     }
@@ -1679,6 +1756,7 @@ export const Constants = {
       package_tier: ["foodie_one", "foodie_360", "siec"],
       pin_kind: ["pin4", "pin6", "haslo"],
       report_source: ["reczne", "webhook"],
+      retention_decision: ["zachowaj", "usun"],
       team_role: ["admin", "csm", "content_creator", "media_buyer", "sales"],
       variant_kind: ["grafika", "tekst", "naglowek", "opis", "cta", "link"],
     },

@@ -33,6 +33,9 @@ export function UkladZespolu({ czlonek, nieprzeczytaneUwagi = 0, children }: { c
                 <Link href="/zespol/ustawienia/powiadomienia" className="font-medium text-foodie-czern hover:text-foodie-fiolet" data-link-powiadomien>
                   {n.powiadomienia}
                 </Link>
+                <Link href="/zespol/ustawienia/retencja" className="font-medium text-foodie-czern hover:text-foodie-fiolet" data-link-retencji>
+                  {n.retencja}
+                </Link>
               </>
             ) : null}
           </nav>

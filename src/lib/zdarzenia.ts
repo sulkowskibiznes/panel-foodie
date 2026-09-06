@@ -17,6 +17,7 @@ export const ZDARZENIA_OUTBOX = [
   "material.podmieniony_po_akceptacji",
   "usluga.zainteresowanie",
   "bezpieczenstwo.blokada",
+  "retencja.do_przegladu",
 ] as const;
 
 export type ZdarzenieOutbox = (typeof ZDARZENIA_OUTBOX)[number];
