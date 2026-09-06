@@ -344,3 +344,8 @@ okresu pakietu; daty zawsze wpisywane ręcznie; numer miesiąca współpracy pod
 - Seed: okres = cały wrzesień 2026 (ostatni dzień liczony). E2E: `okresDlaProjektu` zwraca `{ rok, miesiac, od, do }`
   (nadal osobny rok na plik i półrocze na projekt, sprzątanie po `period_from`); kreator, harmonogram i import
   na nowych polach; nowe asercje: ostrzeżenie o zachodzeniu, numer miesiąca, siatka okresu, 404 szkicu u klienta.
+
+Migracja `20260907100001_okres_pakietu.sql` wypchnięta do projektu chmurowego 2026-09-06 (`pnpm db:migrate`, po pushu `main`).
+`main` = `zmiana/okres-pakietu`, wdrożenie produkcyjne z GitHuba. Sprawdzone lokalnie w przeglądarce: siatka okresu
+20.10 do 19.11 (6 tygodni, granice zaznaczone, podpis „1 lis"), ustawienia okresu, kreator z datami i ostrzeżeniem.
+Testy: 163 jednostkowe, 77 E2E, build zielone.
