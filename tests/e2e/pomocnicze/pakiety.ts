@@ -32,8 +32,8 @@ export type OpcjeKlonu = {
   autoWlaczona?: boolean;
 };
 
-export type PlikTestow = "akceptacja" | "cron" | "reklamy" | "zespol" | "harmonogram" | "kreator" | "skrzynka" | "import";
-const ROK_PLIKU: Record<PlikTestow, number> = { akceptacja: 2027, cron: 2028, reklamy: 2029, zespol: 2030, harmonogram: 2031, kreator: 2032, skrzynka: 2033, import: 2034 };
+export type PlikTestow = "akceptacja" | "cron" | "reklamy" | "zespol" | "harmonogram" | "kreator" | "skrzynka" | "import" | "izolacja" | "retencja";
+const ROK_PLIKU: Record<PlikTestow, number> = { akceptacja: 2027, cron: 2028, reklamy: 2029, zespol: 2030, harmonogram: 2031, kreator: 2032, skrzynka: 2033, import: 2034, izolacja: 2035, retencja: 2036 };
 
 export type OkresTestowy = { rok: number; miesiac: number; od: string; do: string };
 
