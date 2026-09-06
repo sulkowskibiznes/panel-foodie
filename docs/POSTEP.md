@@ -426,3 +426,109 @@ Stan na 2026-09-06 (wieczór): `pnpm typecheck && pnpm lint && pnpm test && pnpm
 94 E2E (5 pominiętych to testy jednego projektu Playwrighta). Migracja `20260908100001` jest na razie tylko w lokalnej bazie;
 wypchnięcie do chmury (`pnpm db:migrate`), merge do `main` i zmienne `INGEST_TOKEN` / `ZAPIER_WEBHOOK_URL` w Vercelu czekają
 na decyzję Szymona.
+
+## Faza 6: Utwardzenie i przekazanie
+
+Gałąź `faza/5-reszta-panelu` (kontynuacja, od 22bf888), 2026-09-06. Zakres z SPEC rozdz. 16, 17, 19: CSP, testy
+bezpieczeństwa, retencja, offboarding, kopie zapasowe, dokumentacja obsługi, instrukcja dla zespołu.
+
+**Audyt kryteriów odbioru (rozdz. 18), pełny przebieg `pnpm test:e2e` 2026-09-06 wieczorem: 120 testów zielonych,
+5 pominiętych (test outboxu w jednym projekcie Playwrighta, zgodnie z konfiguracją), 0 błędów, w obu szerokościach
+(390 px i 1440 px), pod nowym CSP.**
+
+| # | Kryterium | Test | Wynik |
+|---|---|---|---|
+| 1 | Zły token = ekran złego PIN-u | `dostep.spec.ts` | ✅ |
+| 2 | 5 złych PIN-ów blokuje na 15 min, 6. z dobrym odpada | `dostep.spec.ts` | ✅ |
+| 3 | Sesja po odświeżeniu i po 24 h (rotacja) | `dostep.spec.ts` | ✅ |
+| 4 | Klient A nie otwiera zasobów klienta B (404), także plik | `dostep.spec.ts`, rozszerzone w `izolacja.spec.ts` (pakiet, harmonogram, plik w 3 wariantach, podpisany adres z podmienioną ścieżką, awatar, faktura, dokument, raport, komentarz z podmianą materiału/wariantu/pakietu/tokenu) | ✅ |
+| 5 | Wygaszenie linku wylogowuje sesję | `dostep.spec.ts` | ✅ |
+| 6 | Reset PIN-u wylogowuje wszystkie urządzenia | `dostep.spec.ts` | ✅ |
+| 7 | 6 postów + 10 relacji + 2 kampanie na 390 i 1440 px | `akceptacja.spec.ts` | ✅ |
+| 8 | „Akceptuję wszystko": status, data, osoba, outbox | `akceptacja.spec.ts` | ✅ |
+| 9 | „Zgłaszam uwagi" bez komentarza zablokowane | `akceptacja.spec.ts` | ✅ |
+| 10 | Uwagi zatrzymują licznik | `akceptacja.spec.ts` | ✅ |
+| 11 | Cron auto-akceptacji: 72 h, pomija wyłączone i poprawki, dni robocze | `cron.spec.ts` | ✅ |
+| 12 | v2 podbija rundę, restartuje licznik, plakietki | `akceptacja.spec.ts` | ✅ |
+| 13 | Komentarz po akceptacji: bez zmiany statusu, ze zdarzeniem | `akceptacja.spec.ts` | ✅ |
+| 14 | 54 kombinacje w 6 placementach, brak IG wyszarza | `reklamy.spec.ts` | ✅ |
+| 15 | Komentarz do wariantu wraca u zespołu | `reklamy.spec.ts` | ✅ |
+| 16 | Dwie kampanie jako osobne sekcje, akceptowane razem | `akceptacja.spec.ts` | ✅ |
+| 17 | Folder spoza „Materiałów klientów" blokuje import | `import.spec.ts` | ✅ |
+| 18 | Folder użyty w innym pakiecie: ostrzeżenie z linkiem | `import.spec.ts` | ✅ |
+| 19 | Podmiana w zaakceptowanym: potwierdzenie, zdarzenie, plakietka, baner | `zespol-materialy.spec.ts` | ✅ |
+| 20 | Stary plik z `superseded_at` | `zespol-materialy.spec.ts` | ✅ |
+| 21 | Wysyłka bez daty publikacji zablokowana | `zespol-materialy.spec.ts` | ✅ |
+| 22 | Klient nie przesuwa materiału | `harmonogram.spec.ts` | ✅ |
+| 23 | `content_creator` 404 na fakturach (i dokumentach) | `role.spec.ts` | ✅ |
+| 24 | `csm` widzi tylko przypisanych | `role.spec.ts` | ✅ |
+| 25 | Impersonacja blokuje decyzje, wpis w audycie | `zespol-materialy.spec.ts` | ✅ |
+| 26 | Zrzuty podglądów zgodne ze wzorcami | `podglady.spec.ts` | ✅ |
+| 27 | Lista linków bez tokenu, „Pokaż link" w audycie, cc bez Dostępu | `dostep-zespol.spec.ts` | ✅ |
+| 28 | Klient demo bez linku i faktury | `dostep-zespol.spec.ts`, `faktury.spec.ts` | ✅ |
+
+Poza kryteriami, nowe w tej fazie: `bezpieczenstwo.spec.ts` (CSP), `izolacja.spec.ts`, `retencja.spec.ts`,
+`offboarding.spec.ts`, `nowy-klient.spec.ts`.
+
+**Co działa:**
+- **CSP z nonce** (SPEC rozdz. 16.6): `src/proxy.ts` generuje nonce na każde żądanie i ustawia `Content-Security-Policy`
+  po stronie żądania (stąd Next bierze nonce do własnych skryptów) i odpowiedzi. Budowniczy nagłówka `lib/csp.ts` jest
+  czysty i testowany: `script-src 'self' 'nonce-…' 'strict-dynamic'` (w dev dodatkowo `unsafe-eval`, którego wymaga
+  React do stosów błędów), `style-src 'self' 'unsafe-inline'` (SPEC zakazuje `unsafe-inline` tylko dla skryptów;
+  podglądy ustawiają proporcje atrybutem `style`), `img-src`/`media-src`/`connect-src` własne plus origin Supabase
+  (signed URL i PUT uploadu), `frame-ancestors 'none'`, `frame-src 'none'`, `object-src 'none'`, `base-uri 'self'`,
+  `form-action 'self'`, na produkcji `upgrade-insecure-requests`. Root layout ma `force-dynamic`, bo strona zbudowana
+  statycznie nie zna nonce. HSTS, nosniff, Referrer-Policy, X-Frame-Options i noindex bez zmian z fazy 0. Test E2E:
+  nagłówki na stronach publicznych, klienta i zespołu, każdy `<script>` w HTML z serwera ma nonce, zero naruszeń
+  w konsoli na ekranach klienta (PIN, start, pakiet z obrazami przez signed URL, harmonogram, faktury, raporty, pakiet,
+  usługi) i zespołu (logowanie, pulpit, karta, pakiet, harmonogram, dostęp, faktury, skrzynka), a skrypt bez nonce
+  dopisany do HTML jest odrzucany przez przeglądarkę. Sprawdzone też w buildzie produkcyjnym (`next start` na lokalnym
+  stacku): nagłówki bez `unsafe-eval`, zero naruszeń, obrazy przez signed URL ładują się. Po drodze poprawka:
+  `upgrade-insecure-requests` tylko, gdy `NEXT_PUBLIC_APP_URL` jest pod https (na `http://localhost` z lokalnym
+  Supabase dyrektywa podnosiła adres Storage do https i blokowała obrazy; na produkcji Supabase i tak jest https).
+- **Test izolacji** (`izolacja.spec.ts`): klient A vs. każdy rodzaj zasobu klienta B. Odkrycie po drodze: Next NIE
+  szyfruje argumentów związanych `.bind()` po stronie serwera (token i id pakietu idą jawnie w ciele akcji), więc test
+  podmienia w locie materiał, wariant, pakiet i token na cudze; wszystko odbija się o ponowną autoryzację w akcji
+  (`assertClientAccess`, `sprawdzMaterialWPakiecie`). Podpisany adres Storage z podmienioną ścieżką dostaje odmowę.
+- **Retencja** (SPEC rozdz. 17): migracja `20260909100001_retencja_i_offboarding.sql` (`retention_reviews`,
+  `retention_decision`, `clients.ended_at`). `GET /api/cron/retencja` pierwszego dnia miesiąca 05:00 UTC
+  (`vercel.json`): pakiety z `period_to` starszym niż `retention_months` (ustawienia, 24) dostają wiersz przeglądu bez
+  decyzji, jedno zdarzenie `retencja.do_przegladu` w outbox, audyt `system.retencja_zgloszona`; zgłoszenie jest
+  idempotentne (równoległy przebieg nie dubluje). **Nic nie kasuje się samo.** Ustawienia -> Retencja (admin):
+  „Zachowaj 12 miesięcy" (`keep_until`, cron zgłosi ponownie), „Usuń materiały" (po potwierdzeniu: pakiet z kaskadą
+  i obiekty z bucketu `materialy`; wiersz zostaje z `deleted_at` i migawką tytułu), „Sprawdź teraz", historia decyzji.
+  Ten sam cron kasuje sesje 90 dni po wygaśnięciu i audyt starszy niż 12 miesięcy (`system.retencja_sprzatanie`).
+  Czysta logika w `lib/retencja/przeglad.ts` z testami; E2E na klonie z 2024 roku z przepiętymi plikami.
+- **Offboarding** (SPEC rozdz. 17): zakładka Ustawienia karty klienta (admin i csm). „Zakończ współpracę" wygasza
+  wszystkie linki, unieważnia sesje, ustawia `status = zakonczony` i `ended_at` (audyt `zespol.klient_zakonczony`);
+  klient przy następnym żądaniu ląduje na ekranie PIN, a PIN nie przechodzi. „Wznów współpracę" cofa status (linki
+  od nowa). „Usuń dane klienta" wyłącznie admin, wyłącznie dla `zakonczony`, nigdy dla demo, po przepisaniu nazwy
+  (sprawdzanej także na serwerze): prefiks klienta we wszystkich czterech bucketach i wiersz `clients` z kaskadą;
+  audyt zostaje (`zespol.klient_usuniety` z liczbami obiektów). Pulpit: lista „Współprace wstrzymane i zakończone",
+  Dostęp nie tworzy linków zakończonemu, plakietka statusu w nagłówku karty, baner po usunięciu.
+- **Nowy klient** (`/zespol/klienci/nowy`, admin i csm): bez tego zespół nie miał jak założyć klienta z panelu,
+  a `docs/OBSLUGA.md` ma to opisywać. Dane z umowy, slug z nazwy (polskie znaki), lokale i osoby kontaktowe
+  w dynamicznych wierszach, walidacja w czystym `lib/klienci/nowy.ts` (test jednostkowy), csm domyślnym opiekunem,
+  twórca spoza ról „wszyscy" dostaje przypisanie. Zajęty slug daje komunikat.
+- **Kopie zapasowe** (`docs/KOPIE-ZAPASOWE.md`): sprawdzone przez Management API (tylko odczyt): codzienne kopie
+  fizyczne działają, **PITR wyłączone** (`pitr_enabled: false`), compute Micro. Procedura odtworzenia krok po kroku
+  (zatrzymanie ruchu, zrzut, restore z PITR albo z kopii dziennej, `db push`, przywrócenie ruchu, ręczne odtworzenie
+  zdarzeń po punkcie przywracania), osobno Storage bez PITR (źródła: Dysk, Fakturowo, archiwum umów).
+- **Dokumentacja**: `docs/OBSLUGA.md` (role, nowy klient, wysyłka materiałów krok po kroku dla content creatora
+  i opiekuna, faktury i dokumenty, linki i PIN-y, „link nie działa" w siedmiu punktach, podgląd, offboarding,
+  retencja, gdy coś się psuje); `docs/instrukcja/` z dwustronicową ściągą dla Gosi i content creatorów (markdown,
+  zrzuty z lokalnego stacku, PDF z `pnpm instrukcja`). SPEC rozdz. 3, 12.2, 15, 17 i CLAUDE.md (zasady 16 i 17)
+  uzupełnione.
+
+**Odłożone:**
+- Edycja lokali, osób kontaktowych i danych klienta po utworzeniu (dziś przez bazę). Zdjęcie profilowe strony
+  do ramki podglądu też przez bazę (`locations.avatar_path`).
+- Retencja faktur i dokumentów: SPEC mówi o materiałach; PDF-y zostają do „Usuń dane klienta".
+- Anonimizacja `audit_log` po usunięciu klienta: wpisy zostają 12 miesięcy (`actor_label` to etykieta linku).
+
+**Wymaga decyzji Szymona:**
+- **PITR w Supabase** (koszt: dodatek plus compute Small; włącza się w panelu Supabase, kroki w `docs/KOPIE-ZAPASOWE.md`).
+  Kod ani dokumentacja nie zakładają, że jest włączone; sekcja 1 tego dokumentu mówi wprost, że nie jest.
+- Godzina crona retencji: `0 5 1 * *` (7:00 latem, 6:00 zimą pierwszego dnia miesiąca).
+- Migracja `20260909100001` jest tylko w lokalnej bazie; wypchnięcie do chmury (`pnpm db:migrate`) i merge do `main`
+  razem z migracją fazy 5 (`20260908100001`).

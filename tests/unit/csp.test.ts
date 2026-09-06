@@ -3,8 +3,8 @@ import { dyrektywa, nowyNonce, originZAdresu, zbudujCsp } from "@/lib/csp";
 
 /** SPEC rozdz. 16.6: skrypty bez `unsafe-inline`, `frame-ancestors 'none'`; Storage Supabase dopuszczony tylko tam, gdzie trzeba. */
 describe("zbudujCsp", () => {
-  const produkcja = zbudujCsp({ nonce: "abc123", dev: false, supabaseUrl: "https://projekt.supabase.co/" });
-  const dev = zbudujCsp({ nonce: "abc123", dev: true, supabaseUrl: "http://127.0.0.1:54321" });
+  const produkcja = zbudujCsp({ nonce: "abc123", dev: false, supabaseUrl: "https://projekt.supabase.co/", https: true });
+  const dev = zbudujCsp({ nonce: "abc123", dev: true, supabaseUrl: "http://127.0.0.1:54321", https: false });
 
   it("skrypty: własne, z nonce i strict-dynamic, nigdy unsafe-inline", () => {
     expect(dyrektywa(produkcja, "script-src")).toBe("'self' 'nonce-abc123' 'strict-dynamic'");
@@ -31,14 +31,16 @@ describe("zbudujCsp", () => {
   });
 
   it("bez adresu Supabase zostaje wyłącznie własny adres", () => {
-    const bez = zbudujCsp({ nonce: "n", dev: false, supabaseUrl: null });
+    const bez = zbudujCsp({ nonce: "n", dev: false, supabaseUrl: null, https: true });
     expect(dyrektywa(bez, "img-src")).toBe("'self' blob: data:");
     expect(dyrektywa(bez, "connect-src")).toBe("'self'");
   });
 
-  it("upgrade-insecure-requests tylko na produkcji; w dev HMR po ws://", () => {
+  it("upgrade-insecure-requests tylko na produkcji pod https; w dev HMR po ws://", () => {
     expect(produkcja).toContain("upgrade-insecure-requests");
     expect(dev).not.toContain("upgrade-insecure-requests");
+    // build produkcyjny na http://localhost z lokalnym Supabase: bez wymuszania https, inaczej signed URL do 127.0.0.1 nie zadziała
+    expect(zbudujCsp({ nonce: "n", dev: false, supabaseUrl: "http://127.0.0.1:54321", https: false })).not.toContain("upgrade-insecure-requests");
     expect(dyrektywa(dev, "connect-src")).toContain("ws://localhost:*");
   });
 

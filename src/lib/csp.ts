@@ -14,6 +14,11 @@ export type OpcjeCsp = {
   dev: boolean;
   /** Adres projektu Supabase (signed URL do plików, PUT uploadu z przeglądarki). Null = tylko własny adres. */
   supabaseUrl: string | null;
+  /**
+   * Czy panel stoi pod https. Tylko wtedy ma sens `upgrade-insecure-requests`; przy produkcyjnym buildzie
+   * na http://localhost z lokalnym Supabase (http://127.0.0.1) dyrektywa psułaby obrazy z signed URL.
+   */
+  https: boolean;
 };
 
 export const NAGLOWEK_CSP = "Content-Security-Policy";
@@ -58,7 +63,7 @@ export function zbudujCsp(o: OpcjeCsp): string {
     "frame-src 'none'",
     "manifest-src 'self'",
   ];
-  if (!o.dev) dyrektywy.push("upgrade-insecure-requests");
+  if (!o.dev && o.https) dyrektywy.push("upgrade-insecure-requests");
   return dyrektywy.join("; ");
 }
 

@@ -38,3 +38,6 @@ tests/e2e/.auth/
 
 # zrzuty bazy przed ryzykownymi operacjami (docs/KOPIE-ZAPASOWE.md): dane osobowe, nigdy w repo
 kopie/
+
+# półprodukt budowy instrukcji (pnpm instrukcja): HTML z osadzonymi zrzutami, PDF i PNG zostają w repo
+docs/instrukcja/INSTRUKCJA-ZESPOL.html

@@ -13,7 +13,12 @@ import { NAGLOWEK_CSP, NAGLOWEK_NONCE, nowyNonce, zbudujCsp } from "@/lib/csp";
  */
 export async function proxy(request: NextRequest) {
   const nonce = nowyNonce();
-  const csp = zbudujCsp({ nonce, dev: process.env.NODE_ENV === "development", supabaseUrl: process.env.SUPABASE_URL ?? null });
+  const csp = zbudujCsp({
+    nonce,
+    dev: process.env.NODE_ENV === "development",
+    supabaseUrl: process.env.SUPABASE_URL ?? null,
+    https: (process.env.NEXT_PUBLIC_APP_URL ?? "").startsWith("https://"),
+  });
 
   const naglowki = new Headers(request.headers);
   naglowki.set("x-pathname", request.nextUrl.pathname);
