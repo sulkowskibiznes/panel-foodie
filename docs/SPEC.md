@@ -553,6 +553,26 @@ create table settings (
 -- klucze: auto_approve_hours=72, auto_approve_business_days=false (dni kalendarzowe),
 -- retention_months=24, onboarding_enabled=false. Adres webhooka Zapiera jest TYLKO w env.
 
+-- === RETENCJA (faza 6, rozdz. 17) ===
+create type retention_decision as enum ('zachowaj','usun');
+create table retention_reviews (
+  id uuid primary key default gen_random_uuid(),
+  package_id uuid unique references packages(id) on delete set null,   -- po usunięciu pakietu wiersz zostaje jako ślad
+  client_id uuid not null references clients(id) on delete cascade,
+  package_title text not null,               -- migawka tytułu i okresu (pakiet może już nie istnieć)
+  period_from date not null,
+  period_to date not null,
+  files_count int not null default 0,
+  flagged_at timestamptz not null default now(),   -- kiedy cron zgłosił
+  decision retention_decision,                     -- null = czeka na admina
+  decided_at timestamptz,
+  decided_by uuid references team_members(id) on delete set null,
+  keep_until timestamptz,                    -- „zachowaj": cron zgłosi ponownie po tej dacie (12 miesięcy)
+  deleted_at timestamptz,                    -- „usun": kiedy pakiet i pliki zniknęły
+  created_at timestamptz not null default now()
+);
+-- clients.ended_at timestamptz: kiedy zakończono współpracę (offboarding, rozdz. 17); null = trwa albo wznowiona.
+
 -- === INDEKSY (poza tymi z definicji tabel) ===
 create index on packages (client_id, status);
 create index on packages (auto_approve_at) where status = 'do_akceptacji';   -- cron auto-akceptacji
@@ -1033,6 +1053,17 @@ Filtry: moi klienci / wszyscy (wg roli), status, miesiąc startu pakietu.
 Zakładki: **Materiały · Harmonogram · Raporty · Faktury · Dokumenty · Dostęp · Ustawienia**
 Na górze: nazwa, kategoria, pakiet, kwota, lokale, kanał Slack, przycisk „Zobacz jak klient".
 
+**Ustawienia** (faza 6, admin i csm): stan współpracy z liczbą aktywnych linków, „Zakończ współpracę"
+(offboarding z rozdz. 17), „Wznów współpracę" oraz, wyłącznie dla admina i wyłącznie po zakończeniu,
+„Usuń dane klienta" z potwierdzeniem przez przepisanie nazwy. Klient `zakonczony` znika z głównej listy
+pulpitu, ale ma osobną listę „Współprace wstrzymane i zakończone" z wejściem do karty; Dostęp nie tworzy
+mu linków, dopóki współpraca nie zostanie wznowiona.
+
+**Nowy klient** (faza 6, `/zespol/klienci/nowy`, admin i csm): nazwa, slug (podpowiadany z nazwy), kategoria,
+pakiet, kwota netto, kanał Slack, data startu, opiekun (aktywni admini i csm), lokale (nazwa, miasto, strona FB,
+nick IG; kat1 = osobne materiały per lokal) i osoby kontaktowe (pierwsza główna). Po zapisie karta klienta;
+csm spoza roli opiekuna dostaje przypisanie, żeby od razu widział kartę.
+
 ### 12.3 Kreator pakietu — praca na wklejanych linkach
 
 Content creator **nie szuka folderów** i panel ich **nie zgaduje**. Wkleja gotowe linki,
@@ -1244,6 +1275,7 @@ Zdarzenia:
 | `material.podmieniony_po_akceptacji` | zespół podmienił materiał w zaakceptowanym pakiecie |
 | `usluga.zainteresowanie` | klient kliknął „Chcę wiedzieć więcej" |
 | `bezpieczenstwo.blokada` | 10 nieudanych PIN-ów |
+| `retencja.do_przegladu` | cron retencji zgłosił pakiety do decyzji admina (bez okresu; `count` i `url` do Ustawienia -> Retencja) |
 
 Wysyłka przez tabelę `outbox` + cron co minutę, 5 prób z narastającym odstępem.
 **Nigdy nie blokujemy odpowiedzi HTTP dla klienta czekaniem na webhook.**
@@ -1293,10 +1325,26 @@ Wysyłka przez tabelę `outbox` + cron co minutę, 5 prób z narastającym odst�
   Nic więcej. Nie zbieramy danych gości restauracji.
 - **Retencja materiałów: 24 miesiące** (`retention_months`). Cron miesięczny oznacza starsze
   pakiety i **zgłasza je do akceptacji admina** — nic nie kasuje się samo.
-- **Retencja `audit_log`: 12 miesięcy.** Sesje wygasłe: kasowane po 90 dniach.
+  **Faza 6, jak to działa:** `GET /api/cron/retencja` pierwszego dnia miesiąca (05:00 UTC) bierze pakiety
+  z `period_to` wcześniejszym niż dziś minus `retention_months`, dla każdego bez przeglądu tworzy wiersz
+  `retention_reviews` (bez decyzji), wysyła jedno zdarzenie `retencja.do_przegladu` do `outbox` i wpis
+  `system.retencja_zgloszona` do audytu. Admin w **Ustawienia -> Retencja** wybiera „Zachowaj 12 miesięcy"
+  (`keep_until`; po tej dacie cron zgłasza ponownie) albo „Usuń materiały" (po potwierdzeniu: pakiet z kaskadą
+  i obiekty z bucketu `materialy` znikają, wiersz przeglądu zostaje z `deleted_at`). „Sprawdź teraz" uruchamia
+  ten sam przebieg ręcznie. Faktury, dokumenty i raporty retencja nie dotyka.
+- **Retencja `audit_log`: 12 miesięcy.** Sesje wygasłe: kasowane po 90 dniach. **Faza 6:** robi to ten sam
+  cron retencji (wpis `system.retencja_sprzatanie` z liczbami).
 - **Offboarding klienta** = jeden przycisk „Zakończ współpracę": wygasza linki, wyloguje
   sesje, ustawia `status = zakonczony`. Osobny przycisk „Usuń dane klienta" kasuje wszystko
   ze Storage i bazy (z potwierdzeniem wpisaniem nazwy).
+  **Faza 6:** oba w zakładce Ustawienia karty klienta (rozdz. 12.2). Zakończenie: admin i csm, `clients.ended_at`,
+  audyt `zespol.klient_zakonczony`; „Wznów współpracę" cofa status (linki trzeba utworzyć od nowa). Usunięcie:
+  wyłącznie admin, wyłącznie dla `zakonczony`, nigdy dla klienta demo; kasuje prefiks klienta w bucketach
+  `materialy`, `awatary`, `faktury`, `dokumenty` i wiersz `clients` (kaskada na wszystko poza `audit_log`, który
+  zostaje na 12 miesięcy z wpisem `zespol.klient_usuniety`).
+- **Kopie zapasowe:** codzienne kopie Supabase (plan Pro) plus point-in-time recovery; procedura odtworzenia
+  w `docs/KOPIE-ZAPASOWE.md`. Storage nie ma PITR: materiały odtwarza się z Dysku Google (źródło), PDF-y z Fakturowo
+  i archiwum umów.
 - **Umowa powierzenia przetwarzania** — dokument w sekcji Dokumenty każdego klienta.
 - Strony statyczne: `/regulamin` (w tym **zasada auto-akceptacji**) i `/prywatnosc`.
 - Cookies: wyłącznie techniczne. **Bez banera zgody.**

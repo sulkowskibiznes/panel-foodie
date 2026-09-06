@@ -35,3 +35,6 @@ supabase/.branches/
 
 # stan sesji zespołu z testów E2E
 tests/e2e/.auth/
+
+# zrzuty bazy przed ryzykownymi operacjami (docs/KOPIE-ZAPASOWE.md): dane osobowe, nigdy w repo
+kopie/

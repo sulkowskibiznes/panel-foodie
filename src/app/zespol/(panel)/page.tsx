@@ -199,7 +199,14 @@ export default async function Pulpit({ searchParams }: PageProps<"/zespol">) {
       </section>
 
       <section className="mt-8">
-        <h2 className="font-naglowek text-lg text-foodie-czern">{copy.zespol.nawigacja.klienci}</h2>
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <h2 className="font-naglowek text-lg text-foodie-czern">{copy.zespol.nawigacja.klienci}</h2>
+          {maUprawnienie(czlonek.role, "klienci", "pelne") ? (
+            <Link href="/zespol/klienci/nowy" className="inline-flex h-9 items-center rounded-lg bg-foodie-fiolet px-3 text-sm font-medium text-white hover:bg-fiolet-600" data-nowy-klient-link>
+              {copy.zespol.nowyKlient.przycisk}
+            </Link>
+          ) : null}
+        </div>
         {klienci.length === 0 ? (
           <p className="mt-4 rounded-xl bg-white p-6 text-sm text-szary-600 shadow-miekki">{copy.zespol.pulpit.brakKlientow}</p>
         ) : (

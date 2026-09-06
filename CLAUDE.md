@@ -64,6 +64,8 @@ src/
       podglad/wyjdz/                  # wyjście z podglądu (audyt)
     zespol/               # panel zespołu — wymaga Supabase Auth + roli
       (panel)/uwagi/                  # skrzynka uwag (rozdz. 12.5)
+      (panel)/klienci/nowy/           # formularz nowego klienta (admin, csm): dane, lokale, osoby kontaktowe (lib/klienci/nowy.ts)
+      (panel)/klienci/[slug]/ustawienia/  # offboarding (rozdz. 17): zakończ/wznów współpracę, „Usuń dane klienta" (admin)
       (panel)/klienci/[slug]/pakiety/nowy/        # kreator pakietu na wklejanych linkach (rozdz. 12.3)
       (panel)/klienci/[slug]/pakiety/[pakietId]/  # ten sam ekran pakietu + akcje zespołu (akcje.ts: przejścia, odpowiedzi;
                                                   # materialy-akcje.ts: upload, plik z Dysku, dodaj/podmień/edytuj materiał, kampanie)
@@ -74,12 +76,15 @@ src/
       (panel)/klienci/[slug]/page.tsx             # podsumowanie + zgłoszenia „Chcę wiedzieć więcej" (akcje.ts: załatwione)
       (panel)/faktura/[id], dokument/[id]         # PDF dla zespołu (uprawnienie + assertTeamClientAccess)
       (panel)/ustawienia/powiadomienia/           # kolejka outbox do Zapiera, „Ponów" (admin)
+      (panel)/ustawienia/retencja/                # zgłoszenia retencyjne: „Zachowaj 12 miesięcy", „Usuń materiały", „Sprawdź teraz" (admin)
       (panel)/plik/, awatar/          # pliki dla zespołu (assertTeamClientAccess)
     api/
       ingest/report/      # webhook do rejestrowania raportów: Bearer INGEST_TOKEN, host tylko raporty.foodiemedia.pl (rozdz. 9)
       cron/auto-akceptacja/  # co godzinę (vercel.json), Bearer CRON_SECRET; logika w lib/pakiety/cron-auto-akceptacji.ts
       cron/outbox/        # co minutę: wysyłka kolejki do Zapiera, 5 prób z narastającym odstępem (lib/outbox/wysylka.ts)
       cron/faktury/       # codziennie 04:00 UTC (6:00 latem): do_zaplaty -> po_terminie (lib/faktury/status.ts)
+      cron/retencja/      # 1. dnia miesiąca: zgłasza pakiety starsze niż retention_months do decyzji admina, NICZEGO z materiałów
+                          # nie kasuje; sprząta sesje po 90 dniach i audyt po 12 miesiącach (lib/retencja/przeglad.ts)
   components/
     podglad/              # podglądy 1:1 — post/relacja/reels na FB, reklama/ w 6 placementach; czyste, bez danych
     pakiet/               # ekran pakietu wspólny dla klienta i zespołu: pasek decyzji, banery, wątki, sekcje
@@ -92,6 +97,7 @@ src/
     zespol/raporty/, faktury/, dokumenty/  # dialogi i listy zakładek (faza 5)
     zespol/pliki/         # upload PDF: use-upload-pdf (3 kroki jak materiały), pole-pdf
     zespol/powiadomienia/, zespol/uslugi/  # kolejka outbox (admin), zgłoszenia usług na karcie klienta
+    zespol/retencja/, zespol/ustawienia-klienta/, zespol/klienci/  # lista retencji, współpraca i usunięcie danych, formularz klienta
     klient/pasek-podgladu.tsx         # stały pasek impersonacji
     klient/wiecej-mobile.tsx          # arkusz „Więcej" w dolnej nawigacji (ikony po kluczu, nie funkcje)
     klient/uslugi/        # karta usługi z modalem jednego pola
@@ -109,7 +115,10 @@ src/
     krypto.ts             # sha256, HMAC, AES-GCM, HKDF z SESSION_SECRET
     limity.ts             # blokady linku i limit na IP (funkcje SQL zwieksz_limit, odnotuj_nieudane_logowanie)
     audyt.ts, outbox.ts   # zapiszAudyt(), dodajDoOutbox()
-    cron.ts               # czyAutoryzowanyCron(): Bearer CRON_SECRET w stałym czasie, wspólne dla trzech cronów
+    cron.ts               # czyAutoryzowanyCron(): Bearer CRON_SECRET w stałym czasie, wspólne dla czterech cronów
+    csp.ts                # Content-Security-Policy z nonce (czysty); nagłówek ustawia proxy.ts, root layout renderuje dynamicznie
+    retencja/przeglad.ts  # retencja (rozdz. 17): próg, podział na nowe/ponowne zgłoszenia, sprzątanie sesji i audytu (czyste)
+    klienci/nowy.ts       # walidacja formularza nowego klienta z FormData (czysta)
     outbox/               # wysylka.ts (czysta: zajęcie wiersza, próby, odstępy 1/5/15/60 min, failed po 5.), baza.ts (Zapier przez fetch)
     raporty/walidacja.ts  # host raportów, okres YYYY-MM, ciało webhooka (zod), lokal dla kat1 (czyste)
     faktury/status.ts     # po_terminie z daty w Europe/Warsaw, brutto z netto, cron statusów (czyste)
@@ -119,14 +128,17 @@ src/
                           # pakiety-klienta.ts, klienci-zespolu.ts, linki.ts, materialy-zespol.ts (mutacje materiałów,
                           # plików, kampanii, kreator), harmonogram.ts, skrzynka.ts, import.ts (zadania, poprzednie użycia folderu),
                           # raporty.ts (jeden na klient+lokal+miesiąc, nadpisanie), faktury.ts, dokumenty.ts, uslugi.ts,
-                          # twoj-pakiet.ts (opiekun bez danych prywatnych), powiadomienia.ts (kolejka outbox dla admina)
+                          # twoj-pakiet.ts (opiekun bez danych prywatnych), powiadomienia.ts (kolejka outbox dla admina),
+                          # retencja.ts (przeglądy, usunięcie pakietu z plikami, zależności crona), offboarding.ts (zakończ, wznów,
+                          # usuń dane klienta), klienci-nowi.ts (utworzenie klienta z lokalami i kontaktami)
     dto/                  # kształty danych dla stron (materialy.ts, klient.ts, wynik.ts); nigdy surowe wiersze z bazy
     pakiety/              # przejscia.ts (maszyna stanów, czysta), baza.ts (zmienStatusPakietu, JEDYNA droga zmiany statusu),
                           # auto-akceptacja.ts (72 h / pon-sob), cron-auto-akceptacji.ts, otwarcie.ts,
                           # zmiana-materialu.ts (skutki dodania/podmiany/edycji wg tabeli 12.6, czyste), terminy.ts (kolory terminów)
     pliki/                # magia.ts (magic bytes, limity; czyste), przetwarzanie.ts (EXIF, warianty, Storage: wspólne dla uploadu
                           # i importu), upload.ts (pozwolenie, PUT do Storage z przeglądarki, podpisany opis pliku),
-                          # pdf.ts (ta sama droga dla PDF faktur i dokumentów: buckety faktury/dokumenty, magic bytes %PDF-)
+                          # pdf.ts (ta sama droga dla PDF faktur i dokumentów: buckety faktury/dokumenty, magic bytes %PDF-),
+                          # sprzatanie.ts (usunięcie całego prefiksu klienta w buckecie: offboarding)
     drive/                # linki.ts (wklejone linki), nazwy.ts (sortowanie naturalne, numer i slajd z nazwy), opisy.ts (podział
                           # dokumentów, dokument reklam), docx.ts (tekst z Worda), parowanie.ts (grafika ↔ opis): wszystko czyste;
                           # api.ts (kontrakt), google.ts (konto usługi, JWT z google-jwt.ts), atrapa.ts (DRIVE_ATRAPA=1), klient.ts (wybór)
@@ -139,13 +151,17 @@ src/
     format.ts, walidacja.ts
     copy.ts               # WSZYSTKIE teksty interfejsu (polski)
     db-types.ts           # generowane
-  proxy.ts                # TYLKO nagłówek x-pathname i odświeżanie cookies Auth zespołu; zero decyzji o dostępie
+  proxy.ts                # nagłówek x-pathname, nonce + Content-Security-Policy (lib/csp.ts) i odświeżanie cookies Auth zespołu;
+                          # zero decyzji o dostępie
 supabase/migrations/
 supabase/seed/            # seed 3 klientów + zespół + usługi; grafiki zastępcze z sharp, PDF-y z pdf.ts (umowy, faktury)
 supabase/templates/       # szablon maila z kodem OTP (lokalnie; w chmurze wklejany ręcznie)
 docs/SPEC.md              # źródło prawdy
 docs/PLAN-SESJA-STARTOWA.md  # plan faz 0 i 1, krytyka spec-u, decyzje (2026-09-02)
 docs/POSTEP.md            # stan kryteriów odbioru z rozdz. 18
+docs/OBSLUGA.md           # instrukcja obsługi dla zespołu: nowy klient, wysyłka materiałów, faktury, „link nie działa"
+docs/KOPIE-ZAPASOWE.md    # kopie zapasowe Supabase (PITR) i procedura odtworzenia
+docs/instrukcja/          # dwustronicowa instrukcja dla Gosi i content creatorów (markdown, zrzuty, PDF)
 tests/unit/
 tests/e2e/                # Playwright na lokalnym Supabase, port 3100; zespół logowany raz w projekcie „przygotowanie";
                           # testy zmieniające status pracują na KLONACH pakietów (pomocnicze/pakiety.ts), seed zostaje nietknięty
@@ -190,6 +206,12 @@ tests/e2e/                # Playwright na lokalnym Supabase, port 3100; zespół
     podane przez klienta akcji.
 15. **Impersonacja wyłącznie do odczytu.** Kontekst `podglad` (token `podglad.…` plus sesja zespołu)
     nie zostawia śladów po stronie klienta: żadnych `first_opened_at`, `item_views`, komentarzy, decyzji.
+16. **Nic nie kasuje się samo.** Cron retencji tylko zgłasza pakiety do decyzji admina (`retention_reviews`);
+    usunięcie materiałów i „Usuń dane klienta" to zawsze kliknięcie człowieka z potwierdzeniem. Jedyne
+    automatyczne kasowanie to wygasłe sesje po 90 dniach i audyt po 12 miesiącach (SPEC rozdz. 17).
+17. **Skrypty tylko z nonce.** CSP z `src/proxy.ts` nie ma `unsafe-inline` dla skryptów; nie dodawaj `<script>`
+    inline ani zewnętrznych skryptów (analityka i tak jest zakazana). Styl inline (`style={{}}`) jest dozwolony.
+    Nowa strona musi renderować się dynamicznie (root layout ma `force-dynamic`, nie wyłączaj tego per trasa).
 
 ## Język i ton
 
