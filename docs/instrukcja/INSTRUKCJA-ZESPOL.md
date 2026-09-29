@@ -9,11 +9,13 @@ na Facebooku: publikuje człowiek w Meta Business Suite.
 
 ![Pulpit zespołu](zrzuty/01-pulpit.png)
 
-- **Pakiety w toku**: kto czeka, od kiedy, ile zostało do auto-akceptacji. Kolory jak w Bazie Klientów:
-  niebieski 6 do 7 dni, żółty 4 do 5, pomarańczowy 1 do 3, czerwony dziś, szary po terminie.
+- **Kafelki** na górze: wstrzymana auto-akceptacja, auto-akceptacja w 24 h, nowe uwagi, poprawki, do zaplanowania
+  w Meta, szkice. Kliknij kafelek, żeby zobaczyć tylko te pakiety (content creator widzi to jako „Moja praca").
+- **Pakiety w toku** od najpilniejszego: czy klient otworzył pakiet, ile zostało do auto-akceptacji. Kolory jak
+  w Bazie Klientów: niebieski 6 do 7 dni, żółty 4 do 5, pomarańczowy 1 do 3, czerwony dziś, szary po terminie.
 - **Bursztynowy wiersz „Auto-akceptacja wstrzymana"**: termin minął, ale klient ma nierozwiązane uwagi.
-  Odpowiedz na nie i oznacz „Załatwione", inaczej pakiet nie zostanie zatwierdzony.
-- **„Pokaż link"** przy pakiecie do akceptacji: adres do ponownego wysłania klientowi (bez kodu).
+  „Odpowiedz na uwagi" prowadzi prosto do wątku; oznacz je „Załatwione", inaczej pakiet nie zostanie zatwierdzony.
+- Klientów szukasz w zakładce **Klienci** albo polem **„Przejdź do klienta"** w nagłówku.
 
 ## 2. Content creator: nowy pakiet w pięciu krokach
 
@@ -36,8 +38,9 @@ materiale; stary plik nigdy nie znika.
 
 ![Akcje zespołu nad pakietem](zrzuty/03-pakiet-akcje.png)
 
-1. W pakiecie **„Wyślij do akceptacji"**. Panel pokaże braki (daty, opisy) i ostrzeżenia (brak kampanii).
-2. Wyślij klientowi **link** na WhatsAppie (nowej osobie osobno też kod startowy, punkt 4). Panel nie wysyła nic sam.
+1. W pakiecie **„Wyślij do akceptacji"**. Okno od razu pokazuje braki (daty, opisy; blokują) i ostrzeżenia.
+2. Po wysyłce okno pokazuje **link dla klienta**: „Pokaż link", „Kopiuj" i wyślij go na WhatsAppie (nowej osobie
+   osobno też kod startowy, punkt 4). Panel nie wysyła nic sam.
 3. Uwagi klienta czytasz przy materiale albo w **Skrzynce uwag**; odpowiadasz tam samo, „Załatwione" zamyka
    wątek. Po poprawkach **„Wyślij wersję 2"**: licznik startuje od nowa, klient widzi plakietki „Poprawione".
 4. Po akceptacji ustaw publikacje w Meta Business Suite i kliknij **„Zaplanowano"**. Zmiana materiału

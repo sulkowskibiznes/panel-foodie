@@ -66,6 +66,8 @@ src/
       podglad/wyjdz/                  # wyjście z podglądu (audyt)
     zespol/               # panel zespołu — wymaga Supabase Auth + roli
       (panel)/uwagi/                  # skrzynka uwag (rozdz. 12.5)
+      (panel)/page.tsx                # pulpit według pilności: kafelki, „Moja praca", klienci bez następnego pakietu (lib/pakiety/pilnosc.ts)
+      (panel)/klienci/page.tsx        # lista klientów z wyszukiwarką i filtrami (lib/klienci/lista.ts); „Przejdź do klienta" (idz=1)
       (panel)/klienci/nowy/           # formularz nowego klienta (admin, csm): dane, lokale, osoby kontaktowe (lib/klienci/nowy.ts)
       (panel)/klienci/[slug]/ustawienia/  # zakładka „Dane i współpraca": dane-akcje.ts (dane, lokale ze zdjęciem, osoby,
                                           # zespół klienta, akceptacja), akcje.ts (przerwa, zakończ/wznów, „Usuń dane klienta")
@@ -78,6 +80,7 @@ src/
       (panel)/klienci/[slug]/raporty/, faktury/, dokumenty/   # zakładki z akcjami (akcje.ts); pliki-akcje.ts = upload PDF (lib/pliki/pdf.ts)
       (panel)/klienci/[slug]/page.tsx             # podsumowanie + zgłoszenia „Chcę wiedzieć więcej" (akcje.ts: załatwione)
       (panel)/faktura/[id], dokument/[id]         # PDF dla zespołu (uprawnienie + assertTeamClientAccess)
+      (panel)/ustawienia/layout.tsx               # jedno „Ustawienia" z zakładkami (admin); ogolne/ = podgląd ustawień i integracji
       (panel)/ustawienia/powiadomienia/           # kolejka outbox do Zapiera, „Ponów" (admin)
       (panel)/ustawienia/retencja/                # zgłoszenia retencyjne: „Zachowaj 12 miesięcy", „Usuń materiały", „Sprawdź teraz" (admin)
       (panel)/plik/, awatar/          # pliki dla zespołu (assertTeamClientAccess)
@@ -96,7 +99,8 @@ src/
     zespol/materialy/     # narzędzia nad materiałem: upload (use-upload-pliku), dodaj, pliki/podmiana, edycja, reklama, kampania
     zespol/kreator/       # kreator pakietu (z linkami prowadzi do /import)
     zespol/import/        # karta weryfikacyjna, mapowanie (grafika ↔ opis), postęp importu
-    zespol/pulpit/, zespol/skrzynka/  # „Pokaż link" na pulpicie, karta uwagi w skrzynce
+    zespol/pulpit/, zespol/skrzynka/  # „Pokaż link" i LinkiDoWyslania (pulpit, okno po wysyłce), karta uwagi w skrzynce
+    zespol/potwierdzenie.tsx          # usePotwierdzenie: okno potwierdzenia panelu zamiast window.confirm
     zespol/raporty/, faktury/, dokumenty/  # dialogi i listy zakładek (faza 5)
     zespol/pliki/         # upload PDF: use-upload-pdf (3 kroki jak materiały), pole-pdf
     zespol/powiadomienia/, zespol/uslugi/  # kolejka outbox (admin), zgłoszenia usług na karcie klienta

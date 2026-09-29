@@ -701,7 +701,8 @@ Nawigacja (lewy pasek na desktopie, dolny na mobile — **mobile first, klient o
 1. **Start** — co wymaga Twojej uwagi
 2. **Materiały do akceptacji** ← domyślny ekran, gdy coś czeka
 3. **Harmonogram**
-4. **Archiwum materiałów**
+4. **Archiwum materiałów** *(plan domknięcia, Etap 3: pozycja ukryta, dopóki archiwum nie powstanie w Etapie 4;
+   bez pozycji „wkrótce" w menu)*
 5. **Raporty**
 6. **Faktury i dokumenty**
 7. **Twój pakiet**
@@ -1052,7 +1053,8 @@ w nawigacji.
 W kodzie ma zostać:
 - tabela `onboarding_steps`,
 - trasa `/p/[token]/wdrozenie` zwracająca 404 przy wyłączonej fladze,
-- w panelu zespołu zakładka „Wdrożenie (wkrótce)" nieaktywna.
+- w panelu zespołu bez zakładki: plan domknięcia (Etap 3) usunął nieaktywną zakładkę „Wdrożenie (wkrótce)";
+  zakładka wraca razem z włączeniem flagi.
 
 Docelowo: kroki z paskiem postępu, formularze Tally, Leadsie do zbierania dostępów do BM
 i wizytówki Google, instrukcje wideo.
@@ -1062,6 +1064,20 @@ i wizytówki Google, instrukcje wideo.
 ## 12. Panel zespołu
 
 ### 12.1 Pulpit
+**Plan domknięcia, Etap 3b (2026-09-29), zmiana zaakceptowana przez Szymona:** nad tabelą **kafelki pilności**
+z licznikami, które są zarazem filtrami: Auto-akceptacja wstrzymana · Auto-akceptacja w 24 h · Nowe uwagi ·
+Poprawki · Do zaplanowania w Meta · Szkice. Tabela jest **posortowana od najpilniejszego** (w tej kolejności,
+potem najbliższy termin auto-akceptacji), a kolumnę „Czeka" (dublowała „Wysłano") zastąpiło **„Otwarty przez
+klienta"** (`first_opened_at`, tylko w danych pulpitu, nie w DTO klienta). Pod tabelą **„Klienci bez pakietu na
+następny okres"** (ostatni okres kończy się w ciągu 10 dni albo już się skończył, a kolejnego pakietu nie ma).
+Content creator widzi pulpit jako **„Moja praca"** (kafelki od poprawek i szkiców). Lista klientów przeniosła się
+do osobnej zakładki **Klienci** (`/zespol/klienci`): wyszukiwarka bez polskich znaków, filtry opiekuna, kategorii
+i współpracy (trwające, przerwy i zakończone, wszystkie), sortowanie; w nagłówku pole **„Przejdź do klienta"**
+(jedno trafienie otwiera kartę). Dane listy i wyszukiwarki pochodzą wyłącznie z zakresu członka zespołu.
+Filtr statusu pakietu zastąpiły kafelki; zakres (moi/wszyscy) i miesiąc startu zostały.
+
+Pierwotny opis (tabela, kolory, osobny stan wstrzymanej auto-akceptacji) nadal obowiązuje:
+
 Jedna tabela, którą Gosia otwiera rano:
 
 | Klient | Okres | Status | Wysłano | Czeka | Auto-akcept za | Uwagi | Akcja |
@@ -1082,8 +1098,11 @@ pomarańczowy 1–3, czerwony dziś, szary po terminie) — zespół zna ten kod
 Filtry: moi klienci / wszyscy (wg roli), status, miesiąc startu pakietu.
 
 ### 12.2 Karta klienta
-Zakładki: **Materiały · Harmonogram · Raporty · Faktury · Dokumenty · Dostęp · Dane i współpraca**
-Na górze: nazwa, kategoria, pakiet, kwota, lokale, kanał Slack, przycisk „Zobacz jak klient".
+Zakładki: **Przegląd · Materiały · Harmonogram · Raporty · Faktury · Dokumenty · Dostęp · Dane i współpraca**
+(Materiały pozostają aktywne także wewnątrz pakietu; bez nieaktywnej zakładki „Wdrożenie").
+Na górze: nazwa, kategoria, pakiet, kwota, lokale, kanał Slack, przycisk „Zobacz jak klient" i **szybkie akcje**
+(Etap 3b): „Nowy pakiet" (pełne prawo do materiałów, współpraca trwa) i „Utwórz link" (admin i csm; otwiera okno
+w zakładce Dostęp). Ekran pakietu ma okruszki (Materiały / tytuł pakietu) i jeden nagłówek h1 (nazwa klienta).
 Podsumowanie pokazuje telefon i e-mail osób kontaktowych, a klientowi aktywnemu (nie demo) kartę **„Pierwsze
 kroki"**: linki dla osób, zdjęcia profilowe lokali, przypisany content creator, umowa i umowa powierzenia
 w Dokumentach, pierwszy pakiet. Każdy krok odhacza się sam, gdy dane są w bazie.
@@ -1381,7 +1400,9 @@ Wysyłka przez tabelę `outbox` + cron co minutę, 5 prób z narastającym odst�
 12. **Odszyfrowanie tokenu linku (`token_enc`)** wyłącznie dla ról `admin` i `csm`, wyłącznie osobną akcją
     serwerową po kliknięciu „Pokaż link", z osobnym wpisem `link.odszyfrowany` w `audit_log` za każdym
     razem. Odszyfrowany token nigdy nie trafia do widoku listy linków ani do żadnego DTO poza odpowiedzią
-    na tę akcję. Pokrywa to kryterium 27.
+    na tę akcję. Pokrywa to kryterium 27. **Plan domknięcia (Etap 3b):** ten sam mechanizm działa w oknie „Wysłano do
+    akceptacji" (krok „link dla klienta" zaraz po wysyłce) i w przycisku „Link dla klienta" przy pakiecie czekającym
+    na klienta; oba tylko dla admina i csm, każde pokazanie to osobny wpis `link.odszyfrowany`.
 
 ---
 
@@ -1552,6 +1573,7 @@ Każda faza kończy się **działającym wdrożeniem na Vercelu**, nie tylko kod
 | 34 | Next.js | 16.x (spec mówił „15+") | **potwierdzone** (2026-09-02) |
 | 35 | Okres pakietu | **1.5:** pakiet dotyczy dowolnego okresu od-do (`period_from`, `period_to`, NOT NULL), nie miesiąca kalendarzowego; `period_year`/`period_month` i unikalność po miesiącu usunięte. Nakładające się okresy klienta (i lokalu) dozwolone, kreator tylko ostrzega. Kalendarz zespołu i klienta to widok okresu pakietu z nawigacją między pakietami. Daty w kreatorze zawsze wpisywane ręcznie. Numer miesiąca współpracy podpowiadany jako „ostatni pakiet + 1" i edytowalny. Webhook: `period` = miesiąc startu, plus `period_from`/`period_to`. Raporty zostają miesięczne | **potwierdzone** (2026-09-05) |
 
+| 38 | Porządki UX zespołu | **Plan domknięcia, Etap 3:** lista klientów `/zespol/klienci` z wyszukiwarką i „Przejdź do klienta"; pulpit według pilności z kafelkami, „Otwarty przez klienta", „Klienci bez pakietu na następny okres" i „Moja praca" dla content creatora; po wysyłce krok „link dla klienta" (admin i csm, audyt); bez pozycji „wkrótce" (Wdrożenie u zespołu, Archiwum u klienta) do czasu zbudowania; okno potwierdzenia panelu zamiast `window.confirm`; jedno „Ustawienia" z zakładkami i podglądem ustawień globalnych; lista kontrolna w oknie wysyłki | **potwierdzone** (2026-09-29) |
 | 37 | Własny PIN klienta | **Plan domknięcia, Etap 2:** kod startowy od zespołu (6 cyfr, 7 dni, jednorazowy) + obowiązkowy własny PIN 4-6 cyfr z polityką przeciw łatwym PIN-om + „Zmień PIN"; pieprz `PIN_PEPPER`; okno blokad 24 h i zamrożenie po drugiej blokadzie w 30 dni; znika wybór „4 cyfry / 6 cyfr / proste hasło". Odrzucone: „link bez PIN-u, pierwszy wchodzący ustawia" (łamie rozdz. 4 i kryterium 1) | **potwierdzone** (2026-09-29) |
 | 36 | Cykl życia klienta w panelu | **Plan domknięcia, Etap 1:** zakładka „Dane i współpraca" (rozdz. 12.2) zamiast edycji w bazie. Opiekuna i przypisania zmienia admin i csm (csm u swoich klientów); slug nieedytowalny; kategoria tylko bez pakietów i raportów; godziny auto-akceptacji per klient 72-720 h; lokali nie archiwizujemy; przerwa we współpracy nie wygasza linków; „Załatwione" tylko z pełnym prawem do materiałów (rozdz. 12.5) | **potwierdzone** (2026-09-29) |
 

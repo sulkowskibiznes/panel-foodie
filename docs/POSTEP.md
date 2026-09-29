@@ -619,3 +619,33 @@ Etap 3 (UX zespołu), Etap 4 po pilotażu.
 
 **Wymaga Szymona:** `PIN_PEPPER` w Vercelu (Production i Preview osobno, `openssl rand -hex 32`, raz na zawsze:
 zmiana unieważnia wszystkie PIN-y); § 4 regulaminu do przejrzenia z prawnikiem razem z § 5.
+
+### Etap 3: porządki UX zespołu (gałąź `faza/9-ux-zespolu`)
+
+**3a (bez zmiany ustaleń SPEC):**
+- Okno potwierdzenia panelu (`usePotwierdzenie`) zamiast 12 wywołań `window.confirm`; przycisk nazywa skutek,
+  wariant niebezpieczny na czerwono; w oknach z kodem startowym okno w oknie.
+- Toasty ze skutkami akcji (linki, raporty, uwagi, przejścia pakietu, współpraca, zespół); akcje, których wynik
+  wcześniej ginął (np. usunięcie raportu, „Załatwione" w pakiecie), mówią o porażce.
+- Nawigacja: aktywna pozycja (`aria-current`), jedno „Ustawienia" z zakładkami Zespół · Ogólne (podgląd ustawień
+  globalnych, integracji i ostatnich przebiegów cronów, bez wartości sekretów) · Powiadomienia · Retencja.
+- Karta klienta: „Przegląd", Materiały aktywne także w pakiecie, bez zakładki „Wdrożenie (wkrótce)"; u klienta bez
+  „Archiwum (wkrótce)".
+- Pakiet: okruszki, jeden h1, lista kontrolna w oknie wysyłki (braki blokują przycisk, ostrzeżenia widać zawczasu,
+  link „Ustaw daty w harmonogramie"), kotwice `#uwagi` i `#material-…` przełączają zakładkę i relację i przewijają
+  do wątku, pasek „Nierozwiązane uwagi klienta: N" z „Przejdź do pierwszej", „Ustawienia pakietu" (tytuł, link do
+  folderu), „Importuj z Dysku" w każdym szkicu, po imporcie „Ustaw daty w harmonogramie".
+- Kreator: podpowiedź końca poprzedniego pakietu (daty dalej ręcznie), „Skopiuj kampanie z poprzedniego pakietu",
+  domyślne nazwy z `copy.ts`. Okna z limitem wysokości, polskie etykiety zamykania, liczebniki.
+
+**3b (zmiany ustaleń SPEC zaakceptowane 2026-09-29, SPEC 5, 11, 12.1, 12.2, 16 pkt 12, 20 poz. 38):**
+- Lista klientów `/zespol/klienci` (wyszukiwarka bez polskich znaków, filtry, sortowanie, przerwy i zakończone),
+  „Przejdź do klienta" w nagłówku, dane tylko z zakresu członka zespołu.
+- Pulpit według pilności: kafelki z licznikami i filtrem, sortowanie, „Otwarty przez klienta", „Klienci bez pakietu
+  na następny okres", „Moja praca" dla content creatora.
+- Po wysyłce krok „link dla klienta" i „Link dla klienta" przy pakiecie czekającym (admin i csm, audyt).
+- Szybkie akcje na karcie klienta („Nowy pakiet", „Utwórz link").
+- Testy: jednostkowe `lista-klientow.test.ts`, `pilnosc.test.ts`; E2E: lista kontrolna i krok po wysyłce, kotwica
+  z pulpitu, Ustawienia → Ogólne, lista i wyszukiwarka csm bez cudzych klientów, „Moja praca" i kafelki, szybkie
+  akcje, ustawienia pakietu, podpowiedzi kreatora; testy z natywnymi oknami przeszły na okno panelu.
+- Ściąga dla zespołu (`pnpm instrukcja`): tekst i zrzuty odświeżone, nadal 2 strony.

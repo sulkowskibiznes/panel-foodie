@@ -7,6 +7,7 @@ import {
   przygotujDrugaBlokade,
   sesjeLinku,
   stanPinuLinku,
+  usunLinkiPoEtykiecie,
   usunLinkTestowy,
   utworzLinkTestowy,
   wpisyAudytu,
@@ -29,6 +30,8 @@ const KLIENT_A = "burger-brothers";
 const KLIENT_B = "pierogarnia-babci";
 
 const utworzone: string[] = [];
+/** Linki tworzone przez okno „Utwórz link" (bez id z góry): sprzątane po etykiecie, także po przerwanym teście. */
+const etykietyZOkna: string[] = [];
 async function link(slug = KLIENT_A, opcje: Parameters<typeof utworzLinkTestowy>[1] = {}): Promise<LinkTestowy> {
   const l = await utworzLinkTestowy(slug, { label: `E2E PIN ${test.info().project.name} ${Date.now()}`, ...opcje });
   utworzone.push(l.id);
@@ -41,6 +44,7 @@ test.beforeEach(async () => {
 
 test.afterAll(async () => {
   for (const id of utworzone) await usunLinkTestowy(id);
+  for (const etykieta of etykietyZOkna) await usunLinkiPoEtykiecie(etykieta);
 });
 
 function wierszLinku(page: Page, label: string) {
@@ -49,6 +53,7 @@ function wierszLinku(page: Page, label: string) {
 
 test("zespół tworzy link z kodem startowym, klient ustawia własny PIN, kod działa tylko raz", async ({ page, browser }) => {
   const label = `E2E kod ${test.info().project.name} ${Date.now()}`;
+  etykietyZOkna.push(label);
   const zespol = await browser.newContext({ storageState: PLIK_SESJI_ZESPOLU });
   await zespol.grantPermissions(["clipboard-read", "clipboard-write"]);
   const z = await zespol.newPage();

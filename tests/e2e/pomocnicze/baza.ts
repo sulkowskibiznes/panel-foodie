@@ -63,6 +63,11 @@ export async function utworzLinkTestowy(slug: string, opcje: { label?: string; c
   });
 }
 
+/** Sprzątanie linków utworzonych przez interfejs (etykieta znana z góry), także gdy test przerwie się w połowie. */
+export async function usunLinkiPoEtykiecie(etykieta: string): Promise<void> {
+  await zBaza((s) => s`delete from public.access_links where label = ${etykieta}`);
+}
+
 export async function usunLinkTestowy(id: string): Promise<void> {
   await zBaza((s) => s`delete from public.access_links where id = ${id}`);
 }

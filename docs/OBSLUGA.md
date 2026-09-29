@@ -9,7 +9,7 @@ w `CLAUDE.md`, `docs/KOPIE-ZAPASOWE.md` i `docs/KONFIGURACJA-MAILI.md`.
 
 | Rola | Klienci | Może |
 |---|---|---|
-| admin (Szymon) | wszyscy | wszystko, w tym Ustawienia (zespół, powiadomienia, retencja) i „Usuń dane klienta" |
+| admin (Szymon) | wszyscy | wszystko, w tym Ustawienia (zespół, ogólne, powiadomienia, retencja) i „Usuń dane klienta" |
 | csm (Gosia) | przypisani | nowy klient, pakiety, wysyłka, linki dostępu, faktury, dokumenty, zakończenie współpracy |
 | content_creator | przypisani | pakiety i materiały, harmonogram, podgląd raportów; bez faktur i dostępu |
 | media_buyer | przypisani | kampanie i warianty reklam, raporty |
@@ -18,9 +18,19 @@ w `CLAUDE.md`, `docs/KOPIE-ZAPASOWE.md` i `docs/KONFIGURACJA-MAILI.md`.
 Osobę do zespołu dodaje admin w **Ustawienia → Zespół** (adres musi przejść filtr domen). Nowa osoba
 loguje się kodem z maila przy pierwszym wejściu.
 
+**Jak poruszać się po panelu (od Etapu 3):**
+- **Pulpit** (content creator: **„Moja praca"**): kafelki na górze mówią, co jest pilne (wstrzymana auto-akceptacja,
+  auto-akceptacja w 24 h, nowe uwagi, poprawki, do zaplanowania w Meta, szkice). Kliknięcie kafelka filtruje tabelę,
+  drugie kliknięcie zdejmuje filtr. Tabela jest od najpilniejszego. Pod nią „Klienci bez pakietu na następny okres".
+- **Klienci**: lista z wyszukiwarką i filtrami (opiekun, kategoria, współpraca). Pole **„Przejdź do klienta"**
+  w nagłówku: wpisz fragment nazwy i Enter; jedno trafienie otwiera kartę od razu.
+- Karta klienta ma na górze **szybkie akcje**: „Nowy pakiet", „Utwórz link", „Zobacz jak klient".
+- Każda nieodwracalna akcja pyta w okienku panelu (nazwa przycisku mówi, co się stanie); wynik pokazuje krótki
+  komunikat u góry ekranu.
+
 ## 1. Nowy klient
 
-1. **Pulpit → „Nowy klient"** (przycisk nad listą klientów; widzą admin i csm).
+1. **Klienci → „Nowy klient"** (przycisk nad listą klientów; widzą admin i csm).
 2. Wpisz dane z umowy: nazwę, kategorię (1: osobne restauracje, 2: sieć z jednym profilem, 3: sieć
    z osobnymi profilami), pakiet, kwotę netto, kanał Slack, datę startu, opiekuna.
    Slug (adres w panelu) podpowiada się z nazwy; zmieniaj tylko, gdy koliduje.
@@ -53,20 +63,25 @@ Karta klienta → **Dane i współpraca** (admin i csm). Wszystko, co wcześniej
 
 ### 2.1 Content creator: pakiet i import z Dysku
 
-1. Karta klienta → **Materiały → „Nowy pakiet"**.
+1. Karta klienta → **„Nowy pakiet"** (szybka akcja u góry karty albo w zakładce Materiały).
 2. **Klient i okres**: wpisz datę początku i końca (np. 20.09 do 19.10; okres nie musi być miesiącem
-   kalendarzowym). Numer miesiąca współpracy podpowiada się jako „ostatni + 1"; po przerwie popraw ręcznie.
+   kalendarzowym). Pod polami widać, kiedy kończył się poprzedni pakiet. Numer miesiąca współpracy podpowiada się
+   jako „ostatni + 1"; po przerwie popraw ręcznie.
    Klient kategorii 1 ma osobny pakiet na każdy lokal (wybierz lokal).
 3. **Folder z contentem**: wklej link do folderu `content {N} mies` z Dysku (ten z podfolderami „1. Posty"
    i „2. Relacje"). Panel nie zgaduje ścieżek: importuje tylko to, co wkleisz.
 4. **Kampanie**: „Dodaj kampanię" dla każdej (standardowa, imprezy, polubienia): nazwa, cel, notatka dla
-   klienta i link do folderu z reklamami tej kampanii. Pakiet bez kampanii da się wysłać, ale z ostrzeżeniem.
+   klienta i link do folderu z reklamami tej kampanii. „Skopiuj kampanie z poprzedniego pakietu" przenosi nazwy,
+   cele i notatki (linki do folderów wklej nowe). Pakiet bez kampanii da się wysłać, ale z ostrzeżeniem.
 5. „Utwórz pakiet" → **karta weryfikacyjna** każdego folderu: ścieżka na Dysku, liczba plików, ostrzeżenia
    (inny klient w nazwie folderu, inny miesiąc, folder użyty już w innym pakiecie). Folder spoza „Materiałów
    klientów" jest zablokowany bez obejścia. Czytaj ostrzeżenia: to jedyne zabezpieczenie przed materiałami
    z innego miesiąca.
 6. **Mapowanie**: potwierdź, która grafika ma który opis (panel paruje po numerach w nazwach plików
-   i dokumentów „tekst N"). Popraw, gdzie zgadł źle. Potem kopiowanie w tle z paskiem postępu.
+   i dokumentów „tekst N"). Popraw, gdzie zgadł źle. Potem kopiowanie w tle z paskiem postępu; na końcu przycisk
+   „Ustaw daty w harmonogramie".
+   Link do folderu wkleisz albo poprawisz też później: **„Ustawienia pakietu"** w szkicu (tam też tytuł);
+   „Importuj z Dysku" jest w każdym szkicu, a bez linku otwiera właśnie te ustawienia.
 7. W pakiecie uzupełnij **daty publikacji** (bez daty przy poście albo relacji wysyłka jest zablokowana),
    złóż warianty reklam (grafiki, teksty, nagłówki; media buyer może to zrobić sam) i obejrzyj podgląd oczami
    klienta (te same komponenty, które zobaczy klient).
@@ -75,14 +90,20 @@ Karta klienta → **Dane i współpraca** (admin i csm). Wszystko, co wcześniej
 
 ### 2.2 Opiekun: wysyłka i co dalej
 
-1. W pakiecie **„Wyślij do akceptacji"**. Panel pokazuje listę braków (daty, puste opisy) i ostrzeżenia
-   (brak kampanii). Po wysyłce rusza licznik **72 godzin** do automatycznej akceptacji (poniedziałek–sobota,
-   gdy admin przełączył tryb dni roboczych).
-2. Klient dostaje od Ciebie wiadomość na WhatsAppie z linkiem (a za pierwszym razem osobno z kodem startowym, sekcja 4). Panel nie wysyła nic sam.
+1. W pakiecie **„Wyślij do akceptacji"**. Okno wysyłki od razu pokazuje listę kontrolną: braki (daty, puste opisy)
+   blokują wysyłkę i mają link „Ustaw daty w harmonogramie", ostrzeżenia (brak kampanii) tylko informują.
+   Po wysyłce rusza licznik **72 godzin** do automatycznej akceptacji (poniedziałek-sobota, gdy admin przełączył
+   tryb dni roboczych).
+2. Zaraz po wysyłce okno pokazuje **„link dla klienta"**: „Pokaż link" przy osobie, która akceptuje, i „Kopiuj".
+   Wyślij go klientowi na WhatsAppie (nowej osobie osobno też kod startowy, sekcja 4). Panel nie wysyła nic sam.
+   Później ten sam link jest pod przyciskiem „Link dla klienta" w pakiecie i „Pokaż link" na pulpicie.
 3. **Pulpit** pokazuje: ile klient czeka, ile zostało do auto-akceptacji (kolory jak w Bazie Klientów:
-   niebieski 6–7 dni, żółty 4–5, pomarańczowy 1–3, czerwony dziś, szary po terminie), nieprzeczytane uwagi.
+   niebieski 6–7 dni, żółty 4–5, pomarańczowy 1–3, czerwony dziś, szary po terminie), czy klient otworzył pakiet
+   („Otwarty przez klienta") i nieprzeczytane uwagi.
    Bursztynowy wiersz **„Auto-akceptacja wstrzymana"** = termin minął, ale klient ma nierozwiązane uwagi;
-   odpowiedz na nie i oznacz „Załatwione", inaczej pakiet nie zostanie zatwierdzony.
+   odpowiedz na nie i oznacz „Załatwione", inaczej pakiet nie zostanie zatwierdzony. „Odpowiedz na uwagi" prowadzi
+   prosto do wątku z pierwszą nierozwiązaną uwagą; w pakiecie pasek „Nierozwiązane uwagi klienta: N" ma przycisk
+   „Przejdź do pierwszej".
 4. **Uwagi klienta** czytasz w pakiecie (wątek przy materiale) albo zbiorczo w **Skrzynce uwag**. Odpowiadasz
    tam samo; „Załatwione" zamyka wątek (admin, csm i content creator; sales i media buyer tylko odpowiadają).
    Uwaga jest „nowa", dopóki ktoś na nią nie odpowie, nie kliknie „Oznacz jako przeczytaną" albo nie otworzy
