@@ -1549,11 +1549,10 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
-      odnotuj_nieudane_logowanie: {
-        Args: { p_link_id: string }
+      potwierdz_nieudana_probe_pinu: {
+        Args: { p_link_id: string; p_proby: number }
         Returns: {
           blokada_24h: boolean
-          proby: number
           zablokowany_do: string
           zamrozony: boolean
         }[]
@@ -1573,6 +1572,18 @@ export type Database = {
         Returns: number
       }
       utworz_klienta: { Args: { p: Json }; Returns: string }
+      zarezerwuj_probe_pinu: {
+        Args: { p_link_id: string }
+        Returns: {
+          dozwolona: boolean
+          proby: number
+          zamrozony: boolean
+        }[]
+      }
+      zeruj_proby_pinu: {
+        Args: { p_link_id: string; p_proby: number }
+        Returns: boolean
+      }
       zwieksz_limit: {
         Args: { p_key: string; p_okno_sekund: number }
         Returns: number

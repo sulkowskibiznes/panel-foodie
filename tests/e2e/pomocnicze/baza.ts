@@ -181,7 +181,9 @@ export async function rotatedAt(linkId: string): Promise<string | null> {
 
 /** Limit na IP jest współdzielony przez wszystkie testy z localhost; czyścimy go przed każdym testem. */
 export async function wyczyscLimity(): Promise<void> {
-  await zBaza((s) => s`delete from public.rate_limits where key like 'pin:ip:%' or key like 'pin:zmiana:%' or key like 'otp:ip:%'`);
+  // Liczniki „Zmień PIN" (pin:zmiana:<sesja>) zostają: klucz ma id sesji, więc testy się nie zderzają, a wspólne
+  // czyszczenie mogłoby je zerować w trakcie testu drugiego projektu Playwrighta.
+  await zBaza((s) => s`delete from public.rate_limits where key like 'pin:ip:%' or key like 'otp:ip:%'`);
 }
 
 export async function pakietKlienta(slug: string): Promise<string> {

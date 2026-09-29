@@ -64,7 +64,7 @@ export function UkladKlienta({ token, nazwaKlienta, etykietaOsoby, sciezka, podg
           <span className="truncate text-sm text-szary-600">{nazwaKlienta}</span>
         </header>
         <main className="mx-auto w-full max-w-3xl flex-1 px-5 py-6 pb-24 sm:py-8 lg:pb-8">{children}</main>
-        <nav aria-label={copy.marka.panel} className="fixed inset-x-0 bottom-0 z-40 grid grid-cols-4 border-t border-szary-100 bg-white lg:hidden">
+        <nav aria-label={copy.marka.panel} className="fixed inset-x-0 bottom-0 z-40 grid grid-cols-4 border-t border-szary-100 bg-white lg:hidden" data-nawigacja-dolna>
           {glowne.map(({ href, etykieta, Ikona, biezaca: tu }) => (
             <Link key={href} href={href} aria-current={tu ? "page" : undefined} className={`flex flex-col items-center gap-1 px-2 py-2.5 text-[11px] font-medium ${tu ? "text-fiolet-700" : "text-szary-600"}`}>
               <Ikona className="size-5" aria-hidden />

@@ -667,8 +667,11 @@ daje dostęp), ale sam link nie wystarczy.
 - 5 nieudanych prób → blokada linku na 15 min (`locked_until`), komunikat bez ujawniania,
   czy token istnieje.
 - 10 nieudanych w ciągu **24 godzin** (od Etapu 2; wcześniej okno godzinne dawało ok. 190 prób na dobę) → blokada na
-  24 h + jedno zdarzenie `bezpieczenstwo.blokada` w `outbox` (tylko przy przejściu na 10.). Licznik i blokada w jednym
-  zapisie w bazie (`odnotuj_nieudane_logowanie`), alarm po odpowiedzi.
+  24 h + jedno zdarzenie `bezpieczenstwo.blokada` w `outbox` (tylko przy 10. próbie). **Próba jest rezerwowana przed
+  sprawdzeniem PIN-u** (`zarezerwuj_probe_pinu`, blokada wiersza): nabija licznik, nakłada blokadę i decyduje, czy wolno
+  weryfikować, więc równoległe żądania (np. z wielu adresów IP) nie ominą blokady. Porażkę potwierdza
+  `potwierdz_nieudana_probe_pinu` (alarm, zamrożenie, po odpowiedzi), sukces zeruje licznik (`zeruj_proby_pinu`),
+  o ile nikt równolegle nie dołożył próby. „Zmień PIN" liczy próby tej samej sesji przed sprawdzeniem (najwyżej 3).
 - **Druga blokada 24 h w ciągu 30 dni zamraża link** (`frozen_at`, zdarzenie `bezpieczenstwo.link_zamrozony`):
   logowanie zamknięte, aż zespół wyda nowy kod startowy.
 - Rate limit na IP: 20 prób PIN / 10 min.

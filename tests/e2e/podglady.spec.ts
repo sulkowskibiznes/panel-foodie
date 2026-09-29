@@ -42,6 +42,14 @@ async function otworz(page: Page) {
   await zalogujKlienta(page, link.token, link.pin);
   await page.goto(`/p/${link.token}/materialy/${pakietId}`);
   await expect(page.locator("[data-pasek-pakietu]")).toBeVisible();
+  // Przyklejony pasek pakietu (sticky top-0) i dolna nawigacja telefonu (fixed bottom-0) leżą poza ramką podglądu,
+  // ale zależnie od przewinięcia przykrywały jej górę albo dół i trafiały do wzorców. Ukrywamy je na czas zrzutów,
+  // żeby porównywać samą ramkę. Dolna nawigacja istnieje tylko na telefonie.
+  // Arkusz stylów, nie atrybut style na elementach: zmiana atrybutów przed hydracją dawała ostrzeżenie Reacta
+  // o niezgodności (i plakietkę błędu Next w trybie dev na zrzucie).
+  if (test.info().project.name.startsWith("mobile")) await expect(page.locator("[data-nawigacja-dolna]")).toHaveCount(1);
+  await page.waitForLoadState("networkidle");
+  await page.addStyleTag({ content: "[data-pasek-pakietu], [data-nawigacja-dolna] { visibility: hidden !important; }" });
 }
 
 test("26. post, relacja i Reels na Facebooku zgodne ze wzorcami", async ({ page }) => {

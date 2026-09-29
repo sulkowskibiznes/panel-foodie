@@ -4,9 +4,9 @@ import { redirect } from "next/navigation";
 import { hashAtrapa, weryfikujPin } from "@/lib/auth-klient";
 import { zapiszAudyt } from "@/lib/audyt";
 import { copy } from "@/lib/copy";
-import { czyPrzekroczonyLimitIp, NIEISTNIEJACY_LINK } from "@/lib/limity";
+import { czyPrzekroczonyLimitIp, NIEISTNIEJACY_LINK, zarezerwujProbePinu, zerujProbyPinu } from "@/lib/limity";
 import { weryfikujLogowanie, type LinkDoLogowania } from "@/lib/logowanie-klienta";
-import { odnotujNieudanaProbe, ustawPozwolenieNaPin } from "@/lib/pin-klienta";
+import { odnotujPorazkePinu, ustawPozwolenieNaPin } from "@/lib/pin-klienta";
 import { utworzSesje } from "@/lib/sesja-klienta";
 import { supabaseSerwer } from "@/lib/supabase/server";
 import { infoZadania } from "@/lib/zadanie";
@@ -39,15 +39,16 @@ export async function zalogujPinem(_poprzedni: StanPin, formData: FormData): Pro
 
   const wynik = await weryfikujLogowanie(token, pin, {
     znajdzLink,
+    rezerwuj: (linkId) => zarezerwujProbePinu(linkId ?? NIEISTNIEJACY_LINK),
     weryfikuj: (hashPinu, pinDoSprawdzenia, zPieprzem) => (zPieprzem ? weryfikujPin(hashPinu, pinDoSprawdzenia) : weryfikujPin(hashPinu, pinDoSprawdzenia, null)),
     hashAtrapa: await hashAtrapa(),
     teraz: () => new Date(),
   });
 
   if (!wynik.ok) {
-    // Wygasły kod startowy liczy się jak zły PIN (ten sam zapis), ale klient dostaje podpowiedź, co zrobić.
-    const liczyDoBlokady = wynik.powod === "zly_pin" || wynik.powod === "blokada" || wynik.powod === "kod_wygasl";
-    const proba = await odnotujNieudanaProbe(liczyDoBlokady ? wynik.link : null, liczyDoBlokady && wynik.link ? wynik.link.id : NIEISTNIEJACY_LINK, ipHash);
+    // Każda porażka (także zły token, na nieistniejącym wierszu) przechodzi to samo potwierdzenie: ten sam koszt.
+    // Wygasły kod startowy liczy się jak zły PIN, ale klient dostaje podpowiedź, co zrobić.
+    const proba = await odnotujPorazkePinu(wynik.link, wynik.link ? wynik.link.id : NIEISTNIEJACY_LINK, wynik.proby, ipHash);
     await zapiszAudyt({
       actor_kind: "klient",
       actor_id: wynik.link?.contact_id ?? null,
@@ -64,10 +65,10 @@ export async function zalogujPinem(_poprzedni: StanPin, formData: FormData): Pro
   }
 
   const link = wynik.link;
-  await supabaseSerwer()
-    .from("access_links")
-    .update({ failed_attempts: 0, failed_window_started_at: null, locked_until: null, last_used_at: new Date().toISOString() })
-    .eq("id", link.id);
+  // Zerowanie tylko wtedy, gdy nikt równolegle nie dołożył próby (te zostają policzone); last_used_at zawsze.
+  if (!(await zerujProbyPinu(link.id, wynik.proby))) {
+    await supabaseSerwer().from("access_links").update({ last_used_at: new Date().toISOString() }).eq("id", link.id);
+  }
   if (wynik.ustawPin) {
     await ustawPozwolenieNaPin(token, link, zapamietaj);
     await zapiszAudyt({ actor_kind: "klient", actor_id: link.contact_id, actor_label: link.label, action: "klient.kod_startowy_ok", entity: "access_link", entity_id: link.id, client_id: link.client_id, ip_hash: ipHash, ua });

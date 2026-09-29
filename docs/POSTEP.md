@@ -598,5 +598,24 @@ Etap 3 (UX zespołu), Etap 4 po pilotażu.
 
 **Kryteria 29-33: przechodzą** (E2E na obu szerokościach).
 
+**Przegląd adwersarialny Etapu 2 (2026-09-29), poprawione:**
+- Równoległe logowania omijały blokadę (blokada czytana przed argon2, porażka zapisywana po nim): teraz próba jest
+  rezerwowana w bazie przed sprawdzeniem PIN-u (`zarezerwuj_probe_pinu` pod blokadą wiersza), alarm i zamrożenie po
+  potwierdzonej porażce, zerowanie po sukcesie warunkowe. Test współbieżności w bazie (`tests/unit/proby-pinu.test.ts`):
+  z 12 równoległych prób weryfikację dostaje dokładnie 5.
+- „Zmień PIN": licznik prób sesji nabijany przed argon2 (najwyżej 3 weryfikacje także przy równoległych żądaniach),
+  próba linku rezerwowana jak przy logowaniu; tanie sprawdzenia nowego PIN-u przed licznikiem (nie karzą literówek).
+- `pin_pepper` domyślnie `false`: link wstawiony starym kodem między `db:migrate` a wdrożeniem nie zostanie oznaczony
+  jako hash z pieprzem.
+- „Pokaż link" nie mówi „Skopiowano" i nie pisze audytu, gdy schowek zawiedzie; pole „Obecny PIN" przyjmuje dawne
+  proste hasła; testowe czyszczenie limitów nie zeruje liczników „Zmień PIN" drugiego projektu Playwrighta.
+- Świadomie bez zmian: sesje sprzed migracji dostają `remember = true` (stary kod i tak robił z nich trwałe cookie
+  po pierwszej rotacji).
+- **Wzorce podglądów (kryterium 26), świadoma aktualizacja 7 wzorców mobile-390:** po `db:reset` wyszło, że część
+  wzorców zawierała elementy spoza ramki podglądu (przyklejony pasek pakietu u góry, dolną nawigację telefonu na dole),
+  zależnie od przewinięcia. Test ukrywa teraz oba elementy arkuszem stylów przed zrzutami (dolna nawigacja dostała
+  `data-nawigacja-dolna`). Różnice sprawdzone piksel po pikselu: wyłącznie pasy 18-61 px u góry albo u dołu, treść
+  ramek identyczna; wzorce desktop bez zmian. Trzy przebiegi pod rząd na obu szerokościach zielone.
+
 **Wymaga Szymona:** `PIN_PEPPER` w Vercelu (Production i Preview osobno, `openssl rand -hex 32`, raz na zawsze:
 zmiana unieważnia wszystkie PIN-y); § 4 regulaminu do przejrzenia z prawnikiem razem z § 5.

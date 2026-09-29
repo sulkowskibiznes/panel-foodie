@@ -6,7 +6,7 @@ import { zapiszAudyt } from "@/lib/audyt";
 import { copy } from "@/lib/copy";
 import { env } from "@/lib/env";
 import { porownajStale, wyprowadzKlucz } from "@/lib/krypto";
-import { odnotujNieudaneLogowanie, type WynikNieudanejProby } from "@/lib/limity";
+import { potwierdzNieudanaProbePinu, type WynikNieudanejProby } from "@/lib/limity";
 import { dodajDoOutbox } from "@/lib/outbox";
 import { odczytajLadunek, podpiszLadunek } from "@/lib/podpis";
 import { supabaseSerwer } from "@/lib/supabase/server";
@@ -127,11 +127,12 @@ export async function zdarzenieDostepu(event: Extract<ZdarzenieOutbox, "bezpiecz
 }
 
 /**
- * Nieudana próba PIN-u (logowanie albo „Zmień PIN"): licznik i blokady atomowo w bazie, alarm 24 h i zamrożenie
- * linku po odpowiedzi (`after`), żeby ścieżki z alarmem i bez trwały tyle samo.
+ * Potwierdzona porażka zarezerwowanej próby PIN-u (logowanie albo „Zmień PIN"): licznik i blokady nabiła już
+ * rezerwacja; tu alarm 24 h (tylko próba nr 10) i zamrożenie linku, audyt i outbox po odpowiedzi (`after`), żeby
+ * ścieżki z alarmem i bez trwały tyle samo. `idDoLicznika` dla złego tokenu to identyfikator nieistniejący.
  */
-export async function odnotujNieudanaProbe(link: LinkZdarzenia | null, idDoLicznika: string, ipHash: string): Promise<WynikNieudanejProby> {
-  const proba = await odnotujNieudaneLogowanie(idDoLicznika);
+export async function odnotujPorazkePinu(link: LinkZdarzenia | null, idDoLicznika: string, proby: number, ipHash: string): Promise<WynikNieudanejProby> {
+  const proba = await potwierdzNieudanaProbePinu(idDoLicznika, proby);
   if (link && (proba.blokada24h || proba.zamrozony)) {
     after(async () => {
       if (proba.blokada24h) {

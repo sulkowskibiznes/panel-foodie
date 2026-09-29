@@ -52,7 +52,9 @@ export function ListaLinkow({ slug, linki }: { slug: string; linki: LinkDostepu[
     try {
       await navigator.clipboard.writeText(adres);
     } catch {
-      // schowek niedostępny
+      // schowek niedostępny: mówimy, żeby skopiować ręcznie, bez „Skopiowano" i bez wpisu w audycie
+      setBlad(d.gotowy.bladKopiowania);
+      return;
     }
     setSkopiowany(l.id);
     setTimeout(() => setSkopiowany(null), 2000);

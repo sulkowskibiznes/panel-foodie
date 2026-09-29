@@ -44,8 +44,11 @@ export function PokazLinkPulpit({ slug, nazwaKlienta }: { slug: string; nazwaKli
     try {
       await navigator.clipboard.writeText(adres);
     } catch {
-      // schowek niedostępny: pole jest zaznaczalne
+      // schowek niedostępny: pole jest zaznaczalne, mówimy o tym zamiast „Skopiowano" i nie piszemy audytu
+      setBlad(d.gotowy.bladKopiowania);
+      return;
     }
+    setBlad(null);
     setSkopiowany(id);
     setTimeout(() => setSkopiowany(null), 2000);
     void odnotujSkopiowanie(slug, id, "link");

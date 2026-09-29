@@ -5,8 +5,8 @@ import { walidujPinKlienta, weryfikujPin } from "@/lib/auth-klient";
 import { zapiszAudyt } from "@/lib/audyt";
 import { copy } from "@/lib/copy";
 import { pobierzKontekstKlienta } from "@/lib/kontekst-klienta";
-import { czyPrzekroczonyLimitIp, zwiekszLicznik } from "@/lib/limity";
-import { odnotujNieudanaProbe, zapiszPinKlienta, zdarzenieDostepu } from "@/lib/pin-klienta";
+import { czyPrzekroczonyLimitIp, zarezerwujProbePinu, zerujProbyPinu, zwiekszLicznik } from "@/lib/limity";
+import { odnotujPorazkePinu, zapiszPinKlienta, zdarzenieDostepu } from "@/lib/pin-klienta";
 import { pobierzSesjeKlienta, uniewaznijSesjeLinku, utworzSesje, zakonczSesje } from "@/lib/sesja-klienta";
 import { supabaseSerwer } from "@/lib/supabase/server";
 import { infoZadania } from "@/lib/zadanie";
@@ -18,8 +18,10 @@ const BLEDY_DO_WYLOGOWANIA = 3;
 
 /**
  * „Zmień PIN" (Etap 2 planu domknięcia). Link i sesja wyłącznie z cookie sesji, nigdy z formularza; podgląd zespołu
- * nie ma tej akcji (404). Błędny obecny PIN liczy się do blokad linku jak przy logowaniu, a trzeci błąd w tej sesji ją
- * kończy. Po zmianie wszystkie sesje linku są unieważnione, bieżące urządzenie dostaje nową z tym samym „Zapamiętaj mnie".
+ * nie ma tej akcji (404). Najpierw tanie sprawdzenia nowego PIN-u (bez sekretu, nie liczą się jako próby). Potem PRZED
+ * argon2: licznik prób tej sesji (najwyżej 3 weryfikacje, także przy równoległych żądaniach) i rezerwacja próby linku
+ * jak przy logowaniu. Trzeci błąd kończy sesję. Po zmianie wszystkie sesje linku są unieważnione, bieżące urządzenie
+ * dostaje nową z tym samym „Zapamiętaj mnie".
  */
 export async function zmienPin(_poprzedni: StanZmianyPinu, formData: FormData): Promise<StanZmianyPinu> {
   const token = String(formData.get("token") ?? "").trim().toLowerCase();
@@ -43,22 +45,30 @@ export async function zmienPin(_poprzedni: StanZmianyPinu, formData: FormData): 
   if (!link || link.revoked_at || link.client_id !== sesja.clientId) redirect(`/p/${token}`);
   if (link.frozen_at || (link.locked_until && new Date(link.locked_until) > new Date())) return { blad: b.zablokowany };
 
-  if (!(await weryfikujPin(link.pin_hash, obecny, link.pin_pepper ? undefined : null))) {
-    const proba = await odnotujNieudanaProbe(link, link.id, ipHash);
-    const bledySesji = await zwiekszLicznik(`pin:zmiana:${sesja.sesjaId}`, 24 * 60 * 60);
-    await zapiszAudyt({ actor_kind: "klient", actor_id: link.contact_id, actor_label: link.label, action: "klient.zmiana_pinu_blad", entity: "access_link", entity_id: link.id, client_id: link.client_id, ip_hash: ipHash, ua, meta: { proby: proba.proby, bledy_sesji: bledySesji } });
-    if (bledySesji >= BLEDY_DO_WYLOGOWANIA) {
-      await zakonczSesje();
-      redirect(`/p/${token}`);
-    }
-    return { blad: b.obecny };
-  }
-
   const polityka = walidujPinKlienta(pin);
   if (!polityka.ok && polityka.powod === "format") return { blad: b.format };
   if (pin !== powtorz) return { blad: b.rozne };
   if (pin === obecny) return { blad: b.takiSam };
   if (!polityka.ok) return { blad: b[polityka.powod] };
+
+  // Numer weryfikacji w tej sesji nabity przed argon2: równoległe żądania nie dostaną więcej niż 3 prób.
+  const probaSesji = await zwiekszLicznik(`pin:zmiana:${sesja.sesjaId}`, 24 * 60 * 60);
+  if (probaSesji > BLEDY_DO_WYLOGOWANIA) {
+    await zakonczSesje();
+    redirect(`/p/${token}`);
+  }
+  const rez = await zarezerwujProbePinu(link.id);
+  const obecnyOk = await weryfikujPin(link.pin_hash, obecny, link.pin_pepper ? undefined : null);
+  if (!rez.dozwolona || !obecnyOk) {
+    const proba = await odnotujPorazkePinu(link, link.id, rez.proby, ipHash);
+    await zapiszAudyt({ actor_kind: "klient", actor_id: link.contact_id, actor_label: link.label, action: "klient.zmiana_pinu_blad", entity: "access_link", entity_id: link.id, client_id: link.client_id, ip_hash: ipHash, ua, meta: { proby: proba.proby, bledy_sesji: probaSesji, zablokowany: !rez.dozwolona } });
+    if (probaSesji >= BLEDY_DO_WYLOGOWANIA) {
+      await zakonczSesje();
+      redirect(`/p/${token}`);
+    }
+    return { blad: rez.dozwolona ? b.obecny : b.zablokowany };
+  }
+  await zerujProbyPinu(link.id, rez.proby);
 
   const wersja = await zapiszPinKlienta(link.id, link.pin_version, pin);
   if (wersja === null) {

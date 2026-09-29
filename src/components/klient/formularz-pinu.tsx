@@ -10,7 +10,8 @@ type Akcja = (poprzedni: Stan, formData: FormData) => Promise<Stan>;
 const POLE =
   "mt-2 h-14 w-full rounded-xl border border-szary-300 bg-white px-4 text-center text-2xl tracking-[0.4em] text-foodie-czern outline-none focus:border-foodie-fiolet focus:ring-2 focus:ring-foodie-fiolet/30 aria-invalid:border-czerwony";
 
-function PolePinu({ id, etykieta, blad, autoFocus, autoComplete }: { id: string; etykieta: string; blad: boolean; autoFocus?: boolean; autoComplete: string }) {
+/** `obecny`: pole obecnego PIN-u przyjmuje też dawne proste hasła (do 12 znaków), nowy PIN tylko 4-6 cyfr. */
+function PolePinu({ id, etykieta, blad, autoFocus, autoComplete, obecny = false }: { id: string; etykieta: string; blad: boolean; autoFocus?: boolean; autoComplete: string; obecny?: boolean }) {
   return (
     <div>
       <label htmlFor={id} className="block text-sm font-medium text-foodie-czern">
@@ -21,12 +22,12 @@ function PolePinu({ id, etykieta, blad, autoFocus, autoComplete }: { id: string;
         name={id}
         type="password"
         inputMode="numeric"
-        pattern="[0-9]*"
+        pattern={obecny ? undefined : "[0-9]*"}
         autoComplete={autoComplete}
         autoFocus={autoFocus}
         required
         minLength={4}
-        maxLength={6}
+        maxLength={obecny ? 12 : 6}
         aria-invalid={blad ? true : undefined}
         aria-describedby={blad ? "pin-blad" : "pin-wskazowka"}
         className={POLE}
@@ -45,7 +46,7 @@ export function FormularzPinu({ token, tryb, akcja }: { token: string; tryb: "us
   const formularz = (
     <form action={wykonaj} className="mt-6 space-y-5" data-formularz-pinu={tryb}>
       <input type="hidden" name="token" value={token} />
-      {tryb === "zmien" ? <PolePinu id="obecny" etykieta={copy.zmianaPinu.obecny} blad={!!stan.blad} autoFocus autoComplete="current-password" /> : null}
+      {tryb === "zmien" ? <PolePinu id="obecny" etykieta={copy.zmianaPinu.obecny} blad={!!stan.blad} autoFocus autoComplete="current-password" obecny /> : null}
       <PolePinu id="pin" etykieta={copy.ustawPin.nowy} blad={!!stan.blad} autoFocus={tryb === "ustaw"} autoComplete="new-password" />
       <PolePinu id="powtorz" etykieta={copy.ustawPin.powtorz} blad={!!stan.blad} autoComplete="new-password" />
       <p id="pin-wskazowka" className="text-sm leading-6 text-szary-600">
