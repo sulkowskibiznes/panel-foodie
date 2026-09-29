@@ -92,7 +92,7 @@ describe("walidujLokal i walidujKontakt", () => {
   it("lokal: nazwa i strona FB obowiązkowe, IG bez @ i bez spacji, adres przycięty", () => {
     expect(walidujLokal({ name: "Bao", city: "", fb_page_name: "Bao Bar", ig_handle: "@bao.bar", address: " ul. Długa 1 " })).toEqual({ ok: true, dane: { name: "Bao", city: null, fb_page_name: "Bao Bar", ig_handle: "bao.bar", address: "ul. Długa 1" } });
     expect(walidujLokal({ name: "Bao", city: "", fb_page_name: " ", ig_handle: "" })).toEqual({ ok: false, blad: "lokal" });
-    expect(walidujLokal({ name: "Bao", city: "", fb_page_name: "Bao", ig_handle: "bao bar" })).toEqual({ ok: false, blad: "lokal" });
+    expect(walidujLokal({ name: "Bao", city: "", fb_page_name: "Bao", ig_handle: "bao bar" })).toEqual({ ok: false, blad: "ig" });
   });
   it("kontakt: imię obowiązkowe, e-mail sprawdzany, puste pola jako null", () => {
     expect(walidujKontakt({ name: "Ola", role_label: "", phone: "", email: "" })).toEqual({ ok: true, dane: { name: "Ola", role_label: null, phone: null, email: null } });

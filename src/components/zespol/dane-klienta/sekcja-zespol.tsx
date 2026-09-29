@@ -46,6 +46,9 @@ export function SekcjaZespol({ slug, klient }: { slug: string; klient: DaneKlien
           <Pole id="zespol-opiekun" etykieta={t.opiekun}>
             <select id="zespol-opiekun" name="opiekun_id" defaultValue={klient.opiekunId ?? ""} className={POLE}>
               <option value="">{t.bezOpiekuna}</option>
+              {klient.opiekunNieaktywny ? (
+                <option value={klient.opiekunNieaktywny.id}>{t.opiekunNieaktywny.replace("{osoba}", klient.opiekunNieaktywny.name)}</option>
+              ) : null}
               {opiekunowie.map((o) => (
                 <option key={o.id} value={o.id}>{o.name}</option>
               ))}

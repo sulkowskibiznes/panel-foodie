@@ -30,6 +30,8 @@ export type DaneKlientaZespolu = {
   slack_channel: string | null;
   cooperation_started_on: string | null;
   opiekunId: string | null;
+  /** Obecny opiekun, który nie jest już aktywny: formularz go pokazuje, żeby zapis innych pól go nie kasował. */
+  opiekunNieaktywny: { id: string; name: string } | null;
   akceptacja: Akceptacja;
   lokale: LokalKlienta[];
   kontakty: KontaktKlienta[];
@@ -58,6 +60,10 @@ export async function pobierzDaneKlienta(clientId: string): Promise<DaneKlientaZ
   ]);
   const idsPrzypisanych = new Set((przypisania.data ?? []).map((p) => p.team_member_id));
   const czlonkowie = (zespol.data ?? []) as CzlonekKlienta[];
+  const opiekunNieaktywny =
+    k.opiekun_id && !czlonkowie.some((c) => c.id === k.opiekun_id)
+      ? ((await db.from("team_members").select("id, name").eq("id", k.opiekun_id).maybeSingle()).data ?? null)
+      : null;
   return {
     id: k.id,
     slug: k.slug,
@@ -68,6 +74,7 @@ export async function pobierzDaneKlienta(clientId: string): Promise<DaneKlientaZ
     slack_channel: k.slack_channel,
     cooperation_started_on: k.cooperation_started_on,
     opiekunId: k.opiekun_id,
+    opiekunNieaktywny,
     akceptacja: { auto_approve_default: k.auto_approve_default, auto_approve_hours: k.auto_approve_hours, default_publish_hours: k.default_publish_hours },
     lokale: (lokale.data ?? []).map((l) => ({ id: l.id, name: l.name, city: l.city, address: l.address, fb_page_name: l.fb_page_name, ig_handle: l.ig_handle, position: l.position, wersjaAwatara: l.avatar_path ? sha256Hex(l.avatar_path).slice(0, 10) : null })),
     kontakty: (kontakty.data ?? []).map((c) => ({
@@ -200,6 +207,9 @@ export async function archiwizujKontakt(clientId: string, kontaktId: string, wyg
 /** Opiekun: aktywny admin albo csm (albo nikt). Zwraca false, gdy wskazana osoba nie może być opiekunem. */
 export async function ustawOpiekuna(clientId: string, memberId: string | null): Promise<boolean> {
   const db = supabaseSerwer();
+  // Obecny opiekun zostaje bez zmian, także nieaktywny (formularz pokazuje go jako „nieaktywny"); zmiana tylko na aktywnego.
+  const { data: klient } = await db.from("clients").select("opiekun_id").eq("id", clientId).maybeSingle();
+  if (klient && klient.opiekun_id === memberId) return true;
   if (memberId) {
     const { data: osoba } = await db.from("team_members").select("id").eq("id", memberId).eq("active", true).in("role", ["admin", "csm"]).maybeSingle();
     if (!osoba) return false;
@@ -209,15 +219,19 @@ export async function ustawOpiekuna(clientId: string, memberId: string | null): 
   return true;
 }
 
-/** Przypisania zespołu klienta (client_assignments) ustawiane w całości: tylko aktywni, bez roli sales. */
+/**
+ * Przypisania zespołu klienta (client_assignments) ustawiane według formularza, który pokazuje tylko aktywnych bez roli
+ * sales: dodajemy i odpinamy wyłącznie takie osoby. Przypisania osób nieaktywnych zostają (po reaktywacji wracają).
+ */
 export async function ustawPrzypisania(clientId: string, memberIds: string[]): Promise<{ dodani: string[]; usunieci: string[] }> {
   const db = supabaseSerwer();
-  const { data: dozwoleni } = memberIds.length > 0 ? await db.from("team_members").select("id").in("id", memberIds).eq("active", true).neq("role", "sales") : { data: [] as { id: string }[] };
-  const docelowi = new Set((dozwoleni ?? []).map((d) => d.id));
+  const { data: widoczni } = await db.from("team_members").select("id").eq("active", true).neq("role", "sales");
+  const wFormularzu = new Set((widoczni ?? []).map((d) => d.id));
+  const docelowi = new Set(memberIds.filter((id) => wFormularzu.has(id)));
   const { data: obecne } = await db.from("client_assignments").select("team_member_id").eq("client_id", clientId);
   const obecni = new Set((obecne ?? []).map((o) => o.team_member_id));
   const dodani = [...docelowi].filter((id) => !obecni.has(id));
-  const usunieci = [...obecni].filter((id) => !docelowi.has(id));
+  const usunieci = [...obecni].filter((id) => wFormularzu.has(id) && !docelowi.has(id));
   if (usunieci.length > 0) {
     const { error } = await db.from("client_assignments").delete().eq("client_id", clientId).in("team_member_id", usunieci);
     if (error) throw new Error(`ustawPrzypisania (usuń): ${error.message}`);
@@ -247,13 +261,13 @@ export async function pobierzPierwszeKroki(clientId: string): Promise<PierwszeKr
     db.from("client_contacts").select("id").eq("client_id", clientId).is("archived_at", null),
     db.from("access_links").select("contact_id").eq("client_id", clientId).is("revoked_at", null),
     db.from("locations").select("avatar_path, position").eq("client_id", clientId).order("position"),
-    db.from("client_assignments").select("team_members!inner(role)").eq("client_id", clientId),
+    db.from("client_assignments").select("team_members!inner(role, active)").eq("client_id", clientId).eq("team_members.active", true),
     db.from("documents").select("kind").eq("client_id", clientId),
     db.from("packages").select("id", { count: "exact", head: true }).eq("client_id", clientId),
   ]);
   const zLinkiem = new Set((linki ?? []).map((l) => l.contact_id));
   const lokaleDoZdjecia = klient?.category === "kat2" ? (lokale ?? []).slice(0, 1) : (lokale ?? []);
-  const role = (przypisania ?? []).map((p) => (p.team_members as unknown as { role: Rola }).role);
+  const role = (przypisania ?? []).map((p) => p.team_members as unknown as { role: Rola; active: boolean }).filter((c) => c.active).map((c) => c.role);
   const rodzaje = new Set((dokumenty ?? []).map((d) => d.kind));
   return {
     linki: (kontakty ?? []).length > 0 && (kontakty ?? []).every((k) => zLinkiem.has(k.id)),
@@ -264,16 +278,25 @@ export async function pobierzPierwszeKroki(clientId: string): Promise<PierwszeKr
   };
 }
 
-/** Liczba klientów, których członek zespołu jest opiekunem albo do których jest przypisany (Ustawienia → Zespół). */
-export async function policzKlientowZespolu(): Promise<Map<string, { opiekun: number; przypisany: number }>> {
+export type KlienciCzlonka = { opiekun: number; klienci: number };
+
+/**
+ * Klienci członka zespołu (Ustawienia → Zespół), bez zakończonych współprac: `opiekun` = pod jego opieką
+ * (ostrzeżenie przed dezaktywacją), `klienci` = suma zbiorów opieki i przypisań (opiekun bywa też przypisany).
+ */
+export async function policzKlientowZespolu(): Promise<Map<string, KlienciCzlonka>> {
   const db = supabaseSerwer();
   const [{ data: opieka }, { data: przypisania }] = await Promise.all([
-    db.from("clients").select("opiekun_id").neq("status", "zakonczony").not("opiekun_id", "is", null),
-    db.from("client_assignments").select("team_member_id, clients!inner(status)").neq("clients.status", "zakonczony"),
+    db.from("clients").select("id, opiekun_id").neq("status", "zakonczony").not("opiekun_id", "is", null),
+    db.from("client_assignments").select("team_member_id, client_id, clients!inner(status)").neq("clients.status", "zakonczony"),
   ]);
-  const mapa = new Map<string, { opiekun: number; przypisany: number }>();
-  const wpis = (id: string) => mapa.get(id) ?? mapa.set(id, { opiekun: 0, przypisany: 0 }).get(id)!;
-  for (const o of opieka ?? []) if (o.opiekun_id) wpis(o.opiekun_id).opiekun++;
-  for (const p of przypisania ?? []) wpis(p.team_member_id).przypisany++;
-  return mapa;
+  const zbiory = new Map<string, { opiekun: Set<string>; wszyscy: Set<string> }>();
+  const wpis = (id: string) => zbiory.get(id) ?? zbiory.set(id, { opiekun: new Set(), wszyscy: new Set() }).get(id)!;
+  for (const o of opieka ?? []) {
+    if (!o.opiekun_id) continue;
+    wpis(o.opiekun_id).opiekun.add(o.id);
+    wpis(o.opiekun_id).wszyscy.add(o.id);
+  }
+  for (const p of przypisania ?? []) wpis(p.team_member_id).wszyscy.add(p.client_id);
+  return new Map([...zbiory].map(([id, z]) => [id, { opiekun: z.opiekun.size, klienci: z.wszyscy.size }]));
 }
