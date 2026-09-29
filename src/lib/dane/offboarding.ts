@@ -85,8 +85,9 @@ export async function usunDaneKlienta(clientId: string, slug: string): Promise<W
   const obiekty: Record<string, number> = {};
   // Najpierw Storage: przy błędzie wiersz klienta zostaje, a ponowne kliknięcie dokończy usuwanie (operacja idempotentna).
   for (const bucket of BUCKETY_KLIENTA) obiekty[bucket] = await usunFolderStorage(bucket, clientId);
-  // RODO: kolejka powiadomień niesie nazwy osób (actor, summary) i nie ma client_id, więc szukamy po slugu.
-  const { error: bladOutbox } = await db.from("outbox").delete().eq("payload->>client_slug", slug);
+  // RODO: kolejka powiadomień niesie nazwy osób (actor, summary, label). Zdarzenia pakietów mają w payloadzie slug,
+  // zdarzenia bezpieczeństwa także client_id (starsze wpisy blokad tylko client_id), więc kasujemy po obu kluczach.
+  const { error: bladOutbox } = await db.from("outbox").delete().or(`payload->>client_slug.eq.${slug},payload->>client_id.eq.${clientId}`);
   if (bladOutbox) throw new Error(`usunDaneKlienta (outbox): ${bladOutbox.message}`);
   // Audyt zostaje na 12 miesięcy (bezpieczeństwo), ale bez etykiet osób, przeglądarek i szczegółów.
   const { error: bladAudytu } = await db.from("audit_log").update({ actor_label: null, ua: null, ip_hash: null, meta: {} }).eq("client_id", clientId);

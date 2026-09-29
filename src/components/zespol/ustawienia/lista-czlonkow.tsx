@@ -4,6 +4,7 @@ import { useState, useTransition } from "react";
 import { przelaczAktywnosc, zapiszKontaktDlaKlienta } from "@/app/zespol/(panel)/ustawienia/zespol/akcje";
 import { Button } from "@/components/ui/button";
 import { copy } from "@/lib/copy";
+import type { KlienciCzlonka } from "@/lib/dane/dane-klienta";
 import type { Rola } from "@/lib/uprawnienia";
 
 type Czlonek = { id: string; name: string; email: string; role: Rola; active: boolean; client_contact: string | null };
@@ -38,7 +39,7 @@ function PoleKontaktu({ czlonek }: { czlonek: Czlonek }) {
 }
 
 /** `klienci`: dla każdej osoby liczba klientów pod jej opieką i przypisanych (bez zakończonych współprac). */
-export function ListaCzlonkow({ czlonkowie, adminId, klienci }: { czlonkowie: Czlonek[]; adminId: string; klienci: Record<string, { opiekun: number; przypisany: number }> }) {
+export function ListaCzlonkow({ czlonkowie, adminId, klienci }: { czlonkowie: Czlonek[]; adminId: string; klienci: Record<string, KlienciCzlonka> }) {
   const [trwa, startTransition] = useTransition();
   const u = copy.zespol.ustawienia.zespol;
   return (
@@ -59,8 +60,8 @@ export function ListaCzlonkow({ czlonkowie, adminId, klienci }: { czlonkowie: Cz
             <tr key={c.id} className="border-t border-szary-100">
               <td className="px-4 py-3 font-medium text-foodie-czern">
                 {c.name}
-                <span className="block text-xs font-normal text-szary-600" data-klienci-czlonka={c.id} title={u.klienciOpis.replace("{o}", String(klienci[c.id]?.opiekun ?? 0)).replace("{p}", String(klienci[c.id]?.przypisany ?? 0))}>
-                  {u.klienci.replace("{n}", String((klienci[c.id]?.opiekun ?? 0) + (klienci[c.id]?.przypisany ?? 0)))}
+                <span className="block text-xs font-normal text-szary-600" data-klienci-czlonka={c.id} title={u.klienciOpis.replace("{o}", String(klienci[c.id]?.opiekun ?? 0))}>
+                  {u.klienci.replace("{n}", String(klienci[c.id]?.klienci ?? 0))}
                 </span>
               </td>
               <td className="px-4 py-3 text-szary-600">{c.email}</td>

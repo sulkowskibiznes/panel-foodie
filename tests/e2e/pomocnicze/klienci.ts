@@ -126,3 +126,15 @@ export async function daneKlientaTestowego(id: string): Promise<DaneKlientaTesto
     return { ...k, lokale: [...lokale], kontakty: [...kontakty], przypisani };
   });
 }
+
+/** Wpis outboxu z samym client_id w payloadzie (jak starsze zdarzenia blokady), do sprawdzenia „Usuń dane klienta". */
+export async function wstawZdarzenieBezSluga(clientId: string, label: string): Promise<void> {
+  await zBaza((s) => s`insert into public.outbox (event, payload) values ('bezpieczenstwo.blokada', ${s.json({ client_id: clientId, label, proby: 10 })})`);
+}
+
+export async function zdarzeniaOutboxKlienta(clientId: string, slug: string): Promise<number> {
+  return zBaza(async (s) => {
+    const [w] = await s<{ n: number }[]>`select count(*)::int as n from public.outbox where payload->>'client_id' = ${clientId} or payload->>'client_slug' = ${slug}`;
+    return w?.n ?? 0;
+  });
+}

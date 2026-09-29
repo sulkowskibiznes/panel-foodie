@@ -38,7 +38,7 @@ export type DaneNowegoKlienta = DaneKlienta & {
 
 export type Akceptacja = { auto_approve_default: boolean; auto_approve_hours: number | null; default_publish_hours: number[] };
 
-export type BladKlienta = "nazwa" | "slug" | "kwota" | "lokal" | "kontakt" | "email" | "data" | "godzinyAuto" | "godzinyPublikacji";
+export type BladKlienta = "nazwa" | "slug" | "kwota" | "lokal" | "ig" | "kontakt" | "email" | "data" | "godzinyAuto" | "godzinyPublikacji";
 
 export type Wynik<T> = { ok: true; dane: T } | { ok: false; blad: BladKlienta };
 
@@ -87,7 +87,7 @@ export function walidujLokal(p: { name: string; city: string; fb_page_name: stri
   const fb = p.fb_page_name.trim();
   if (!name || !fb || name.length > 120 || fb.length > 120) return { ok: false, blad: "lokal" };
   const ig = p.ig_handle.trim().replace(/^@/, "");
-  if (ig.length > 60 || /\s/.test(ig)) return { ok: false, blad: "lokal" };
+  if (ig.length > 60 || /\s/.test(ig)) return { ok: false, blad: "ig" };
   return { ok: true, dane: { name, city: lubNull(p.city.trim().slice(0, 80)), fb_page_name: fb, ig_handle: lubNull(ig), address: lubNull((p.address ?? "").trim().slice(0, 200)) } };
 }
 

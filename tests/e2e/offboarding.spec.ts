@@ -3,7 +3,7 @@ import { copy } from "../../src/lib/copy";
 import { usunCzlonkaTestowego, utworzCzlonkaTestowego, utworzLinkTestowy, wyczyscLimity } from "./pomocnicze/baza";
 import { probaPinu, zalogujKlienta } from "./pomocnicze/klient";
 import { bearerCrona } from "./pomocnicze/faza5";
-import { klientIstnieje, stanKlienta, usunKlientaTestowego, ustawStatusKlienta, ustawTerminAutoAkceptacji, utworzKlientaTestowego, utworzPakietKlienta } from "./pomocnicze/klienci";
+import { klientIstnieje, stanKlienta, usunKlientaTestowego, ustawStatusKlienta, ustawTerminAutoAkceptacji, utworzKlientaTestowego, utworzPakietKlienta, wstawZdarzenieBezSluga, zdarzeniaOutboxKlienta } from "./pomocnicze/klienci";
 import { odsunTerminySeedu, stanPakietu } from "./pomocnicze/pakiety";
 import { czyObiektIstnieje, wgrajObiektTestowy, wpisyAudytuPoEncji } from "./pomocnicze/retencja";
 import { PLIK_SESJI_ZESPOLU, zalogujZespol } from "./pomocnicze/zespol";
@@ -85,6 +85,10 @@ test("zakończenie współpracy wylogowuje klienta i wygasza linki; wznowienie i
     await expect(z.locator("[data-wspolpraca=zakonczony]")).toBeVisible();
     await zespol.close();
 
+    // RODO: zdarzenie bezpieczeństwa z samym client_id (bez sluga) też ma zniknąć razem z klientem
+    await wstawZdarzenieBezSluga(klient.id, `Ola Testowa ${projekt}`);
+    expect(await zdarzeniaOutboxKlienta(klient.id, slug)).toBeGreaterThan(0);
+
     // admin: przycisk odblokowany dopiero po przepisaniu nazwy; usunięcie kasuje wiersz i pliki, zostaje audyt
     await zalogujZespol(page, admin.email);
     await page.goto(`/zespol/klienci/${slug}/ustawienia`);
@@ -102,6 +106,7 @@ test("zakończenie współpracy wylogowuje klienta i wygasza linki; wznowienie i
     expect(await klientIstnieje(klient.id)).toBe(false);
     for (const [bucket, sciezka] of obiekty) expect(await czyObiektIstnieje(bucket, sciezka), `${bucket}/${sciezka}`).toBe(false);
     expect(await wpisyAudytuPoEncji(klient.id, "zespol.klient_usuniety")).toBe(1);
+    expect(await zdarzeniaOutboxKlienta(klient.id, slug)).toBe(0);
     expect((await page.goto(`/zespol/klienci/${slug}`))?.status()).toBe(404);
   } finally {
     await usunKlientaTestowego(slug);

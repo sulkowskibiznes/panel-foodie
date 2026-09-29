@@ -1,6 +1,6 @@
 import { expect, test, type Page } from "@playwright/test";
 import { copy } from "../../src/lib/copy";
-import { stanLinku, usunCzlonkaTestowego, utworzCzlonkaTestowego, utworzLinkTestowy, wyczyscLimity } from "./pomocnicze/baza";
+import { stanLinku, ustawAktywnosc, usunCzlonkaTestowego, utworzCzlonkaTestowego, utworzLinkTestowy, wyczyscLimity } from "./pomocnicze/baza";
 import { zalogujKlienta } from "./pomocnicze/klient";
 import { daneKlientaTestowego, usunKlientaTestowego, utworzKlientaTestowego, utworzPakietKlienta } from "./pomocnicze/klienci";
 import { stanPakietu } from "./pomocnicze/pakiety";
@@ -180,6 +180,22 @@ test("zespół klienta: content creator widzi klienta dopiero po przypisaniu, po
     // content creator nie ma zakładki „Dane i współpraca" (klienci: podgląd), a adres wprost daje 404
     await expect(page.getByRole("link", { name: copy.zespol.karta.zakladki.ustawienia })).toHaveCount(0);
     expect((await page.goto(`/zespol/klienci/${slug}/ustawienia`))?.status()).toBe(404);
+
+    // „Pierwsze kroki": przypisany aktywny content creator odhacza krok; nieaktywny już nie
+    await z.goto(`/zespol/klienci/${slug}`);
+    await expect(z.locator('[data-krok="zespol"]')).toHaveAttribute("data-gotowe", "tak");
+    await ustawAktywnosc(cc.id, false);
+    await z.reload();
+    await expect(z.locator('[data-krok="zespol"]')).toHaveAttribute("data-gotowe", "nie");
+
+    // zapis sekcji, która nie pokazuje osoby nieaktywnej, nie kasuje jej przypisania
+    await otworzUstawienia(z, slug);
+    await expect(sekcja.locator(`[data-przypisany="${cc.id}"]`)).toHaveCount(0);
+    await sekcja.locator("[data-zapisz-zespol]").click();
+    await expect(sekcja.locator("[data-zapisano]")).toBeVisible();
+    expect((await daneKlientaTestowego(klient.id)).przypisani).toContain(cc.id);
+    await ustawAktywnosc(cc.id, true);
+    await z.reload();
 
     await sekcja.locator(`[data-przypisany="${cc.id}"]`).uncheck();
     await sekcja.locator("[data-zapisz-zespol]").click();
