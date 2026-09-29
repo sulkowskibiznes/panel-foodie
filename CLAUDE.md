@@ -65,7 +65,8 @@ src/
     zespol/               # panel zespołu — wymaga Supabase Auth + roli
       (panel)/uwagi/                  # skrzynka uwag (rozdz. 12.5)
       (panel)/klienci/nowy/           # formularz nowego klienta (admin, csm): dane, lokale, osoby kontaktowe (lib/klienci/nowy.ts)
-      (panel)/klienci/[slug]/ustawienia/  # offboarding (rozdz. 17): zakończ/wznów współpracę, „Usuń dane klienta" (admin)
+      (panel)/klienci/[slug]/ustawienia/  # zakładka „Dane i współpraca": dane-akcje.ts (dane, lokale ze zdjęciem, osoby,
+                                          # zespół klienta, akceptacja), akcje.ts (przerwa, zakończ/wznów, „Usuń dane klienta")
       (panel)/klienci/[slug]/pakiety/nowy/        # kreator pakietu na wklejanych linkach (rozdz. 12.3)
       (panel)/klienci/[slug]/pakiety/[pakietId]/  # ten sam ekran pakietu + akcje zespołu (akcje.ts: przejścia, odpowiedzi;
                                                   # materialy-akcje.ts: upload, plik z Dysku, dodaj/podmień/edytuj materiał, kampanie)
@@ -98,6 +99,7 @@ src/
     zespol/pliki/         # upload PDF: use-upload-pdf (3 kroki jak materiały), pole-pdf
     zespol/powiadomienia/, zespol/uslugi/  # kolejka outbox (admin), zgłoszenia usług na karcie klienta
     zespol/retencja/, zespol/ustawienia-klienta/, zespol/klienci/  # lista retencji, współpraca i usunięcie danych, formularz klienta
+    zespol/dane-klienta/  # sekcje zakładki „Dane i współpraca" (useZapis: onSubmit bez resetu formularza)
     klient/pasek-podgladu.tsx         # stały pasek impersonacji
     klient/wiecej-mobile.tsx          # arkusz „Więcej" w dolnej nawigacji (ikony po kluczu, nie funkcje)
     klient/uslugi/        # karta usługi z modalem jednego pola
@@ -130,13 +132,14 @@ src/
                           # raporty.ts (jeden na klient+lokal+miesiąc, nadpisanie), faktury.ts, dokumenty.ts, uslugi.ts,
                           # twoj-pakiet.ts (opiekun bez danych prywatnych), powiadomienia.ts (kolejka outbox dla admina),
                           # retencja.ts (przeglądy, usunięcie pakietu z plikami, zależności crona), offboarding.ts (zakończ, wznów,
-                          # usuń dane klienta), klienci-nowi.ts (utworzenie klienta z lokalami i kontaktami)
+                          # usuń dane klienta), klienci-nowi.ts (utworzenie klienta funkcją SQL utworz_klienta),
+                          # dane-klienta.ts (edycja danych, lokali, osób, zespołu i akceptacji; „Pierwsze kroki")
     dto/                  # kształty danych dla stron (materialy.ts, klient.ts, wynik.ts); nigdy surowe wiersze z bazy
     pakiety/              # przejscia.ts (maszyna stanów, czysta), baza.ts (zmienStatusPakietu, JEDYNA droga zmiany statusu),
                           # auto-akceptacja.ts (72 h / pon-sob), cron-auto-akceptacji.ts, otwarcie.ts,
                           # zmiana-materialu.ts (skutki dodania/podmiany/edycji wg tabeli 12.6, czyste), terminy.ts (kolory terminów)
     pliki/                # magia.ts (magic bytes, limity; czyste), przetwarzanie.ts (EXIF, warianty, Storage: wspólne dla uploadu
-                          # i importu), upload.ts (pozwolenie, PUT do Storage z przeglądarki, podpisany opis pliku),
+                          # i importu), upload.ts (pozwolenie, PUT do Storage z przeglądarki, podpisany opis pliku; także zdjęcie profilowe lokalu),
                           # pdf.ts (ta sama droga dla PDF faktur i dokumentów: buckety faktury/dokumenty, magic bytes %PDF-),
                           # sprzatanie.ts (usunięcie całego prefiksu klienta w buckecie: offboarding)
     drive/                # linki.ts (wklejone linki), nazwy.ts (sortowanie naturalne, numer i slajd z nazwy), opisy.ts (podział
@@ -200,7 +203,7 @@ tests/e2e/                # Playwright na lokalnym Supabase, port 3100; zespół
     auto-akceptacji, `changed_after_approval`, zdarzenie i outbox biorą się stamtąd, nie z handlera.
 13. **Strony klienta dostają wyłącznie DTO z `lib/dto/`**, nigdy surowe wiersze z bazy. Pola
     zespołu (`internal_note`, `created_by`, hashe) nie mogą wyciec przez przypadkowy `select *`.
-14. **Pliki wchodzą tylko przez `lib/pliki/upload.ts`** (materiały) **albo `lib/pliki/pdf.ts`** (PDF faktur
+14. **Pliki wchodzą tylko przez `lib/pliki/upload.ts`** (materiały i zdjęcia profilowe lokali) **albo `lib/pliki/pdf.ts`** (PDF faktur
     i dokumentów): przeglądarka dostaje jednorazowy podpisany adres do Storage, serwer sprawdza magic bytes
     (i zdejmuje EXIF z obrazów), a mutacja przyjmuje wyłącznie podpisany opis pliku. Nigdy ścieżki w Storage
     podane przez klienta akcji.

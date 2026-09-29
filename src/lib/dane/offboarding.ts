@@ -60,7 +60,13 @@ export async function zakonczWspolprace(clientId: string, teraz: Date): Promise<
   return { linki: wygaszone?.length ?? 0, sesje };
 }
 
-/** „Wznów współpracę": klient wraca na pulpit; stare linki zostają wygaszone (zespół tworzy nowe w Dostępie). */
+/** „Przerwa we współpracy" (plan 1.7): linki działają, klient może się logować; pulpit, cron i wysyłka go pomijają. */
+export async function wstrzymajWspolprace(clientId: string): Promise<void> {
+  const { error } = await supabaseSerwer().from("clients").update({ status: "wstrzymany" }).eq("id", clientId).eq("status", "aktywny");
+  if (error) throw new Error(`wstrzymajWspolprace: ${error.message}`);
+}
+
+/** „Wznów współpracę": klient wraca na pulpit; po zakończeniu stare linki zostają wygaszone (zespół tworzy nowe w Dostępie). */
 export async function wznowWspolprace(clientId: string): Promise<void> {
   const { error } = await supabaseSerwer().from("clients").update({ status: "aktywny", ended_at: null }).eq("id", clientId);
   if (error) throw new Error(`wznowWspolprace: ${error.message}`);
@@ -71,12 +77,20 @@ export type WynikUsunieciaKlienta = { obiekty: Record<string, number> };
 /**
  * „Usuń dane klienta" (SPEC rozdz. 17): pliki ze wszystkich bucketów pod prefiksem klienta, potem wiersz klienta
  * (kaskada: lokale, kontakty, linki, sesje, pakiety z materiałami, komentarze, zdarzenia, importy, raporty, faktury,
- * dokumenty, zgłoszenia usług, kroki wdrożenia, przypisania, przeglądy retencyjne). Audyt zostaje (retencja 12 miesięcy).
+ * dokumenty, zgłoszenia usług, kroki wdrożenia, przypisania, przeglądy retencyjne), wpisy outbox klienta, a audyt
+ * zostaje (retencja 12 miesięcy) z wyczyszczonymi etykietami osób, UA, hashem IP i szczegółami.
  */
-export async function usunDaneKlienta(clientId: string): Promise<WynikUsunieciaKlienta> {
+export async function usunDaneKlienta(clientId: string, slug: string): Promise<WynikUsunieciaKlienta> {
   const db = supabaseSerwer();
   const obiekty: Record<string, number> = {};
+  // Najpierw Storage: przy błędzie wiersz klienta zostaje, a ponowne kliknięcie dokończy usuwanie (operacja idempotentna).
   for (const bucket of BUCKETY_KLIENTA) obiekty[bucket] = await usunFolderStorage(bucket, clientId);
+  // RODO: kolejka powiadomień niesie nazwy osób (actor, summary) i nie ma client_id, więc szukamy po slugu.
+  const { error: bladOutbox } = await db.from("outbox").delete().eq("payload->>client_slug", slug);
+  if (bladOutbox) throw new Error(`usunDaneKlienta (outbox): ${bladOutbox.message}`);
+  // Audyt zostaje na 12 miesięcy (bezpieczeństwo), ale bez etykiet osób, przeglądarek i szczegółów.
+  const { error: bladAudytu } = await db.from("audit_log").update({ actor_label: null, ua: null, ip_hash: null, meta: {} }).eq("client_id", clientId);
+  if (bladAudytu) throw new Error(`usunDaneKlienta (audyt): ${bladAudytu.message}`);
   // Komentarze wskazują osoby kontaktowe bez kaskady, więc idą pierwsze (tak jak w seedzie).
   const { data: pakiety } = await db.from("packages").select("id").eq("client_id", clientId);
   const ids = (pakiety ?? []).map((p) => p.id);

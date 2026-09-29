@@ -1,5 +1,6 @@
 import { expect, test } from "@playwright/test";
 import { copy } from "../../src/lib/copy";
+import { progRetencji } from "../../src/lib/retencja/przeglad";
 import { usunCzlonkaTestowego, usunLinkTestowy, utworzCzlonkaTestowego, utworzLinkTestowy, wyczyscLimity } from "./pomocnicze/baza";
 import { bearerCrona } from "./pomocnicze/faza5";
 import { sklonujPakiet, usunPakiet } from "./pomocnicze/pakiety";
@@ -41,7 +42,9 @@ test("cron zgłasza stary pakiet raz, admin odracza i usuwa; sesje i audyt sprz�
     // Dwa projekty Playwrighta wołają cron równolegle, więc stan sprawdzamy w bazie, nie w odpowiedzi jednego przebiegu.
     const wynik1 = (await pierwszy.json()) as { prog: string; miesiace: number; zgloszone: string[]; ponowione: string[]; sesjeUsuniete: number; audytUsuniety: number };
     expect(wynik1.miesiace).toBe(24);
-    expect(wynik1.prog < "2024-09-07").toBe(true);
+    // próg = dziś minus 24 miesiące (bez daty zaszytej w teście), zawsze po okresie klonu
+    expect([progRetencji(start, 24), progRetencji(new Date(), 24)]).toContain(wynik1.prog);
+    expect(wynik1.prog > (mobile ? "2024-01-31" : "2024-03-31")).toBe(true);
     expect(Array.isArray(wynik1.zgloszone) && Array.isArray(wynik1.ponowione)).toBe(true);
 
     // pakiet i pliki są NIETKNIĘTE: cron tylko zgłasza

@@ -6,7 +6,7 @@ import { zapiszAudyt } from "@/lib/audyt";
 import { assertTeamClientAccess, wymagajCzlonka, wymagajUprawnienia, type CzlonekZespolu } from "@/lib/auth-zespol";
 import { copy } from "@/lib/copy";
 import { pobierzKlientaPoSlugu, type KartaKlienta } from "@/lib/dane/klienci-zespolu";
-import { usunDaneKlienta as usunWBazie, wycofajPakietyWToku, wznowWspolprace as wznowWBazie, zakonczWspolprace as zakonczWBazie } from "@/lib/dane/offboarding";
+import { usunDaneKlienta as usunWBazie, wstrzymajWspolprace as wstrzymajWBazie, wycofajPakietyWToku, wznowWspolprace as wznowWBazie, zakonczWspolprace as zakonczWBazie } from "@/lib/dane/offboarding";
 import type { WynikAkcji } from "@/lib/dto/wynik";
 import { infoZadania } from "@/lib/zadanie";
 
@@ -38,7 +38,23 @@ export async function zakonczWspolprace(slug: string): Promise<WynikAkcji> {
   return { ok: true };
 }
 
-/** „Wznów współpracę": klient wraca na pulpit; linki trzeba utworzyć od nowa. */
+/**
+ * „Przerwa we współpracy" (plan 1.7): pakiety czekające na akceptację wracają do szkicu (inaczej po wznowieniu
+ * przeterminowany termin odpaliłby od razu), klient znika z pulpitu, linki działają dalej.
+ */
+export async function wstrzymajWspolprace(slug: string): Promise<WynikAkcji> {
+  const { czlonek, klient } = await autoryzuj(slug);
+  if (klient.status !== "aktywny") return { ok: true };
+  const { ipHash } = await infoZadania();
+  const wycofane = await wycofajPakietyWToku(klient.id, { rodzaj: "zespol", memberId: czlonek.id, name: czlonek.name });
+  await Promise.all(wycofane.map((id) => zapiszAudyt({ actor_kind: "zespol", actor_id: czlonek.id, actor_label: czlonek.name, action: "zespol.pakiet_wycofany", entity: "package", entity_id: id, client_id: klient.id, ip_hash: ipHash, meta: { powod: "przerwa_we_wspolpracy" } })));
+  await wstrzymajWBazie(klient.id);
+  await zapiszAudyt({ actor_kind: "zespol", actor_id: czlonek.id, actor_label: czlonek.name, action: "zespol.klient_wstrzymany", entity: "client", entity_id: klient.id, client_id: klient.id, ip_hash: ipHash, meta: { wycofane_pakiety: wycofane.length } });
+  odswiez(slug);
+  return { ok: true };
+}
+
+/** „Wznów współpracę": klient wraca na pulpit; po zakończeniu linki trzeba utworzyć od nowa, po przerwie działają. */
 export async function wznowWspolprace(slug: string): Promise<WynikAkcji> {
   const { czlonek, klient } = await autoryzuj(slug);
   if (klient.status === "aktywny") return { ok: true };
@@ -63,7 +79,7 @@ export async function usunDaneKlienta(slug: string, potwierdzenie: string): Prom
   const { ipHash } = await infoZadania();
   let wynik;
   try {
-    wynik = await usunWBazie(klient.id);
+    wynik = await usunWBazie(klient.id, klient.slug);
   } catch (e) {
     console.error("[offboarding] usunDaneKlienta", e instanceof Error ? e.message : e);
     return { ok: false, blad: u.bledy.ogolny };

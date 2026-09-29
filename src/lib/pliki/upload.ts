@@ -1,8 +1,9 @@
 import "server-only";
 import { randomUUID } from "node:crypto";
+import sharp from "sharp";
 import { env } from "@/lib/env";
 import { wyprowadzKlucz } from "@/lib/krypto";
-import { czyObraz, czyRodzajPliku, formatujMB, limitBajtow, sprawdzPlik, type RodzajPliku } from "@/lib/pliki/magia";
+import { czyObraz, czyRodzajPliku, formatujMB, limitBajtow, MB, ROZSZERZENIA, rozpoznajMagie, sprawdzPlik, type RodzajPliku } from "@/lib/pliki/magia";
 import { BUCKET_MATERIALOW, sciezkaOryginalu, usunObiekty, zapiszPlikMaterialu } from "@/lib/pliki/przetwarzanie";
 import { odczytajLadunek, podpiszLadunek } from "@/lib/podpis";
 import { supabaseSerwer } from "@/lib/supabase/server";
@@ -138,4 +139,70 @@ export function odczytajOpisPliku(clientId: string, token: string): OpisPliku | 
   if (!opis || opis.clientId !== clientId || typeof opis.assetId !== "string" || typeof opis.storagePath !== "string") return null;
   if (!opis.storagePath.startsWith(`${clientId}/`)) return null;
   return opis;
+}
+
+// ---------- Zdjęcie profilowe strony (awatar lokalu, plan domknięcia Etap 1) ----------
+
+/**
+ * Ta sama droga co materiały (zasada 14): pozwolenie, PUT z przeglądarki do bucketu `awatary` pod ścieżkę tymczasową
+ * {client_id}/tmp-{uuid}.ext (offboarding kasuje ją razem z prefiksem klienta), potem serwer sprawdza magic bytes,
+ * zdejmuje EXIF i zapisuje kwadrat 320 px w webp pod {client_id}/{uuid}.webp. Plik tymczasowy zawsze znika.
+ */
+const BUCKET_AWATAROW = "awatary";
+const RODZAJE_AWATARA: readonly RodzajPliku[] = ["image/jpeg", "image/png", "image/webp"];
+export const MAKS_BAJTOW_AWATARA = 5 * MB;
+const BOK_AWATARA = 320;
+
+type PozwolenieAwatara = { cel: "awatar"; clientId: string; sciezka: string; rodzaj: string; bytes: number; wygasaO: number };
+
+function kluczAwatara() {
+  return wyprowadzKlucz(env().SESSION_SECRET, "upload-awatar");
+}
+
+export type WynikPrzygotowaniaAwatara = { ok: true; signedUrl: string; pozwolenie: string } | { ok: false; powod: "nieobslugiwany" | "zaDuzy"; limit?: string };
+
+export async function przygotujUploadAwatara(clientId: string, plik: { mime: string; bytes: number }): Promise<WynikPrzygotowaniaAwatara> {
+  const mime = plik.mime.toLowerCase();
+  if (!czyRodzajPliku(mime) || !RODZAJE_AWATARA.includes(mime)) return { ok: false, powod: "nieobslugiwany" };
+  if (!Number.isFinite(plik.bytes) || plik.bytes <= 0) return { ok: false, powod: "nieobslugiwany" };
+  if (plik.bytes > MAKS_BAJTOW_AWATARA) return { ok: false, powod: "zaDuzy", limit: formatujMB(MAKS_BAJTOW_AWATARA) };
+  const sciezka = `${clientId}/tmp-${randomUUID()}.${ROZSZERZENIA[mime]}`;
+  const { data, error } = await supabaseSerwer().storage.from(BUCKET_AWATAROW).createSignedUploadUrl(sciezka, { upsert: true });
+  if (error || !data) throw new Error(`przygotujUploadAwatara: ${error?.message ?? "brak adresu"}`);
+  const pozwolenie: PozwolenieAwatara = { cel: "awatar", clientId, sciezka, rodzaj: mime, bytes: plik.bytes, wygasaO: Date.now() + MS_WAZNOSCI_POZWOLENIA };
+  return { ok: true, signedUrl: data.signedUrl, pozwolenie: podpiszLadunek(kluczAwatara(), pozwolenie) };
+}
+
+export type WynikZakonczeniaAwatara = { ok: true; sciezka: string } | { ok: false; powod: "pozwolenie" | "brakPliku" | "nieobslugiwany" | "zaDuzy" | "przetwarzanie" };
+
+export async function zakonczUploadAwatara(clientId: string, pozwolenieToken: string): Promise<WynikZakonczeniaAwatara> {
+  const pozwolenie = odczytajLadunek<PozwolenieAwatara>(kluczAwatara(), pozwolenieToken, new Date());
+  if (!pozwolenie || pozwolenie.cel !== "awatar" || pozwolenie.clientId !== clientId || !pozwolenie.sciezka.startsWith(`${clientId}/tmp-`)) return { ok: false, powod: "pozwolenie" };
+  const storage = supabaseSerwer().storage.from(BUCKET_AWATAROW);
+  try {
+    const { data, error } = await storage.download(pozwolenie.sciezka);
+    if (error || !data) return { ok: false, powod: "brakPliku" };
+    const bufor = Buffer.from(await data.arrayBuffer());
+    if (bufor.length > MAKS_BAJTOW_AWATARA) return { ok: false, powod: "zaDuzy" };
+    const rodzaj = rozpoznajMagie(new Uint8Array(bufor.subarray(0, 32)));
+    if (!rodzaj || !RODZAJE_AWATARA.includes(rodzaj)) return { ok: false, powod: "nieobslugiwany" };
+    let webp: Buffer;
+    try {
+      webp = await sharp(bufor, { failOn: "none" }).rotate().resize(BOK_AWATARA, BOK_AWATARA, { fit: "cover" }).webp({ quality: 85 }).toBuffer();
+    } catch {
+      return { ok: false, powod: "przetwarzanie" };
+    }
+    const sciezka = `${clientId}/${randomUUID()}.webp`;
+    const { error: bladZapisu } = await storage.upload(sciezka, webp, { contentType: "image/webp", upsert: false });
+    if (bladZapisu) throw new Error(`zakonczUploadAwatara: ${bladZapisu.message}`);
+    return { ok: true, sciezka };
+  } finally {
+    await storage.remove([pozwolenie.sciezka]);
+  }
+}
+
+/** Stare zdjęcie profilowe po podmianie; błąd tylko w logach (plik i tak zniknie przy „Usuń dane klienta"). */
+export async function usunAwatar(sciezka: string): Promise<void> {
+  const { error } = await supabaseSerwer().storage.from(BUCKET_AWATAROW).remove([sciezka]);
+  if (error) console.error("[upload] nie usunięto starego zdjęcia profilowego", error.message);
 }

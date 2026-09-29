@@ -106,9 +106,9 @@ export async function liczNieprzeczytaneUwagi(clientIds: string[] | null): Promi
   return count ?? 0;
 }
 
-/** Skrzynka otwarta = uwagi z listy przeczytane przez zespół (licznik na pulpicie i w nawigacji spada). */
-export async function oznaczPrzeczytaneWSkrzynce(ids: string[]): Promise<void> {
+/** „Oznacz jako przeczytaną" w skrzynce (licznik na pulpicie i w nawigacji spada). `pakietId` zawęża do pakietu z autoryzacji. */
+export async function oznaczPrzeczytaneWSkrzynce(ids: string[], pakietId: string): Promise<void> {
   if (ids.length === 0) return;
-  const { error } = await supabaseSerwer().from("comments").update({ seen_by_team_at: new Date().toISOString() }).in("id", ids).is("seen_by_team_at", null);
+  const { error } = await supabaseSerwer().from("comments").update({ seen_by_team_at: new Date().toISOString() }).in("id", ids).eq("package_id", pakietId).eq("author_kind", "klient").is("seen_by_team_at", null);
   if (error) console.error("[skrzynka] nie oznaczono przeczytanych", error.message);
 }

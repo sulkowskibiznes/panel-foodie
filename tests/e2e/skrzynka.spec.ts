@@ -33,12 +33,18 @@ test("skrzynka: uwaga klienta widoczna, odpowiedź trafia do wątku, Załatwione
     await z.goto("/zespol/uwagi?typ=post");
     await expect(z.locator(`[data-uwaga-skrzynki="${uwagaId}"]`)).toBeVisible();
 
+    // samo wejście do skrzynki niczego nie oznacza jako przeczytane (plan 1.10); robi to odpowiedź
+    expect((await komentarzePakietu(p.id)).find((x) => x.id === uwagaId)?.seen_by_team_at).toBeNull();
+    await expect(z.locator(`[data-uwaga-skrzynki="${uwagaId}"] [data-oznacz-przeczytana]`)).toBeVisible();
+
     // odpowiedź stąd = odpowiedź zespołu w wątku materiału
     const k = z.locator(`[data-uwaga-skrzynki="${uwagaId}"]`);
     await k.locator("textarea").fill("Zmieniamy cenę na 39 zł, poprawiony post wyślemy dziś.");
     await k.getByRole("button", { name: copy.zespol.pakietyMaterialow.wyslijOdpowiedz }).click();
     await expect.poll(async () => (await komentarzePakietu(p.id)).filter((x) => x.author_kind === "zespol" && x.item_id === post.id).length).toBe(1);
     await expect(k).toContainText(copy.zespol.skrzynka.odpowiedzi.replace("{n}", "1"));
+    await expect.poll(async () => (await komentarzePakietu(p.id)).find((x) => x.id === uwagaId)?.seen_by_team_at ?? null).not.toBeNull();
+    await expect(k.locator("[data-oznacz-przeczytana]")).toHaveCount(0);
 
     await k.locator("[data-zalatwione]").click();
     await expect(z.locator(`[data-uwaga-skrzynki="${uwagaId}"]`)).toHaveCount(0);

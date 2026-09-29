@@ -1,10 +1,10 @@
 import Link from "next/link";
-import { after } from "next/server";
 import { UwagaWSkrzynceKarta } from "@/components/zespol/skrzynka/uwaga-w-skrzynce";
 import { wymagajCzlonka, wymagajUprawnienia } from "@/lib/auth-zespol";
+import { maUprawnienie } from "@/lib/uprawnienia";
 import { copy } from "@/lib/copy";
 import { pobierzKlientowDla, zakresKlientow } from "@/lib/dane/klienci-zespolu";
-import { oznaczPrzeczytaneWSkrzynce, pobierzNierozwiazaneUwagi, type TypUwagi } from "@/lib/dane/skrzynka";
+import { pobierzNierozwiazaneUwagi, type TypUwagi } from "@/lib/dane/skrzynka";
 import { czyUuid } from "@/lib/walidacja";
 
 const TYPY: TypUwagi[] = ["post", "relacja", "reels", "reklama", "pakiet"];
@@ -20,7 +20,8 @@ export default async function SkrzynkaUwag({ searchParams }: PageProps<"/zespol/
   const klientId = typeof sp.klient === "string" && czyUuid(sp.klient) && klienci.some((k) => k.id === sp.klient) ? sp.klient : null;
   const typ = typeof sp.typ === "string" && (TYPY as string[]).includes(sp.typ) ? (sp.typ as TypUwagi) : null;
   const uwagi = await pobierzNierozwiazaneUwagi(zakres, { clientId: klientId, typ });
-  after(() => oznaczPrzeczytaneWSkrzynce(uwagi.filter((u) => u.nieprzeczytana).map((u) => u.id)));
+  // Samo wejście niczego nie oznacza jako przeczytane: robi to odpowiedź, „Załatwione" albo przycisk na karcie (plan 1.10).
+  const mozeObslugiwac = maUprawnienie(czlonek.role, "materialy", "pelne");
   const s = copy.zespol.skrzynka;
 
   return (
@@ -55,7 +56,7 @@ export default async function SkrzynkaUwag({ searchParams }: PageProps<"/zespol/
       ) : (
         <ul className="mt-4 space-y-3">
           {uwagi.map((u) => (
-            <UwagaWSkrzynceKarta key={u.id} u={u} />
+            <UwagaWSkrzynceKarta key={u.id} u={u} mozeObslugiwac={mozeObslugiwac} />
           ))}
         </ul>
       )}

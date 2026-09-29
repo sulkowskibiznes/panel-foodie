@@ -27,10 +27,27 @@ loguje się kodem z maila przy pierwszym wejściu.
 3. **Lokale**: każdy z nazwą i **dokładną nazwą strony na Facebooku** (pojawia się w podglądach 1:1).
    Nick na Instagramie bez `@`; bez niego placementy IG w podglądach reklam są wyszarzone.
 4. **Osoby kontaktowe**: każda dostanie potem własny link i PIN. Pierwsza jest główna.
-5. „Utwórz klienta" → karta klienta. Kolejny krok to link dostępu (sekcja 4) albo od razu pakiet (sekcja 2).
+5. **Zespół klienta** (opcjonalnie): zaznacz content creatora i media buyera. Bez przypisania content creator
+   nie zobaczy klienta.
+6. „Utwórz klienta" → karta klienta. Błąd (np. zajęty slug) nie czyści formularza.
 
-Nie da się z panelu edytować lokali i kontaktów po utworzeniu (poprawka w bazie przez Szymona). Zdjęcie
-profilowe strony do ramki podglądu też ustawia Szymon (`locations.avatar_path`).
+Na karcie nowego klienta czeka lista **„Pierwsze kroki"** (linki dla osób, zdjęcia profilowe lokali, przypisany
+content creator, umowa i umowa powierzenia w Dokumentach, pierwszy pakiet). Kroki odhaczają się same.
+
+### 1.1 Poprawki po utworzeniu: zakładka „Dane i współpraca"
+
+Karta klienta → **Dane i współpraca** (admin i csm). Wszystko, co wcześniej wymagało bazy:
+
+- **Dane**: nazwa, pakiet, kwota, Slack, data startu. Slugu nie zmienisz; kategorię tylko, dopóki klient nie ma
+  pakietów ani raportów.
+- **Lokale**: nazwa, miasto, strona FB, nick IG, adres, nowy lokal. **Zdjęcie profilowe strony** (JPG, PNG albo
+  WebP do 5 MB) trafia tylko do ramki podglądu 1:1. Zmieniając nazwę lokalu w kategorii 1, pamiętaj, że raporty
+  dopasowują lokal po nazwie.
+- **Osoby kontaktowe**: edycja, nowa osoba, „Ustaw jako główną", „Zakończ współpracę z osobą" (dane kontaktowe
+  znikają, domyślnie wygasają też jej linki).
+- **Zespół klienta**: opiekun i przypisani. Kto nie jest przypisany (a nie jest adminem ani sales), nie widzi klienta.
+- **Akceptacja i publikacja**: czy przy wysyłce domyślnie włączać auto-akceptację, ile godzin (72-720; puste = 72)
+  i domyślne godziny publikacji w harmonogramie.
 
 ## 2. Wysyłka materiałów do akceptacji
 
@@ -67,7 +84,9 @@ profilowe strony do ramki podglądu też ustawia Szymon (`locations.avatar_path`
    Bursztynowy wiersz **„Auto-akceptacja wstrzymana"** = termin minął, ale klient ma nierozwiązane uwagi;
    odpowiedz na nie i oznacz „Załatwione", inaczej pakiet nie zostanie zatwierdzony.
 4. **Uwagi klienta** czytasz w pakiecie (wątek przy materiale) albo zbiorczo w **Skrzynce uwag**. Odpowiadasz
-   tam samo; „Załatwione" zamyka wątek.
+   tam samo; „Załatwione" zamyka wątek (admin, csm i content creator; sales i media buyer tylko odpowiadają).
+   Uwaga jest „nowa", dopóki ktoś na nią nie odpowie, nie kliknie „Oznacz jako przeczytaną" albo nie otworzy
+   pakietu osoba, która może go zmieniać. Samo zajrzenie do skrzynki licznika nie gasi.
 5. Po uwagach poprawiasz materiały i klikasz **„Wyślij wersję 2"**: numer rundy rośnie, licznik startuje od nowa,
    klient widzi plakietki „Poprawione".
 6. Po akceptacji (ręcznej albo automatycznej) ustawiasz publikacje w Meta Business Suite i klikasz
@@ -141,13 +160,16 @@ w trybie tylko do odczytu: przyciski decyzji i pole komentarza są wyłączone, 
 
 ## 7. Zakończenie współpracy i usuwanie danych
 
-Karta klienta → **Ustawienia** (admin i csm).
+Karta klienta → **Dane i współpraca** (admin i csm), sekcja „Współpraca".
 
-1. **„Zakończ współpracę"**: wygasza wszystkie linki, wylogowuje urządzenia klienta, zdejmuje klienta z pulpitu
-   (trafia na listę „Współprace wstrzymane i zakończone" pod klientami). Dane zostają.
-2. **„Wznów współpracę"**: klient wraca na pulpit; linki trzeba utworzyć od nowa.
-3. **„Usuń dane klienta"** (tylko admin, tylko po zakończeniu): przepisz nazwę klienta i potwierdź. Znikają
-   lokale, osoby, linki, pakiety z plikami, komentarze, faktury, dokumenty, raporty. Zostaje audyt na 12 miesięcy.
+1. **„Przerwa we współpracy"**: klient znika z pulpitu i skrzynki, cron go nie akceptuje, wysyłka pakietów jest
+   wstrzymana; linki działają, klient może zajrzeć do panelu. Pakiety czekające na akceptację wracają do szkicu.
+2. **„Zakończ współpracę"**: wygasza wszystkie linki, wylogowuje urządzenia klienta, wycofuje pakiety czekające
+   na akceptację, zdejmuje klienta z pulpitu (lista „Przerwy i zakończone współprace" pod klientami). Dane zostają.
+3. **„Wznów współpracę"**: klient wraca na pulpit; po zakończeniu linki trzeba utworzyć od nowa, pakiety wysłać ponownie.
+4. **„Usuń dane klienta"** (tylko admin, tylko po zakończeniu): przepisz nazwę klienta i potwierdź. Znikają
+   lokale, osoby, linki, pakiety z plikami, komentarze, faktury, dokumenty, raporty i kolejka powiadomień klienta.
+   Audyt zostaje na 12 miesięcy, ale bez danych osobowych.
    Przed tym warto zrobić zrzut bazy (`docs/KOPIE-ZAPASOWE.md`, sekcja 5).
 
 ## 8. Retencja materiałów (admin)

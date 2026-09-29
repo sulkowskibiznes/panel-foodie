@@ -2,13 +2,14 @@ import { FormularzCzlonka } from "@/components/zespol/ustawienia/formularz-czlon
 import { ListaCzlonkow } from "@/components/zespol/ustawienia/lista-czlonkow";
 import { wymagajCzlonka, wymagajUprawnienia } from "@/lib/auth-zespol";
 import { copy } from "@/lib/copy";
+import { policzKlientowZespolu } from "@/lib/dane/dane-klienta";
 import { supabaseSerwer } from "@/lib/supabase/server";
 
 /** Ustawienia → Zespół: wyłącznie admin (SPEC rozdz. 2). Lista = allowlista logowania. */
 export default async function UstawieniaZespolu() {
   const admin = await wymagajCzlonka();
   wymagajUprawnienia(admin, "ustawienia", "pelne");
-  const { data } = await supabaseSerwer().from("team_members").select("id, name, email, role, active, client_contact").order("name");
+  const [{ data }, klienci] = await Promise.all([supabaseSerwer().from("team_members").select("id, name, email, role, active, client_contact").order("name"), policzKlientowZespolu()]);
   const u = copy.zespol.ustawienia.zespol;
   return (
     <div className="space-y-6">
@@ -17,7 +18,7 @@ export default async function UstawieniaZespolu() {
         <h2 className="mt-4 font-naglowek text-xl text-foodie-czern">{u.tytul}</h2>
         <p className="mt-1 max-w-prose text-sm text-szary-600">{u.opis}</p>
       </div>
-      <ListaCzlonkow czlonkowie={data ?? []} adminId={admin.id} />
+      <ListaCzlonkow czlonkowie={data ?? []} adminId={admin.id} klienci={Object.fromEntries(klienci)} />
       <FormularzCzlonka />
     </div>
   );

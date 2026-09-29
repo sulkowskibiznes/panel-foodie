@@ -1,6 +1,6 @@
 "use client";
 
-import { useActionState, useState } from "react";
+import { useState, useTransition } from "react";
 import { utworzKlienta, type StanNowegoKlienta } from "@/app/zespol/(panel)/klienci/nowy/akcje";
 import { Button } from "@/components/ui/button";
 import { copy } from "@/lib/copy";
@@ -21,9 +21,14 @@ function Pole({ id, etykieta, children }: { id: string; etykieta: string; childr
   );
 }
 
-/** Formularz nowego klienta: dane, lokale (dynamiczne wiersze), osoby kontaktowe (dynamiczne wiersze). Walidacja po stronie serwera. */
-export function FormularzKlienta({ opiekunowie, domyslnyOpiekunId }: { opiekunowie: Opiekun[]; domyslnyOpiekunId: string | null }) {
-  const [stan, akcja, trwa] = useActionState<StanNowegoKlienta, FormData>(utworzKlienta, {});
+/**
+ * Formularz nowego klienta: dane, lokale i osoby w dynamicznych wierszach, zespół klienta. Walidacja po stronie serwera.
+ * onSubmit + startTransition zamiast `<form action>`: React 19 czyści formularz po akcji, a błąd (np. zajęty slug)
+ * nie może kasować wpisanych lokali i osób (plan 1.8).
+ */
+export function FormularzKlienta({ opiekunowie, zespol, domyslnyOpiekunId }: { opiekunowie: Opiekun[]; zespol: Array<Opiekun & { role: "content_creator" | "media_buyer" }>; domyslnyOpiekunId: string | null }) {
+  const [stan, setStan] = useState<StanNowegoKlienta>({});
+  const [trwa, startTransition] = useTransition();
   const [nazwa, setNazwa] = useState("");
   const [slug, setSlug] = useState("");
   const [slugReczny, setSlugReczny] = useState(false);
@@ -31,13 +36,23 @@ export function FormularzKlienta({ opiekunowie, domyslnyOpiekunId }: { opiekunow
   const [kontakty, setKontakty] = useState([0]);
   const t = copy.zespol.nowyKlient;
 
+  function wyslij(e: React.FormEvent<HTMLFormElement>) {
+    e.preventDefault();
+    const fd = new FormData(e.currentTarget);
+    setStan({});
+    startTransition(async () => {
+      // Sukces kończy się przekierowaniem na kartę klienta; tu wraca tylko odmowa.
+      setStan(await utworzKlienta(fd));
+    });
+  }
+
   function zmienNazwe(w: string) {
     setNazwa(w);
     if (!slugReczny) setSlug(slugZNazwy(w));
   }
 
   return (
-    <form action={akcja} className="space-y-6">
+    <form onSubmit={wyslij} className="space-y-6">
       <section className="rounded-xl bg-white p-5 shadow-miekki sm:p-6">
         <h2 className="font-naglowek text-lg text-foodie-czern">{t.dane.naglowek}</h2>
         <div className="mt-3 grid gap-4 sm:grid-cols-2">
@@ -157,6 +172,23 @@ export function FormularzKlienta({ opiekunowie, domyslnyOpiekunId }: { opiekunow
           {t.kontakty.dodaj}
         </Button>
       </section>
+
+      {zespol.length > 0 ? (
+        <section className="rounded-xl bg-white p-5 shadow-miekki sm:p-6" data-przypisani-nowego>
+          <h2 className="font-naglowek text-lg text-foodie-czern">{t.dane.przypisani}</h2>
+          <p className="mt-1 max-w-prose text-sm text-szary-600">{t.dane.przypisaniOpis}</p>
+          <ul className="mt-3 grid gap-2 sm:grid-cols-2">
+            {zespol.map((o) => (
+              <li key={o.id}>
+                <label className="flex items-center gap-2 text-sm text-foodie-czern">
+                  <input type="checkbox" name="przypisany" value={o.id} className="size-4 accent-foodie-fiolet" />
+                  {o.name} <span className="text-szary-600">· {copy.zespol.role[o.role]}</span>
+                </label>
+              </li>
+            ))}
+          </ul>
+        </section>
+      ) : null}
 
       {stan.blad ? <p role="alert" className="rounded-lg bg-red-50 px-3 py-2 text-sm text-czerwony">{stan.blad}</p> : null}
       <Button type="submit" size="lg" disabled={trwa} data-utworz-klienta>

@@ -532,3 +532,38 @@ Poza kryteriami, nowe w tej fazie: `bezpieczenstwo.spec.ts` (CSP), `izolacja.spe
 - Godzina crona retencji: `0 5 1 * *` (7:00 latem, 6:00 zimą pierwszego dnia miesiąca).
 - Migracja `20260909100001` jest tylko w lokalnej bazie; wypchnięcie do chmury (`pnpm db:migrate`) i merge do `main`
   razem z migracją fazy 5 (`20260908100001`).
+
+## Plan domknięcia przed pilotażem (2026-09-29)
+
+Pytania Szymona: czego brakuje, łatwe dodawanie i usuwanie klientów, własny PIN klienta, porządki UX zespołu.
+Plan: Etap 0 (poprawki offboardingu), Etap A (operacje Szymona), Etap 1 (cykl życia klienta), Etap 2 (własny PIN),
+Etap 3 (UX zespołu), Etap 4 po pilotażu.
+
+### Etap 0: poprawki offboardingu (commit `607d3b3` na `faza/5-reszta-panelu`)
+
+- Cron auto-akceptacji, pulpit i skrzynka pomijają klientów `wstrzymany` i `zakonczony` (wcześniej pakiet
+  zakończonego klienta zostałby auto-zaakceptowany). Wysyłka pakietu nieaktywnego klienta odmawiana w maszynie
+  stanów (`klient_nieaktywny`). „Zakończ współpracę" wycofuje pakiety `do_akceptacji` do szkicu.
+- Monitoring cronów: każdy cron zapisuje przebieg w `settings`, admin widzi baner na pulpicie, gdy przebieg się
+  spóźnia albo są błędy lub nieudane wpisy outboxu. Seed produkcyjny `pnpm db:seed:produkcja` (zespół tylko dopisywany,
+  usługi, klient demo).
+
+### Etap 1: cykl życia klienta w panelu (gałąź `faza/7-klienci`)
+
+- Zakładka karty **„Dane i współpraca"** (dawniej „Ustawienia"), admin i csm: dane klienta (slug nieedytowalny,
+  kategoria tylko bez pakietów i raportów), lokale (FB, IG, adres, nowy lokal z przeliczeniem lokali dodatkowych),
+  **zdjęcie profilowe strony** przez podpisany upload (zasada 14, WebP 320 px bez EXIF), osoby kontaktowe (edycja,
+  nowa, główna, zakończenie z wygaszeniem linków), **zespół klienta** (opiekun i przypisania; bez tego content
+  creator nie widział nowego klienta), akceptacja per klient (72-720 h, migracja zmienia CHECK), **przerwa we
+  współpracy** (linki działają, klient znika z pulpitu, cron go pomija, pakiety w toku wracają do szkicu).
+- „Nowy klient": zapis jedną funkcją SQL `utworz_klienta` (jedna transakcja, `revoke` dla ról API), błąd nie czyści
+  formularza, opcjonalne przypisania zespołu; karta **„Pierwsze kroki"** na podsumowaniu nowego klienta.
+- Ustawienia → Zespół: liczba klientów przy każdej osobie i ostrzeżenie przed dezaktywacją opiekuna.
+- „Usuń dane klienta" pełniej (RODO): wpisy outboxu klienta i anonimizacja jego audytu.
+- Uwagi: „Załatwione" wymaga pełnego prawa do materiałów (wcześniej sales mógł odblokować auto-akceptację);
+  wejście do skrzynki nie oznacza uwag jako przeczytanych (odpowiedź, „Oznacz jako przeczytaną" albo otwarcie
+  pakietu przez osobę, która go zmienia).
+- Testy: jednostkowe walidatorów (`nowy-klient.test.ts`), E2E `dane-klienta.spec.ts` (dane, lokal z IG, zdjęcie
+  profilowe przez podpisany adres, osoby z wygaszeniem linku, podmiana lokalu w ciele akcji = 404, content creator
+  404 → przypisany → 404, akceptacja 96 h, przerwa i wznowienie), `skrzynka.spec.ts` rozszerzony.
+- Migracja `20260930100001_klienci_edycja.sql` tylko lokalnie; do chmury razem z pozostałymi (Etap A).

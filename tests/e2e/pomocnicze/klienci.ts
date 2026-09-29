@@ -97,3 +97,32 @@ export async function ustawStatusKlienta(id: string, status: "aktywny" | "wstrzy
 export async function ustawTerminAutoAkceptacji(pakietId: string, godzinOdTeraz: number): Promise<void> {
   await zBaza((s) => s`update public.packages set auto_approve_at = now() + make_interval(hours => ${godzinOdTeraz}) where id = ${pakietId}`);
 }
+
+export type DaneKlientaTestowego = {
+  name: string;
+  tier: string;
+  monthly_amount_net: string | null;
+  extra_locations_count: number;
+  opiekun_id: string | null;
+  auto_approve_default: boolean;
+  auto_approve_hours: number | null;
+  default_publish_hours: number[];
+  lokale: Array<{ id: string; name: string; ig_handle: string | null; address: string | null; avatar_path: string | null }>;
+  kontakty: Array<{ id: string; name: string; is_primary: boolean; archived_at: string | null; phone: string | null; email: string | null }>;
+  przypisani: string[];
+};
+
+/** Stan klienta jednorazowego po edycji w zakładce „Dane i współpraca" (plan Etap 1). */
+export async function daneKlientaTestowego(id: string): Promise<DaneKlientaTestowego> {
+  return zBaza(async (s) => {
+    const [k] = await s<Omit<DaneKlientaTestowego, "lokale" | "kontakty" | "przypisani">[]>`
+      select name, tier::text as tier, monthly_amount_net::text as monthly_amount_net, extra_locations_count, opiekun_id,
+        auto_approve_default, auto_approve_hours, default_publish_hours
+      from public.clients where id = ${id}`;
+    if (!k) throw new Error(`Brak klienta ${id}`);
+    const lokale = await s<DaneKlientaTestowego["lokale"]>`select id, name, ig_handle, address, avatar_path from public.locations where client_id = ${id} order by position, name`;
+    const kontakty = await s<DaneKlientaTestowego["kontakty"]>`select id, name, is_primary, archived_at::text as archived_at, phone, email from public.client_contacts where client_id = ${id} order by created_at`;
+    const przypisani = (await s<{ team_member_id: string }[]>`select team_member_id from public.client_assignments where client_id = ${id}`).map((w) => w.team_member_id);
+    return { ...k, lokale: [...lokale], kontakty: [...kontakty], przypisani };
+  });
+}

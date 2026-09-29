@@ -276,6 +276,7 @@ export type Database = {
       }
       client_contacts: {
         Row: {
+          archived_at: string | null
           client_id: string
           created_at: string
           email: string | null
@@ -286,6 +287,7 @@ export type Database = {
           role_label: string | null
         }
         Insert: {
+          archived_at?: string | null
           client_id: string
           created_at?: string
           email?: string | null
@@ -296,6 +298,7 @@ export type Database = {
           role_label?: string | null
         }
         Update: {
+          archived_at?: string | null
           client_id?: string
           created_at?: string
           email?: string | null
@@ -1527,6 +1530,7 @@ export type Database = {
           zablokowany_do: string
         }[]
       }
+      utworz_klienta: { Args: { p: Json }; Returns: string }
       zwieksz_limit: {
         Args: { p_key: string; p_okno_sekund: number }
         Returns: number

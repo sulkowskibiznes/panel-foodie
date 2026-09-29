@@ -1050,19 +1050,43 @@ pomarańczowy 1–3, czerwony dziś, szary po terminie) — zespół zna ten kod
 Filtry: moi klienci / wszyscy (wg roli), status, miesiąc startu pakietu.
 
 ### 12.2 Karta klienta
-Zakładki: **Materiały · Harmonogram · Raporty · Faktury · Dokumenty · Dostęp · Ustawienia**
+Zakładki: **Materiały · Harmonogram · Raporty · Faktury · Dokumenty · Dostęp · Dane i współpraca**
 Na górze: nazwa, kategoria, pakiet, kwota, lokale, kanał Slack, przycisk „Zobacz jak klient".
+Podsumowanie pokazuje telefon i e-mail osób kontaktowych, a klientowi aktywnemu (nie demo) kartę **„Pierwsze
+kroki"**: linki dla osób, zdjęcia profilowe lokali, przypisany content creator, umowa i umowa powierzenia
+w Dokumentach, pierwszy pakiet. Każdy krok odhacza się sam, gdy dane są w bazie.
 
-**Ustawienia** (faza 6, admin i csm): stan współpracy z liczbą aktywnych linków, „Zakończ współpracę"
-(offboarding z rozdz. 17), „Wznów współpracę" oraz, wyłącznie dla admina i wyłącznie po zakończeniu,
-„Usuń dane klienta" z potwierdzeniem przez przepisanie nazwy. Klient `zakonczony` znika z głównej listy
-pulpitu, ale ma osobną listę „Współprace wstrzymane i zakończone" z wejściem do karty; Dostęp nie tworzy
-mu linków, dopóki współpraca nie zostanie wznowiona.
+**Dane i współpraca** (admin i csm; dawniej „Ustawienia", faza 6 plus plan domknięcia 2026-09-29, Etap 1):
+- **Dane**: nazwa, pakiet, kwota, kanał Slack, data startu. Slug nieedytowalny (adresy w Slacku, webhook
+  raportów). Kategoria zmienialna tylko klientowi bez pakietów i raportów.
+- **Lokale**: nazwa, miasto, strona FB, nick IG, adres; dodanie lokalu przelicza `extra_locations_count`.
+  Przy zmianie nazwy lokalu kat1 z raportami ostrzeżenie (webhook raportów dopasowuje lokal po nazwie).
+  **Zdjęcie profilowe strony** do podglądów 1:1: JPG, PNG albo WebP do 5 MB przez ten sam podpisany upload
+  co materiały (zasada 14), na serwerze magic bytes, obrót, kadr 320 x 320 i WebP bez EXIF; stary plik usuwany.
+  Lokali nie archiwizujemy.
+- **Osoby kontaktowe**: edycja, dodanie, „Ustaw jako główną", „Zakończ współpracę z osobą" (`archived_at`,
+  telefon i e-mail wyzerowane, domyślnie z wygaszeniem jej linków i wylogowaniem urządzeń).
+- **Zespół klienta**: opiekun (aktywni admini i csm) i przypisania (`client_assignments`: content creatorzy,
+  media buyerzy, drugi csm). Bez przypisania content creator nie widzi klienta. Csm, który odda opiekę i straci
+  dostęp, wraca na pulpit. W Ustawienia -> Zespół przy każdej osobie liczba klientów i ostrzeżenie przed
+  dezaktywacją opiekuna.
+- **Akceptacja i publikacja**: domyślny stan checkboxa auto-akceptacji przy wysyłce, godziny auto-akceptacji
+  per klient **72-720 h** (regulamin § 5 pozwala tylko wydłużyć; puste = globalne 72 h), domyślne godziny publikacji.
+- **Współpraca**: „Przerwa we współpracy" (`wstrzymany`: linki działają i klient się loguje, klient znika
+  z pulpitu i skrzynki, cron go pomija, wysyłka odmawiana), „Zakończ współpracę" (offboarding z rozdz. 17),
+  „Wznów współpracę". Przerwa i zakończenie wycofują pakiety `do_akceptacji` do szkicu przez maszynę stanów,
+  żeby po wznowieniu przeterminowany termin nie zatwierdził pakietu od razu.
+- **Usuń dane klienta**: wyłącznie admin i wyłącznie po zakończeniu, z potwierdzeniem przez przepisanie nazwy.
+
+Klient `wstrzymany` i `zakonczony` znika z głównej listy pulpitu, ale ma osobną listę „Przerwy i zakończone
+współprace" z wejściem do karty; Dostęp nie tworzy linków klientowi `zakonczony`, dopóki współpraca nie zostanie
+wznowiona.
 
 **Nowy klient** (faza 6, `/zespol/klienci/nowy`, admin i csm): nazwa, slug (podpowiadany z nazwy), kategoria,
 pakiet, kwota netto, kanał Slack, data startu, opiekun (aktywni admini i csm), lokale (nazwa, miasto, strona FB,
-nick IG; kat1 = osobne materiały per lokal) i osoby kontaktowe (pierwsza główna). Po zapisie karta klienta;
-csm spoza roli opiekuna dostaje przypisanie, żeby od razu widział kartę.
+nick IG; kat1 = osobne materiały per lokal), osoby kontaktowe (pierwsza główna) i opcjonalnie przypisani content
+creatorzy i media buyerzy. Zapis jedną funkcją SQL `utworz_klienta` (jedna transakcja); błąd, np. zajęty slug,
+nie czyści formularza. Po zapisie karta klienta; csm spoza roli opiekuna dostaje przypisanie, żeby od razu widział kartę.
 
 ### 12.3 Kreator pakietu — praca na wklejanych linkach
 
@@ -1105,6 +1129,10 @@ PIN:   4821                                      [Kopiuj]
 ### 12.5 Skrzynka uwag
 Jedna lista wszystkich nierozwiązanych komentarzy klientów ze wszystkich pakietów, z filtrem
 po kliencie i typie. Zespół odpowiada stąd, oznacza „Załatwione".
+**Plan domknięcia (2026-09-29):** „Załatwione" odblokowuje auto-akceptację, więc wymaga pełnego prawa do
+materiałów (admin, csm, content creator); sales i media buyer odpowiadają, ale nie zamykają uwag. Samo wejście
+do skrzynki niczego nie oznacza jako przeczytane: robi to odpowiedź w wątku, „Oznacz jako przeczytaną" albo
+otwarcie pakietu przez osobę z pełnym prawem do materiałów.
 
 ### 12.6 Dodanie i podmiana materiału
 
@@ -1337,11 +1365,15 @@ Wysyłka przez tabelę `outbox` + cron co minutę, 5 prób z narastającym odst�
 - **Offboarding klienta** = jeden przycisk „Zakończ współpracę": wygasza linki, wyloguje
   sesje, ustawia `status = zakonczony`. Osobny przycisk „Usuń dane klienta" kasuje wszystko
   ze Storage i bazy (z potwierdzeniem wpisaniem nazwy).
-  **Faza 6:** oba w zakładce Ustawienia karty klienta (rozdz. 12.2). Zakończenie: admin i csm, `clients.ended_at`,
+  **Faza 6:** oba w zakładce „Dane i współpraca" (dawniej Ustawienia) karty klienta (rozdz. 12.2). Zakończenie: admin i csm, `clients.ended_at`,
   audyt `zespol.klient_zakonczony`; „Wznów współpracę" cofa status (linki trzeba utworzyć od nowa). Usunięcie:
   wyłącznie admin, wyłącznie dla `zakonczony`, nigdy dla klienta demo; kasuje prefiks klienta w bucketach
   `materialy`, `awatary`, `faktury`, `dokumenty` i wiersz `clients` (kaskada na wszystko poza `audit_log`, który
   zostaje na 12 miesięcy z wpisem `zespol.klient_usuniety`).
+  **Plan domknięcia (2026-09-29):** usunięcie kasuje też wpisy `outbox` klienta (po `payload->>client_slug`)
+  i anonimizuje jego wpisy audytu (bez `actor_label`, UA, hasha IP i `meta`); zakończenie wycofuje pakiety
+  czekające na akceptację. Osoba kontaktowa, z którą klient kończy współpracę, jest archiwizowana z wyzerowanym
+  telefonem i e-mailem.
 - **Kopie zapasowe:** codzienne kopie Supabase (plan Pro) plus point-in-time recovery; procedura odtworzenia
   w `docs/KOPIE-ZAPASOWE.md`. Storage nie ma PITR: materiały odtwarza się z Dysku Google (źródło), PDF-y z Fakturowo
   i archiwum umów.
@@ -1468,6 +1500,8 @@ Każda faza kończy się **działającym wdrożeniem na Vercelu**, nie tylko kod
 | 33 | Obrazy | Bez `next/image` dla materiałów; warianty z importu + signed URL przez własną trasę | **potwierdzone** (2026-09-02) |
 | 34 | Next.js | 16.x (spec mówił „15+") | **potwierdzone** (2026-09-02) |
 | 35 | Okres pakietu | **1.5:** pakiet dotyczy dowolnego okresu od-do (`period_from`, `period_to`, NOT NULL), nie miesiąca kalendarzowego; `period_year`/`period_month` i unikalność po miesiącu usunięte. Nakładające się okresy klienta (i lokalu) dozwolone, kreator tylko ostrzega. Kalendarz zespołu i klienta to widok okresu pakietu z nawigacją między pakietami. Daty w kreatorze zawsze wpisywane ręcznie. Numer miesiąca współpracy podpowiadany jako „ostatni pakiet + 1" i edytowalny. Webhook: `period` = miesiąc startu, plus `period_from`/`period_to`. Raporty zostają miesięczne | **potwierdzone** (2026-09-05) |
+
+| 36 | Cykl życia klienta w panelu | **Plan domknięcia, Etap 1:** zakładka „Dane i współpraca" (rozdz. 12.2) zamiast edycji w bazie. Opiekuna i przypisania zmienia admin i csm (csm u swoich klientów); slug nieedytowalny; kategoria tylko bez pakietów i raportów; godziny auto-akceptacji per klient 72-720 h; lokali nie archiwizujemy; przerwa we współpracy nie wygasza linków; „Załatwione" tylko z pełnym prawem do materiałów (rozdz. 12.5) | **potwierdzone** (2026-09-29) |
 
 **Zadanie dla Ciebie, nie dla kodu:** dopisać zasadę auto-akceptacji do regulaminu panelu
 i wspomnieć o niej w umowie lub aneksie.

@@ -116,6 +116,15 @@ export async function oznaczPrzeczytanePrzezKlienta(pakietId: string): Promise<v
   if (error) console.error("[komentarze] nie oznaczono przeczytanych przez klienta", error.message);
 }
 
+/** Zespół odpowiedział w wątku: uwagi klienta w tym wątku (materiał, wariant albo cały pakiet) są przeczytane. */
+export async function oznaczPrzeczytaneWWatku(pakietId: string, materialId: string | null, wariantId: string | null): Promise<void> {
+  let zapytanie = supabaseSerwer().from("comments").update({ seen_by_team_at: new Date().toISOString() }).eq("package_id", pakietId).eq("author_kind", "klient").is("seen_by_team_at", null);
+  zapytanie = materialId ? zapytanie.eq("item_id", materialId) : zapytanie.is("item_id", null);
+  zapytanie = wariantId ? zapytanie.eq("variant_id", wariantId) : zapytanie.is("variant_id", null);
+  const { error } = await zapytanie;
+  if (error) console.error("[komentarze] nie oznaczono przeczytanych w wątku", error.message);
+}
+
 /** Zespół otworzył pakiet: uwagi klienta przestają liczyć się jako nieprzeczytane na pulpicie (1.4, poz. 26). */
 export async function oznaczPrzeczytanePrzezZespol(pakietId: string): Promise<void> {
   const { error } = await supabaseSerwer().from("comments").update({ seen_by_team_at: new Date().toISOString() }).eq("package_id", pakietId).eq("author_kind", "klient").is("seen_by_team_at", null);

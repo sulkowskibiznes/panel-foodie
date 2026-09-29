@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { slugZNazwy, waliduj } from "@/lib/klienci/nowy";
+import { czyMoznaZmienicKategorie, slugZNazwy, waliduj, walidujAkceptacje, walidujDaneKlienta, walidujKontakt, walidujLokal } from "@/lib/klienci/nowy";
 
 function formularz(pola: Record<string, string | string[]>): FormData {
   const fd = new FormData();
@@ -64,5 +64,62 @@ describe("waliduj (nowy klient)", () => {
     expect(waliduj(formularz({ ...POPRAWNY, lokal_fb: ["", "Nova Sushi"] }), new Set())).toEqual({ ok: false, blad: "lokal" });
     expect(waliduj(formularz({ ...POPRAWNY, kontakt_name: ["", ""], kontakt_email: ["", ""], kontakt_rola: ["", ""], kontakt_telefon: ["", ""] }), new Set())).toEqual({ ok: false, blad: "kontakt" });
     expect(waliduj(formularz({ ...POPRAWNY, kontakt_email: ["marek(at)example", ""] }), new Set())).toEqual({ ok: false, blad: "email" });
+  });
+});
+
+describe("waliduj: przypisania zespołu", () => {
+  const CC = "22222222-2222-4222-8222-222222222222";
+  const OBCY = "33333333-3333-4333-8333-333333333333";
+  it("bierze tylko kandydatów z listy, bez powtórzeń", () => {
+    const w = waliduj(formularz({ ...POPRAWNY, przypisany: [CC, CC, OBCY] }), new Set([OPIEKUN]), new Set([CC]));
+    expect(w.ok && w.dane.przypisani).toEqual([CC]);
+  });
+});
+
+describe("walidujDaneKlienta (edycja)", () => {
+  it("zwraca dane bez sluga i opiekuna, puste pola jako null", () => {
+    const w = walidujDaneKlienta(formularz({ name: " Bao Bar ", category: "kat3", tier: "siec", monthly_amount_net: "", slack_channel: "", cooperation_started_on: "" }));
+    expect(w).toEqual({ ok: true, dane: { name: "Bao Bar", category: "kat3", tier: "siec", monthly_amount_net: null, slack_channel: null, cooperation_started_on: null } });
+  });
+  it("odrzuca nieznaną kategorię i pakiet oraz kwotę powyżej miliona", () => {
+    expect(walidujDaneKlienta(formularz({ name: "X", category: "kat9", tier: "siec" })).ok).toBe(false);
+    expect(walidujDaneKlienta(formularz({ name: "X", category: "kat1", tier: "vip" })).ok).toBe(false);
+    expect(walidujDaneKlienta(formularz({ name: "X", category: "kat1", tier: "siec", monthly_amount_net: "1000001" }))).toEqual({ ok: false, blad: "kwota" });
+  });
+});
+
+describe("walidujLokal i walidujKontakt", () => {
+  it("lokal: nazwa i strona FB obowiązkowe, IG bez @ i bez spacji, adres przycięty", () => {
+    expect(walidujLokal({ name: "Bao", city: "", fb_page_name: "Bao Bar", ig_handle: "@bao.bar", address: " ul. Długa 1 " })).toEqual({ ok: true, dane: { name: "Bao", city: null, fb_page_name: "Bao Bar", ig_handle: "bao.bar", address: "ul. Długa 1" } });
+    expect(walidujLokal({ name: "Bao", city: "", fb_page_name: " ", ig_handle: "" })).toEqual({ ok: false, blad: "lokal" });
+    expect(walidujLokal({ name: "Bao", city: "", fb_page_name: "Bao", ig_handle: "bao bar" })).toEqual({ ok: false, blad: "lokal" });
+  });
+  it("kontakt: imię obowiązkowe, e-mail sprawdzany, puste pola jako null", () => {
+    expect(walidujKontakt({ name: "Ola", role_label: "", phone: "", email: "" })).toEqual({ ok: true, dane: { name: "Ola", role_label: null, phone: null, email: null } });
+    expect(walidujKontakt({ name: "", role_label: "", phone: "", email: "ola@example.com" })).toEqual({ ok: false, blad: "kontakt" });
+    expect(walidujKontakt({ name: "Ola", role_label: "", phone: "", email: "ola@" })).toEqual({ ok: false, blad: "email" });
+  });
+});
+
+describe("walidujAkceptacje", () => {
+  it("godziny auto-akceptacji tylko 72-720 (regulamin § 5: wolno wydłużyć), puste = ustawienie globalne", () => {
+    expect(walidujAkceptacje(formularz({ auto_approve_default: "on", auto_approve_hours: "96", default_publish_hours: "18, 12 12" }))).toEqual({ ok: true, dane: { auto_approve_default: true, auto_approve_hours: 96, default_publish_hours: [12, 18] } });
+    expect(walidujAkceptacje(formularz({ auto_approve_hours: "", default_publish_hours: "12" }))).toEqual({ ok: true, dane: { auto_approve_default: false, auto_approve_hours: null, default_publish_hours: [12] } });
+    expect(walidujAkceptacje(formularz({ auto_approve_hours: "48", default_publish_hours: "12" }))).toEqual({ ok: false, blad: "godzinyAuto" });
+    expect(walidujAkceptacje(formularz({ auto_approve_hours: "721", default_publish_hours: "12" }))).toEqual({ ok: false, blad: "godzinyAuto" });
+    expect(walidujAkceptacje(formularz({ auto_approve_hours: "80.5", default_publish_hours: "12" }))).toEqual({ ok: false, blad: "godzinyAuto" });
+  });
+  it("godziny publikacji: 1 do 6 pełnych godzin 0-23", () => {
+    expect(walidujAkceptacje(formularz({ default_publish_hours: "" }))).toEqual({ ok: false, blad: "godzinyPublikacji" });
+    expect(walidujAkceptacje(formularz({ default_publish_hours: "24" }))).toEqual({ ok: false, blad: "godzinyPublikacji" });
+    expect(walidujAkceptacje(formularz({ default_publish_hours: "1 2 3 4 5 6 7" }))).toEqual({ ok: false, blad: "godzinyPublikacji" });
+  });
+});
+
+describe("czyMoznaZmienicKategorie", () => {
+  it("tylko klient bez pakietów i raportów", () => {
+    expect(czyMoznaZmienicKategorie({ pakiety: 0, raporty: 0 })).toBe(true);
+    expect(czyMoznaZmienicKategorie({ pakiety: 1, raporty: 0 })).toBe(false);
+    expect(czyMoznaZmienicKategorie({ pakiety: 0, raporty: 2 })).toBe(false);
   });
 });

@@ -28,8 +28,9 @@ export default async function PakietZespolu({ params }: PageProps<"/zespol/klien
     strona: { rodzaj: "zespol" },
   });
   if (!wynik || wynik.clientId !== klient.id) notFound();
-  after(() => oznaczPrzeczytanePrzezZespol(pakietId));
   const mozeZmieniac = maUprawnienie(czlonek.role, "materialy", "pelne");
+  // Uwagi przeczytane tylko przez tych, którzy je obsługują; wejście sales czy media buyera nie gasi licznika (plan 1.10).
+  if (mozeZmieniac) after(() => oznaczPrzeczytanePrzezZespol(pakietId));
   const uprawnienia = { content: mozeZmieniac, kampanie: maUprawnienie(czlonek.role, "kampanie", "pelne") };
   const akcjeMaterialow: AkcjeMaterialow = {
     przygotuj: przygotujUpload.bind(null, slug, pakietId),
@@ -64,7 +65,7 @@ export default async function PakietZespolu({ params }: PageProps<"/zespol/klien
         akcje={{
           decyzje: null,
           komentarz: odpowiedzNaKomentarz.bind(null, slug, pakietId),
-          zalatwione: oznaczZalatwione.bind(null, slug, pakietId),
+          zalatwione: mozeZmieniac ? oznaczZalatwione.bind(null, slug, pakietId) : null,
           obejrzenie: null,
         }}
         akcjeMaterialow={akcjeMaterialow}

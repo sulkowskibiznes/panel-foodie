@@ -37,7 +37,8 @@ function PoleKontaktu({ czlonek }: { czlonek: Czlonek }) {
   );
 }
 
-export function ListaCzlonkow({ czlonkowie, adminId }: { czlonkowie: Czlonek[]; adminId: string }) {
+/** `klienci`: dla każdej osoby liczba klientów pod jej opieką i przypisanych (bez zakończonych współprac). */
+export function ListaCzlonkow({ czlonkowie, adminId, klienci }: { czlonkowie: Czlonek[]; adminId: string; klienci: Record<string, { opiekun: number; przypisany: number }> }) {
   const [trwa, startTransition] = useTransition();
   const u = copy.zespol.ustawienia.zespol;
   return (
@@ -56,7 +57,12 @@ export function ListaCzlonkow({ czlonkowie, adminId }: { czlonkowie: Czlonek[]; 
         <tbody>
           {czlonkowie.map((c) => (
             <tr key={c.id} className="border-t border-szary-100">
-              <td className="px-4 py-3 font-medium text-foodie-czern">{c.name}</td>
+              <td className="px-4 py-3 font-medium text-foodie-czern">
+                {c.name}
+                <span className="block text-xs font-normal text-szary-600" data-klienci-czlonka={c.id} title={u.klienciOpis.replace("{o}", String(klienci[c.id]?.opiekun ?? 0)).replace("{p}", String(klienci[c.id]?.przypisany ?? 0))}>
+                  {u.klienci.replace("{n}", String((klienci[c.id]?.opiekun ?? 0) + (klienci[c.id]?.przypisany ?? 0)))}
+                </span>
+              </td>
               <td className="px-4 py-3 text-szary-600">{c.email}</td>
               <td className="px-4 py-3 text-szary-600">{copy.zespol.role[c.role]}</td>
               <td className="px-4 py-3">{c.active ? <span className="text-zielony">{u.aktywny}</span> : <span className="text-szary-600">{u.nieaktywny}</span>}</td>
@@ -65,7 +71,18 @@ export function ListaCzlonkow({ czlonkowie, adminId }: { czlonkowie: Czlonek[]; 
               </td>
               <td className="px-4 py-3 text-right">
                 {c.id !== adminId ? (
-                  <Button type="button" variant="ghost" size="sm" disabled={trwa} onClick={() => startTransition(() => przelaczAktywnosc(c.id, !c.active))}>
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="sm"
+                    disabled={trwa}
+                    onClick={() => {
+                      // Dezaktywacja opiekuna zostawia klientów bez opiekuna w „Twój pakiet": ostrzegamy przed kliknięciem.
+                      const podOpieka = klienci[c.id]?.opiekun ?? 0;
+                      if (c.active && podOpieka > 0 && !window.confirm(u.dezaktywujOpiekuna.replace("{osoba}", c.name).replace("{n}", String(podOpieka)))) return;
+                      startTransition(() => przelaczAktywnosc(c.id, !c.active));
+                    }}
+                  >
                     {c.active ? u.dezaktywuj : u.aktywuj}
                   </Button>
                 ) : null}

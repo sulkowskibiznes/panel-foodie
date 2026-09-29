@@ -70,7 +70,8 @@ export type KartaKlienta = {
   cooperation_started_on: string | null;
   opiekun: { name: string } | null;
   locations: { id: string; name: string; city: string | null; fb_page_name: string }[];
-  client_contacts: { id: string; name: string; role_label: string | null; is_primary: boolean }[];
+  /** Wyłącznie aktywne osoby (bez `archived_at`); telefon i e-mail widzi tylko zespół. */
+  client_contacts: { id: string; name: string; role_label: string | null; is_primary: boolean; phone: string | null; email: string | null }[];
 };
 
 /** Karta klienta po slugu. Wywołujący MUSI potem zrobić assertTeamClientAccess. */
@@ -78,7 +79,7 @@ export async function pobierzKlientaPoSlugu(slug: string): Promise<KartaKlienta 
   const { data } = await supabaseSerwer()
     .from("clients")
     .select(
-      "id, slug, name, category, tier, monthly_amount_net, demo, status, ended_at, slack_channel, cooperation_started_on, opiekun:team_members!clients_opiekun_id_fkey(name), locations(id, name, city, fb_page_name, position), client_contacts(id, name, role_label, is_primary)",
+      "id, slug, name, category, tier, monthly_amount_net, demo, status, ended_at, slack_channel, cooperation_started_on, opiekun:team_members!clients_opiekun_id_fkey(name), locations(id, name, city, fb_page_name, position), client_contacts(id, name, role_label, is_primary, phone, email, archived_at, created_at)",
     )
     .eq("slug", slug)
     .maybeSingle();
@@ -98,6 +99,9 @@ export async function pobierzKlientaPoSlugu(slug: string): Promise<KartaKlienta 
     cooperation_started_on: data.cooperation_started_on,
     opiekun: Array.isArray(opiekun) ? (opiekun[0] ?? null) : opiekun,
     locations: [...data.locations].sort((a, b) => a.position - b.position).map(({ id, name, city, fb_page_name }) => ({ id, name, city, fb_page_name })),
-    client_contacts: data.client_contacts,
+    client_contacts: [...data.client_contacts]
+      .filter((c) => !c.archived_at)
+      .sort((a, b) => Number(b.is_primary) - Number(a.is_primary) || a.created_at.localeCompare(b.created_at))
+      .map(({ id, name, role_label, is_primary, phone, email }) => ({ id, name, role_label, is_primary, phone, email })),
   };
 }

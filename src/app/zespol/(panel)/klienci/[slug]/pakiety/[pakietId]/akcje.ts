@@ -7,7 +7,8 @@ import { zapiszAudyt, type AkcjaAudytu } from "@/lib/audyt";
 import { assertTeamClientAccess, wymagajCzlonka, wymagajUprawnienia, type CzlonekZespolu } from "@/lib/auth-zespol";
 import { copy } from "@/lib/copy";
 import { pobierzKlientaPoSlugu } from "@/lib/dane/klienci-zespolu";
-import { dodajKomentarz as zapiszKomentarz, oczyscTrescKomentarza, oznaczZalatwione as zapiszZalatwione, sprawdzMaterialWPakiecie } from "@/lib/dane/komentarze";
+import { dodajKomentarz as zapiszKomentarz, oczyscTrescKomentarza, oznaczPrzeczytaneWWatku, oznaczZalatwione as zapiszZalatwione, sprawdzMaterialWPakiecie } from "@/lib/dane/komentarze";
+import { oznaczPrzeczytaneWSkrzynce } from "@/lib/dane/skrzynka";
 import type { WynikAkcji } from "@/lib/dto/wynik";
 import { pobierzPakietDoPrzejscia, zmienStatusPakietu } from "@/lib/pakiety/baza";
 import type { Aktor, Przejscie } from "@/lib/pakiety/przejscia";
@@ -77,20 +78,35 @@ export async function odpowiedzNaKomentarz(slug: string, pakietId: string, dane:
   if (!tresc.ok) return { ok: false, blad: copy.pakiet.komentarze[tresc.powod] };
   if (!(await sprawdzMaterialWPakiecie(pakietId, materialId, wariantId))) return { ok: false, blad: copy.pakiet.komentarze.blad };
   const zapis = await zapiszKomentarz({ pakietId, materialId, wariantId, tresc: tresc.tresc, aktor: aktorZespolu(czlonek) });
+  // Odpowiedź = uwagi klienta w tym wątku przeczytane (plan 1.10: nie samo wejście na ekran).
+  await oznaczPrzeczytaneWWatku(pakietId, materialId, wariantId);
   const { ipHash, ua } = await infoZadania();
   await zapiszAudyt({ actor_kind: "zespol", actor_id: czlonek.id, actor_label: czlonek.name, action: "zespol.komentarz", entity: "comment", entity_id: zapis.id, client_id: clientId, ip_hash: ipHash, ua, meta: { package_id: pakietId, item_id: materialId, variant_id: wariantId } });
   odswiez(slug, pakietId);
   return { ok: true };
 }
 
-/** „Załatwione": uwaga klienta przestaje wstrzymywać auto-akceptację (SPEC rozdz. 6.4, 6.7). */
+/**
+ * „Załatwione": uwaga klienta przestaje wstrzymywać auto-akceptację (SPEC rozdz. 6.4, 6.7). Tylko pełne prawo do
+ * materiałów (admin, csm, content creator): podgląd (sales, media buyer) nie może odblokować auto-akceptacji (plan 1.10).
+ */
 export async function oznaczZalatwione(slug: string, pakietId: string, komentarzId: string): Promise<WynikAkcji> {
-  const { czlonek, clientId } = await autoryzuj(slug, pakietId, "podglad");
+  const { czlonek, clientId } = await autoryzuj(slug, pakietId, "pelne");
   if (!czyUuid(komentarzId)) return { ok: false, blad: copy.pakiet.komentarze.blad };
   const ok = await zapiszZalatwione(pakietId, komentarzId, czlonek.id);
   if (!ok) return { ok: false, blad: copy.pakiet.komentarze.blad };
   const { ipHash, ua } = await infoZadania();
   await zapiszAudyt({ actor_kind: "zespol", actor_id: czlonek.id, actor_label: czlonek.name, action: "zespol.uwaga_zalatwiona", entity: "comment", entity_id: komentarzId, client_id: clientId, ip_hash: ipHash, ua, meta: { package_id: pakietId } });
   odswiez(slug, pakietId);
+  return { ok: true };
+}
+
+/** „Oznacz jako przeczytaną" w skrzynce: samo wejście niczego nie oznacza (plan 1.10). Pełne prawo do materiałów. */
+export async function oznaczPrzeczytana(slug: string, pakietId: string, komentarzId: string): Promise<WynikAkcji> {
+  await autoryzuj(slug, pakietId, "pelne");
+  if (!czyUuid(komentarzId)) return { ok: false, blad: copy.pakiet.komentarze.blad };
+  await oznaczPrzeczytaneWSkrzynce([komentarzId], pakietId);
+  revalidatePath("/zespol/uwagi");
+  revalidatePath("/zespol");
   return { ok: true };
 }

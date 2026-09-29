@@ -3,14 +3,17 @@
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState, useTransition } from "react";
-import { odpowiedzNaKomentarz, oznaczZalatwione } from "@/app/zespol/(panel)/klienci/[slug]/pakiety/[pakietId]/akcje";
+import { odpowiedzNaKomentarz, oznaczPrzeczytana, oznaczZalatwione } from "@/app/zespol/(panel)/klienci/[slug]/pakiety/[pakietId]/akcje";
 import { Button } from "@/components/ui/button";
 import { copy } from "@/lib/copy";
 import type { UwagaWSkrzynce } from "@/lib/dane/skrzynka";
 import { etykietaOkresu, formatujDateCzas } from "@/lib/format";
 
-/** Jedna uwaga w skrzynce (SPEC rozdz. 12.5): odpowiedź w tym samym wątku co u klienta i „Załatwione". */
-export function UwagaWSkrzynceKarta({ u }: { u: UwagaWSkrzynce }) {
+/**
+ * Jedna uwaga w skrzynce (SPEC rozdz. 12.5): odpowiedź w tym samym wątku co u klienta i „Załatwione".
+ * „Załatwione" i „Oznacz jako przeczytaną" tylko z pełnym prawem do materiałów (plan 1.10).
+ */
+export function UwagaWSkrzynceKarta({ u, mozeObslugiwac }: { u: UwagaWSkrzynce; mozeObslugiwac: boolean }) {
   const router = useRouter();
   const s = copy.zespol.skrzynka;
   const p = copy.zespol.pakietyMaterialow;
@@ -29,6 +32,18 @@ export function UwagaWSkrzynceKarta({ u }: { u: UwagaWSkrzynce }) {
         return;
       }
       setTresc("");
+      router.refresh();
+    });
+  }
+
+  function przeczytana() {
+    setBlad(null);
+    startTransition(async () => {
+      const w = await oznaczPrzeczytana(u.klient.slug, u.pakietId, u.id);
+      if (!w.ok) {
+        setBlad(w.blad);
+        return;
+      }
       router.refresh();
     });
   }
@@ -64,7 +79,8 @@ export function UwagaWSkrzynceKarta({ u }: { u: UwagaWSkrzynce }) {
         <textarea aria-label={p.odpowiedz} value={tresc} onChange={(e) => setTresc(e.target.value.slice(0, 4000))} placeholder={p.odpowiedzPodpowiedz} rows={2} className="w-full rounded-lg border border-szary-300 px-3 py-2 text-sm outline-none focus:border-foodie-fiolet focus:ring-2 focus:ring-foodie-fiolet/30" />
         <div className="flex flex-wrap items-center gap-2">
           <Button type="submit" size="sm" disabled={trwa || tresc.trim().length === 0}>{p.wyslijOdpowiedz}</Button>
-          <Button type="button" variant="outline" size="sm" disabled={trwa} onClick={zalatwione} data-zalatwione>{p.zalatwione}</Button>
+          {mozeObslugiwac ? <Button type="button" variant="outline" size="sm" disabled={trwa} onClick={zalatwione} data-zalatwione>{p.zalatwione}</Button> : null}
+          {mozeObslugiwac && u.nieprzeczytana ? <Button type="button" variant="ghost" size="sm" disabled={trwa} onClick={przeczytana} data-oznacz-przeczytana>{s.oznaczPrzeczytana}</Button> : null}
           <Link href={adres} className="text-sm font-medium text-foodie-fiolet hover:underline">{s.otworzPakiet}</Link>
           {blad ? <span role="alert" className="text-xs text-czerwony">{blad}</span> : null}
         </div>
