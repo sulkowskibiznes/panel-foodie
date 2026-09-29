@@ -6,7 +6,7 @@ import { zapiszAudyt } from "@/lib/audyt";
 import { assertTeamClientAccess, wymagajCzlonka, wymagajUprawnienia, type CzlonekZespolu } from "@/lib/auth-zespol";
 import { copy } from "@/lib/copy";
 import { pobierzKlientaPoSlugu, type KartaKlienta } from "@/lib/dane/klienci-zespolu";
-import { usunDaneKlienta as usunWBazie, wznowWspolprace as wznowWBazie, zakonczWspolprace as zakonczWBazie } from "@/lib/dane/offboarding";
+import { usunDaneKlienta as usunWBazie, wycofajPakietyWToku, wznowWspolprace as wznowWBazie, zakonczWspolprace as zakonczWBazie } from "@/lib/dane/offboarding";
 import type { WynikAkcji } from "@/lib/dto/wynik";
 import { infoZadania } from "@/lib/zadanie";
 
@@ -22,15 +22,18 @@ async function autoryzuj(slug: string): Promise<{ czlonek: CzlonekZespolu; klien
 function odswiez(slug: string) {
   revalidatePath(`/zespol/klienci/${slug}`, "layout");
   revalidatePath("/zespol");
+  revalidatePath("/zespol/uwagi");
 }
 
 /** „Zakończ współpracę" (SPEC rozdz. 17): admin i csm. Linki wygaszone, urządzenia wylogowane, status zakonczony. */
 export async function zakonczWspolprace(slug: string): Promise<WynikAkcji> {
   const { czlonek, klient } = await autoryzuj(slug);
   if (klient.status === "zakonczony") return { ok: true };
-  const wynik = await zakonczWBazie(klient.id, new Date());
   const { ipHash } = await infoZadania();
-  await zapiszAudyt({ actor_kind: "zespol", actor_id: czlonek.id, actor_label: czlonek.name, action: "zespol.klient_zakonczony", entity: "client", entity_id: klient.id, client_id: klient.id, ip_hash: ipHash, meta: { linki: wynik.linki, sesje: wynik.sesje } });
+  const wycofane = await wycofajPakietyWToku(klient.id, { rodzaj: "zespol", memberId: czlonek.id, name: czlonek.name });
+  await Promise.all(wycofane.map((id) => zapiszAudyt({ actor_kind: "zespol", actor_id: czlonek.id, actor_label: czlonek.name, action: "zespol.pakiet_wycofany", entity: "package", entity_id: id, client_id: klient.id, ip_hash: ipHash, meta: { powod: "zakonczenie_wspolpracy" } })));
+  const wynik = await zakonczWBazie(klient.id, new Date());
+  await zapiszAudyt({ actor_kind: "zespol", actor_id: czlonek.id, actor_label: czlonek.name, action: "zespol.klient_zakonczony", entity: "client", entity_id: klient.id, client_id: klient.id, ip_hash: ipHash, meta: { linki: wynik.linki, sesje: wynik.sesje, wycofane_pakiety: wycofane.length } });
   odswiez(slug);
   return { ok: true };
 }

@@ -60,3 +60,40 @@ export async function usunKlientaTestowego(slug: string): Promise<void> {
     await s`delete from public.clients where slug = ${slug}`;
   });
 }
+
+export type PakietKlientaTestowego = { id: string; materialId: string };
+
+/**
+ * Minimalny pakiet klienta jednorazowego (jeden post z datą) w zadanym statusie. Tytuł kończy się „(test E2E)",
+ * więc global-setup posprząta go po przerwanym przebiegu. `autoZaGodzin` ujemne = termin auto-akceptacji minął.
+ */
+export async function utworzPakietKlienta(clientId: string, o: { status: "szkic" | "do_akceptacji"; autoZaGodzin?: number; uwagaKlienta?: string }): Promise<PakietKlientaTestowego> {
+  return zBaza(async (s) => {
+    const doAkceptacji = o.status === "do_akceptacji";
+    const [p] = await s<{ id: string }[]>`
+      insert into public.packages (client_id, title, status, round, submitted_at, auto_approve_enabled, auto_approve_at, period_from, period_to)
+      values (${clientId}, ${"Materiały offboardingu (test E2E)"}, ${o.status}::public.package_status, 1,
+        ${doAkceptacji ? new Date(Date.now() - 48 * 3_600_000).toISOString() : null}::timestamptz, true,
+        ${doAkceptacji ? new Date(Date.now() + (o.autoZaGodzin ?? 48) * 3_600_000).toISOString() : null}::timestamptz,
+        date '2026-09-01', date '2026-09-30')
+      returning id`;
+    if (!p) throw new Error("Nie udało się utworzyć pakietu");
+    const [m] = await s<{ id: string }[]>`
+      insert into public.package_items (package_id, type, position, title, caption, publish_at, origin)
+      values (${p.id}, 'post', 1, 'Post E2E', 'Treść posta E2E', now() + interval '10 days', 'reczny')
+      returning id`;
+    if (!m) throw new Error("Nie udało się utworzyć materiału");
+    if (o.uwagaKlienta) {
+      await s`insert into public.comments (package_id, item_id, author_kind, body, round) values (${p.id}, ${m.id}, 'klient', ${o.uwagaKlienta}, 1)`;
+    }
+    return { id: p.id, materialId: m.id };
+  });
+}
+
+export async function ustawStatusKlienta(id: string, status: "aktywny" | "wstrzymany" | "zakonczony"): Promise<void> {
+  await zBaza((s) => s`update public.clients set status = ${status}::public.client_status where id = ${id}`);
+}
+
+export async function ustawTerminAutoAkceptacji(pakietId: string, godzinOdTeraz: number): Promise<void> {
+  await zBaza((s) => s`update public.packages set auto_approve_at = now() + make_interval(hours => ${godzinOdTeraz}) where id = ${pakietId}`);
+}

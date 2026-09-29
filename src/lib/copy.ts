@@ -214,6 +214,7 @@ export const copy = {
       braki_w_materialach: "Uzupełnij braki przed wysyłką.",
       nie_znaleziono: "Nie znaleziono pakietu. Odśwież stronę.",
       konflikt: "Ktoś w międzyczasie zmienił status pakietu. Odśwież stronę i sprawdź, co się zmieniło.",
+      klient_nieaktywny: "Współpraca z tym klientem jest wstrzymana albo zakończona. Wznów ją w zakładce Ustawienia karty klienta, zanim wyślesz materiały.",
     },
   },
   /** Ramki podglądów 1:1 (SPEC rozdz. 7). Neutralne teksty interfejsu Facebooka i Instagramu, bez logotypów Meta. */
@@ -1141,6 +1142,16 @@ export const copy = {
       ponowiono: "Zdarzenie wróciło do kolejki.",
       podsumowanie: "Ostatnie {n} zdarzeń.",
     },
+    /** Monitoring cronów (tylko admin, pulpit). */
+    crony: {
+      tytul: "Automaty panelu wymagają uwagi",
+      nazwy: { "auto-akceptacja": "Auto-akceptacja (co godzinę)", outbox: "Powiadomienia na Slacka (co minutę)", faktury: "Statusy faktur (codziennie)", retencja: "Retencja (co miesiąc)" },
+      brak: "{cron}: brak zapisu przebiegu. Sprawdź crony w Vercelu (plan Pro, zmienna CRON_SECRET).",
+      opozniony: "{cron}: ostatni przebieg {kiedy}. Sprawdź logi funkcji w Vercelu.",
+      bledy: "{cron}: ostatni przebieg zakończył się z błędami ({n}). Sprawdź logi funkcji w Vercelu.",
+      nieudane: "Powiadomienia: {n} zdarzeń nie doszło do Zapiera. Ponów je w Ustawieniach.",
+      zobacz: "Otwórz powiadomienia",
+    },
     nowyKlient: {
       tytul: "Nowy klient",
       opis: "Dane z umowy. Lokale i osoby kontaktowe da się dopisać później w bazie; tu wpisz to, co potrzebne do pierwszego pakietu i pierwszego linku.",
@@ -1220,7 +1231,7 @@ export const copy = {
       opis: "Zakończenie współpracy wygasza wszystkie linki dostępu, wylogowuje urządzenia klienta i zdejmuje klienta z pulpitu. Dane zostają do czasu osobnej decyzji o ich usunięciu.",
       aktywneLinki: "Aktywne linki: {n}",
       zakoncz: "Zakończ współpracę",
-      zakonczPotwierdz: "Zakończyć współpracę z {klient}? Wszystkie linki dostępu wygasną, a klient zostanie wylogowany ze wszystkich urządzeń.",
+      zakonczPotwierdz: "Zakończyć współpracę z {klient}? Wszystkie linki dostępu wygasną, klient zostanie wylogowany ze wszystkich urządzeń, a pakiety czekające na akceptację wrócą do szkicu.",
       zakonczono: "Współpraca zakończona {data}. Linki dostępu są wygaszone.",
       wznow: "Wznów współpracę",
       wznowOpis: "Wznowienie przywraca klienta na pulpit. Stare linki nie wracają: utwórz nowe w zakładce Dostęp.",

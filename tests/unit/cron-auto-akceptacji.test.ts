@@ -17,7 +17,7 @@ function pakiet(id: string, nadpisania: Partial<PakietWCronie> = {}): PakietWCro
     autoApproveAt: new Date(TERAZ.getTime() + 48 * H).toISOString(),
     submittedAt: new Date(TERAZ.getTime() - 24 * H).toISOString(),
     firstOpenedAt: new Date(TERAZ.getTime() - 20 * H).toISOString(),
-    klient: { slug: "nova-sushi", name: "Nova Sushi", slackChannel: "#nova-sushi", autoApproveHours: null, autoApproveDefault: true },
+    klient: { slug: "nova-sushi", name: "Nova Sushi", slackChannel: "#nova-sushi", autoApproveHours: null, autoApproveDefault: true, status: "aktywny" },
     ...nadpisania,
   };
 }

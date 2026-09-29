@@ -269,7 +269,13 @@ export type PakietNaPulpicie = PakietNaLiscie & { klient: { id: string; slug: st
 
 /** Pakiety w toku (poza zaplanowanymi) dla pulpitu zespołu (SPEC rozdz. 12.1), z osobnym stanem „wstrzymana" (1.4, poz. 26). */
 export async function pobierzPakietyNaPulpit(clientIds: string[] | null, teraz = new Date()): Promise<PakietNaPulpicie[]> {
-  let zapytanie = supabaseSerwer().from("packages").select(`${KOLUMNY_LISTY}, clients!inner(id, slug, name)`).neq("status", "zaplanowany").order("submitted_at", { ascending: true, nullsFirst: false });
+  // Pulpit pokazuje wyłącznie klientów z trwającą współpracą (wstrzymani i zakończeni mają osobną listę).
+  let zapytanie = supabaseSerwer()
+    .from("packages")
+    .select(`${KOLUMNY_LISTY}, clients!inner(id, slug, name)`)
+    .neq("status", "zaplanowany")
+    .eq("clients.status", "aktywny")
+    .order("submitted_at", { ascending: true, nullsFirst: false });
   if (clientIds) {
     if (clientIds.length === 0) return [];
     zapytanie = zapytanie.in("client_id", clientIds);

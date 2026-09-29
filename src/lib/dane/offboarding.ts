@@ -1,11 +1,13 @@
 import "server-only";
 import type { Database } from "@/lib/db-types";
+import { zmienStatusPakietu } from "@/lib/pakiety/baza";
+import type { Aktor } from "@/lib/pakiety/przejscia";
 import { BUCKETY_KLIENTA, usunFolderStorage } from "@/lib/pliki/sprzatanie";
 import { supabaseSerwer } from "@/lib/supabase/server";
 
 export type StatusKlienta = Database["public"]["Enums"]["client_status"];
 
-export type StanWspolpracy = { status: StatusKlienta; zakonczonoO: string | null; aktywneLinki: number; aktywneSesje: number };
+export type StanWspolpracy = { status: StatusKlienta; zakonczonoO: string | null; aktywneLinki: number; aktywneSesje: number; pakietyWToku: number };
 
 /** Stan współpracy na zakładkę Ustawienia karty klienta (SPEC rozdz. 17). */
 export async function pobierzStanWspolpracy(clientId: string): Promise<StanWspolpracy | null> {
@@ -15,7 +17,23 @@ export async function pobierzStanWspolpracy(clientId: string): Promise<StanWspol
   const { data: linki } = await db.from("access_links").select("id").eq("client_id", clientId).is("revoked_at", null);
   const idsLinkow = (linki ?? []).map((l) => l.id);
   const { count } = idsLinkow.length > 0 ? await db.from("client_sessions").select("id", { count: "exact", head: true }).in("access_link_id", idsLinkow).is("revoked_at", null).gt("expires_at", new Date().toISOString()) : { count: 0 };
-  return { status: klient.status, zakonczonoO: klient.ended_at, aktywneLinki: idsLinkow.length, aktywneSesje: count ?? 0 };
+  const { count: wToku } = await db.from("packages").select("id", { count: "exact", head: true }).eq("client_id", clientId).eq("status", "do_akceptacji");
+  return { status: klient.status, zakonczonoO: klient.ended_at, aktywneLinki: idsLinkow.length, aktywneSesje: count ?? 0, pakietyWToku: wToku ?? 0 };
+}
+
+/**
+ * Pakiety czekające na akceptację wracają do szkicu przed zakończeniem albo przerwą we współpracy: klient bez dostępu
+ * nie może niczego zaakceptować, a cron nie może zrobić tego za niego. Wyłącznie przez maszynę stanów (zasada 9).
+ */
+export async function wycofajPakietyWToku(clientId: string, aktor: Extract<Aktor, { rodzaj: "zespol" }>): Promise<string[]> {
+  const { data, error } = await supabaseSerwer().from("packages").select("id").eq("client_id", clientId).eq("status", "do_akceptacji");
+  if (error) throw new Error(`wycofajPakietyWToku: ${error.message}`);
+  const wycofane: string[] = [];
+  for (const p of data ?? []) {
+    const wynik = await zmienStatusPakietu(p.id, { typ: "wycofaj" }, aktor);
+    if (wynik.ok) wycofane.push(p.id);
+  }
+  return wycofane;
 }
 
 export type WynikZakonczenia = { linki: number; sesje: number };

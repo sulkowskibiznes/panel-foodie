@@ -35,7 +35,7 @@ function pakiet(nadpisania: Partial<PakietDoPrzejscia> = {}): PakietDoPrzejscia 
     autoApproveEnabled: true,
     autoApproveAt: null,
     submittedAt: null,
-    klient: { slug: "nova-sushi", name: "Nova Sushi", slackChannel: "#nova-sushi", autoApproveHours: null, autoApproveDefault: true },
+    klient: { slug: "nova-sushi", name: "Nova Sushi", slackChannel: "#nova-sushi", autoApproveHours: null, autoApproveDefault: true, status: "aktywny" },
     ...nadpisania,
   };
 }
@@ -189,6 +189,26 @@ describe("wykonajPrzejscie: skutki każdego przejścia", () => {
     const { d, zdarzenia } = zaleznosci(pakiet(), { ostrzezenia: ["bez kampanii"] });
     expect((await wykonajPrzejscie(PAKIET_ID, { typ: "wyslij" }, ZESPOL, d)).ok).toBe(true);
     expect(zdarzenia[0]?.payload).toMatchObject({ ostrzezenia: ["bez kampanii"] });
+  });
+
+  it("klient wstrzymany albo zakończony: wysyłka i auto-akceptacja odmówione bez zapisu i bez zdarzeń (offboarding, SPEC rozdz. 17)", async () => {
+    for (const status of ["wstrzymany", "zakonczony"] as const) {
+      const klient = { ...pakiet().klient, status };
+      const wysylka = zaleznosci(pakiet({ klient }));
+      expect(await wykonajPrzejscie(PAKIET_ID, { typ: "wyslij" }, ZESPOL, wysylka.d)).toEqual({ ok: false, powod: "klient_nieaktywny" });
+      const v2 = zaleznosci(pakiet({ klient, status: "poprawki" }));
+      expect(await wykonajPrzejscie(PAKIET_ID, { typ: "wyslij_v2" }, ZESPOL, v2.d)).toEqual({ ok: false, powod: "klient_nieaktywny" });
+      const auto = zaleznosci(pakiet({ klient, status: "do_akceptacji", autoApproveAt: new Date(TERAZ.getTime() - 3_600_000).toISOString() }));
+      expect(await wykonajPrzejscie(PAKIET_ID, { typ: "auto_akceptuj" }, SYSTEM, auto.d)).toEqual({ ok: false, powod: "klient_nieaktywny" });
+      for (const z of [wysylka, v2, auto]) {
+        expect(z.zapisy).toEqual([]);
+        expect(z.zdarzenia).toEqual([]);
+        expect(z.outbox).toEqual([]);
+      }
+    }
+    // wycofanie do szkicu działa także dla klienta zakończonego (tak wracają pakiety w toku przy offboardingu)
+    const wycofanie = zaleznosci(pakiet({ klient: { ...pakiet().klient, status: "zakonczony" }, status: "do_akceptacji" }));
+    expect((await wykonajPrzejscie(PAKIET_ID, { typ: "wycofaj" }, ZESPOL, wycofanie.d)).ok).toBe(true);
   });
 
   it("wycofaj do szkicu zeruje submitted_at i auto_approve_at, round bez zmian, zdarzenie wycofany i pakiet.wycofany", async () => {

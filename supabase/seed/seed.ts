@@ -10,6 +10,9 @@
  * `--tylko=<slug>` (skrypt `pnpm db:seed:demo` = `--tylko=demo-bistro`): seed JEDNEGO klienta bez
  * ruszania zespołu i usług. Tak klient demonstracyjny trafia na produkcję (SPEC 1.4, poz. 21):
  * opiekun i przypisania biorą się z istniejących wierszy team_members, nic nie jest nadpisywane.
+ *
+ * `--produkcja` (skrypt `pnpm db:seed:produkcja`): start świeżego projektu produkcyjnego. Zespół tylko DOPISYWANY
+ * (istniejące osoby zostają z obecną rolą i aktywnością), usługi, klient demonstracyjny. Żadnych klientów testowych.
  */
 import { randomUUID } from "node:crypto";
 import { config as wczytajEnv } from "dotenv";
@@ -29,6 +32,8 @@ function wymagane(nazwa: string): string {
 }
 
 const TYLKO_KLIENT = process.argv.find((a) => a.startsWith("--tylko="))?.slice("--tylko=".length) ?? null;
+const PRODUKCJA = process.argv.includes("--produkcja");
+const KLIENT_DEMO = "demo-bistro";
 const SUPABASE_URL = wymagane("SUPABASE_URL");
 const SUPABASE_SECRET_KEY = wymagane("SUPABASE_SECRET_KEY");
 const APP_URL = (process.env.NEXT_PUBLIC_APP_URL ?? "http://localhost:3000").replace(/\/$/, "");
@@ -173,6 +178,21 @@ async function seedZespolu(): Promise<Map<string, string>> {
     mapa.set(osoba.email.toLowerCase(), wiersz.id);
   }
   return mapa;
+}
+
+/** Tryb `--produkcja`: dopisuje brakujące osoby z listy zespołu; istniejących nie rusza (rola i aktywność zostają). */
+async function dopiszZespol(): Promise<Map<string, string>> {
+  const istniejacy = await istniejacyZespol();
+  for (const osoba of ZESPOL) {
+    const email = osoba.email.toLowerCase();
+    if (istniejacy.has(email)) continue;
+    const authId = await zapewnijUzytkownikaAuth(email, osoba.name);
+    const wynik = await db.from("team_members").insert({ auth_user_id: authId, name: osoba.name, email, role: osoba.role, active: true }).select("id").single();
+    const wiersz = sprawdz(wynik, `insert team_members ${email}`) as { id: string };
+    istniejacy.set(email, wiersz.id);
+    console.log(`  dopisano: ${osoba.name} (${osoba.role})`);
+  }
+  return istniejacy;
 }
 
 /** Tryb `--tylko`: istniejący zespół po e-mailu, bez tworzenia kont i bez nadpisywania ról. */
@@ -504,11 +524,18 @@ async function main(): Promise<void> {
   console.log(`Seed → ${SUPABASE_URL}`);
   const start = Date.now();
 
-  const klienci = TYLKO_KLIENT ? KLIENCI.filter((k) => k.slug === TYLKO_KLIENT) : KLIENCI;
-  if (klienci.length === 0) throw new Error(`Nie ma klienta seedu o slugu ${TYLKO_KLIENT}.`);
+  if (PRODUKCJA && TYLKO_KLIENT) throw new Error("Użyj albo --produkcja, albo --tylko=<slug>, nie obu naraz.");
+  const wybrany = PRODUKCJA ? KLIENT_DEMO : TYLKO_KLIENT;
+  const klienci = wybrany ? KLIENCI.filter((k) => k.slug === wybrany) : KLIENCI;
+  if (klienci.length === 0) throw new Error(`Nie ma klienta seedu o slugu ${wybrany}.`);
 
   let zespol: Map<string, string>;
-  if (TYLKO_KLIENT) {
+  if (PRODUKCJA) {
+    zespol = await dopiszZespol();
+    console.log(`Tryb --produkcja: zespół ${zespol.size} osób (istniejące bez zmian), usługi i klient demo, bez klientów testowych`);
+    await seedUslug();
+    console.log(`Usługi: ${USLUGI.length}`);
+  } else if (TYLKO_KLIENT) {
     zespol = await istniejacyZespol();
     console.log(`Tryb --tylko=${TYLKO_KLIENT}: zespół (${zespol.size} osób) i usługi bez zmian`);
   } else {

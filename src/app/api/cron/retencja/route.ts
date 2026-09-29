@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { czyAutoryzowanyCron } from "@/lib/cron";
+import { zapiszPrzebiegCrona } from "@/lib/dane/crony";
 import { odnotujWynikRetencji, zaleznosciCronaRetencji } from "@/lib/dane/retencja";
 import { uruchomCronRetencji } from "@/lib/retencja/przeglad";
 
@@ -11,5 +12,6 @@ export async function GET(request: Request) {
   if (!czyAutoryzowanyCron(request)) return new NextResponse(null, { status: 401 });
   const wynik = await uruchomCronRetencji(zaleznosciCronaRetencji());
   await odnotujWynikRetencji(wynik, { actor_kind: "system" });
+  await zapiszPrzebiegCrona("retencja", 0);
   return NextResponse.json(wynik);
 }

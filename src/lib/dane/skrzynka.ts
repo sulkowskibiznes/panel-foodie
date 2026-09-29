@@ -41,12 +41,12 @@ type Wiersz = {
   variant_id: string | null;
   package_id: string;
   kontakt: { name: string } | null;
-  packages: { id: string; title: string | null; status: Enums["package_status"]; period_from: string; period_to: string; client_id: string; clients: { id: string; slug: string; name: string } };
+  packages: { id: string; title: string | null; status: Enums["package_status"]; period_from: string; period_to: string; client_id: string; clients: { id: string; slug: string; name: string; status: Enums["client_status"] } };
   package_items: { type: Enums["item_type"]; title: string | null; position: number } | null;
 };
 
 const KOLUMNY =
-  "id, body, created_at, author_label, seen_by_team_at, after_approval, round, item_id, variant_id, package_id, kontakt:client_contacts!comments_author_contact_id_fkey(name), packages!inner(id, title, status, period_from, period_to, client_id, clients!inner(id, slug, name)), package_items(type, title, position)";
+  "id, body, created_at, author_label, seen_by_team_at, after_approval, round, item_id, variant_id, package_id, kontakt:client_contacts!comments_author_contact_id_fkey(name), packages!inner(id, title, status, period_from, period_to, client_id, clients!inner(id, slug, name, status)), package_items(type, title, position)";
 
 export type FiltrySkrzynki = { clientId?: string | null; typ?: TypUwagi | null };
 
@@ -56,7 +56,8 @@ export type FiltrySkrzynki = { clientId?: string | null; typ?: TypUwagi | null }
  */
 export async function pobierzNierozwiazaneUwagi(clientIds: string[] | null, filtry: FiltrySkrzynki = {}): Promise<UwagaWSkrzynce[]> {
   const db = supabaseSerwer();
-  let zapytanie = db.from("comments").select(KOLUMNY).eq("author_kind", "klient").is("resolved_at", null).order("created_at", { ascending: false }).limit(500);
+  // Uwagi klientów wstrzymanych i zakończonych nie czekają na zespół (offboarding, SPEC rozdz. 17).
+  let zapytanie = db.from("comments").select(KOLUMNY).eq("author_kind", "klient").is("resolved_at", null).eq("packages.clients.status", "aktywny").order("created_at", { ascending: false }).limit(500);
   if (clientIds) {
     if (clientIds.length === 0) return [];
     zapytanie = zapytanie.in("packages.client_id", clientIds);
@@ -79,7 +80,7 @@ export async function pobierzNierozwiazaneUwagi(clientIds: string[] | null, filt
     pakietTytul: w.packages.title ?? "",
     statusPakietu: w.packages.status,
     okres: { od: w.packages.period_from, do: w.packages.period_to },
-    klient: w.packages.clients,
+    klient: { id: w.packages.clients.id, slug: w.packages.clients.slug, name: w.packages.clients.name },
     materialId: w.item_id,
     materialTytul: w.package_items ? (w.package_items.title ?? `${w.package_items.type} ${w.package_items.position}`) : null,
     typ: w.package_items?.type ?? "pakiet",
@@ -92,7 +93,13 @@ export async function pobierzNierozwiazaneUwagi(clientIds: string[] | null, filt
 /** Liczba nieprzeczytanych, nierozwiązanych uwag klientów (plakietka w nawigacji). */
 export async function liczNieprzeczytaneUwagi(clientIds: string[] | null): Promise<number> {
   if (clientIds && clientIds.length === 0) return 0;
-  let zapytanie = supabaseSerwer().from("comments").select("id, packages!inner(client_id)", { count: "exact", head: true }).eq("author_kind", "klient").is("resolved_at", null).is("seen_by_team_at", null);
+  let zapytanie = supabaseSerwer()
+    .from("comments")
+    .select("id, packages!inner(client_id, clients!inner(status))", { count: "exact", head: true })
+    .eq("author_kind", "klient")
+    .is("resolved_at", null)
+    .is("seen_by_team_at", null)
+    .eq("packages.clients.status", "aktywny");
   if (clientIds) zapytanie = zapytanie.in("packages.client_id", clientIds);
   const { count, error } = await zapytanie;
   if (error) throw new Error(`liczNieprzeczytaneUwagi: ${error.message}`);

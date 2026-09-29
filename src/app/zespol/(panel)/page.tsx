@@ -1,8 +1,11 @@
 import Link from "next/link";
+import { BanerCronow } from "@/components/zespol/pulpit/baner-cronow";
 import { PokazLinkPulpit } from "@/components/zespol/pulpit/pokaz-link";
 import { wymagajCzlonka } from "@/lib/auth-zespol";
 import { copy } from "@/lib/copy";
 import { pobierzIdsMoichKlientow, pobierzKlientowDla, zakresKlientow } from "@/lib/dane/klienci-zespolu";
+import { ocenCrony } from "@/lib/crony/monitoring";
+import { liczNieudaneOutbox, pobierzPrzebiegiCronow } from "@/lib/dane/crony";
 import { pobierzKlientowNieaktywnych } from "@/lib/dane/offboarding";
 import { pobierzPakietyNaPulpit, type PakietNaPulpicie } from "@/lib/dane/materialy";
 import type { StatusPakietu } from "@/lib/dto/materialy";
@@ -65,6 +68,10 @@ export default async function Pulpit({ searchParams }: PageProps<"/zespol">) {
   const klienci = await pobierzKlientowDla(czlonek);
   // Offboarding (SPEC rozdz. 17): wstrzymani i zakończeni poza główną listą, ale z wejściem do karty (admin i csm).
   const nieaktywni = maUprawnienie(czlonek.role, "klienci", "pelne") ? await pobierzKlientowNieaktywnych(await zakresKlientow(czlonek)) : [];
+  // Monitoring cronów tylko dla admina; lokalnie crony nie chodzą same, więc brak zapisu nie jest tam problemem.
+  const problemyCronow = maUprawnienie(czlonek.role, "ustawienia", "pelne")
+    ? ocenCrony(await pobierzPrzebiegiCronow(), new Date(), { nieudaneOutbox: await liczNieudaneOutbox(), wymagajPrzebiegu: process.env.NODE_ENV === "production" })
+    : [];
   const zakres = !widziWszystkich ? klienci.map((k) => k.id) : filtry.zakres === "moi" ? await pobierzIdsMoichKlientow(czlonek.id) : null;
   const wszystkiePakiety = await pobierzPakietyNaPulpit(zakres);
   const pakiety = wszystkiePakiety.filter((p) => (filtry.status === null ? true : filtry.status === "wstrzymana" ? p.wstrzymana : p.status === filtry.status)).filter((p) => (filtry.miesiac ? miesiacStartu(p) === filtry.miesiac : true));
@@ -79,6 +86,7 @@ export default async function Pulpit({ searchParams }: PageProps<"/zespol">) {
     <div>
       <h1 className="font-naglowek text-2xl text-foodie-czern sm:text-3xl">{copy.zespol.pulpit.tytul}</h1>
       <p className="mt-1 text-sm text-szary-600">{copy.zespol.pulpit.opis}</p>
+      <BanerCronow problemy={problemyCronow} />
       {usunieto ? (
         <p role="status" className="mt-4 rounded-lg bg-green-50 px-3 py-2 text-sm text-zielony" data-usunieto-klienta>
           {copy.zespol.pulpit.usunietoKlienta.replace("{klient}", usunieto)}

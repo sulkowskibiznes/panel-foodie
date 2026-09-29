@@ -75,7 +75,7 @@ export type PakietDoPrzejscia = {
   autoApproveEnabled: boolean;
   autoApproveAt: string | null;
   submittedAt: string | null;
-  klient: { slug: string; name: string; slackChannel: string | null; autoApproveHours: number | null; autoApproveDefault: boolean };
+  klient: { slug: string; name: string; slackChannel: string | null; autoApproveHours: number | null; autoApproveDefault: boolean; status: Database["public"]["Enums"]["client_status"] };
 };
 
 export type ZmianyPakietu = Partial<
@@ -212,6 +212,8 @@ export async function wykonajPrzejscie(pakietId: string, przejscie: Przejscie, a
   switch (przejscie.typ) {
     case "wyslij":
     case "wyslij_v2": {
+      // Klient wstrzymany albo zakończony nie dostaje materiałów (offboarding, SPEC rozdz. 17).
+      if (pakiet.klient.status !== "aktywny") return { ok: false, powod: "klient_nieaktywny" };
       const kontrola = await d.sprawdzPrzedWysylka(pakiet.id);
       if (kontrola.braki.length > 0) return { ok: false, powod: "braki_w_materialach", braki: kontrola.braki, ostrzezenia: kontrola.ostrzezenia };
       if (przejscie.typ === "wyslij_v2") runda = pakiet.round + 1;
@@ -251,6 +253,7 @@ export async function wykonajPrzejscie(pakietId: string, przejscie: Przejscie, a
       break;
     }
     case "auto_akceptuj": {
+      if (pakiet.klient.status !== "aktywny") return { ok: false, powod: "klient_nieaktywny" };
       if (!pakiet.autoApproveEnabled || !pakiet.autoApproveAt) return { ok: false, powod: "auto_wylaczona" };
       if (new Date(pakiet.autoApproveAt).getTime() > teraz.getTime()) return { ok: false, powod: "termin_nie_minal" };
       const nierozwiazane = await d.liczUwagiKlienta(pakiet.id, pakiet.round, true);

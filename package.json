@@ -19,6 +19,7 @@
     "db:migrate": "supabase db push",
     "db:seed": "tsx supabase/seed/seed.ts",
     "db:seed:demo": "tsx supabase/seed/seed.ts --tylko=demo-bistro",
+    "db:seed:produkcja": "tsx supabase/seed/seed.ts --produkcja",
     "db:types": "supabase gen types typescript --local --schema public > src/lib/db-types.tmp && mv src/lib/db-types.tmp src/lib/db-types.ts",
     "instrukcja": "tsx scripts/instrukcja/zbuduj.ts"
   },

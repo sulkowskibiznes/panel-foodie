@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { czyAutoryzowanyCron } from "@/lib/cron";
+import { zapiszPrzebiegCrona } from "@/lib/dane/crony";
 import { adresZapiera, zaleznosciOutbox } from "@/lib/outbox/baza";
 import { uruchomWysylkeOutbox } from "@/lib/outbox/wysylka";
 
@@ -10,7 +11,11 @@ import { uruchomWysylkeOutbox } from "@/lib/outbox/wysylka";
 export async function GET(request: Request) {
   if (!czyAutoryzowanyCron(request)) return new NextResponse(null, { status: 401 });
   const url = adresZapiera();
-  if (!url) return NextResponse.json({ brakAdresu: true, sprawdzone: 0, wyslane: [], ponowione: [], porzucone: [], pominiete: [] });
+  if (!url) {
+    await zapiszPrzebiegCrona("outbox", 0);
+    return NextResponse.json({ brakAdresu: true, sprawdzone: 0, wyslane: [], ponowione: [], porzucone: [], pominiete: [] });
+  }
   const wynik = await uruchomWysylkeOutbox(zaleznosciOutbox(url));
+  await zapiszPrzebiegCrona("outbox", wynik.porzucone.length);
   return NextResponse.json({ brakAdresu: false, ...wynik });
 }

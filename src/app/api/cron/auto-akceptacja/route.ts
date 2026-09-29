@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { zapiszAudyt } from "@/lib/audyt";
 import { czyAutoryzowanyCron } from "@/lib/cron";
+import { zapiszPrzebiegCrona } from "@/lib/dane/crony";
 import { zaleznosciCrona } from "@/lib/pakiety/baza";
 import { uruchomCronAutoAkceptacji } from "@/lib/pakiety/cron-auto-akceptacji";
 
@@ -14,5 +15,6 @@ export async function GET(request: Request) {
   await Promise.all(
     wynik.zaakceptowane.map((id) => zapiszAudyt({ actor_kind: "system", action: "system.auto_akceptacja", entity: "package", entity_id: id })),
   );
+  await zapiszPrzebiegCrona("auto-akceptacja", wynik.bledy.length);
   return NextResponse.json(wynik);
 }

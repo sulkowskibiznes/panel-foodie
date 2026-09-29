@@ -12,7 +12,7 @@ import { supabaseSerwer } from "@/lib/supabase/server";
 type Json = Database["public"]["Tables"]["package_events"]["Insert"]["payload"];
 
 const KOLUMNY_PAKIETU =
-  "id, client_id, status, round, title, period_from, period_to, auto_approve_enabled, auto_approve_at, submitted_at, clients!inner(slug, name, slack_channel, auto_approve_hours, auto_approve_default)";
+  "id, client_id, status, round, title, period_from, period_to, auto_approve_enabled, auto_approve_at, submitted_at, clients!inner(slug, name, slack_channel, auto_approve_hours, auto_approve_default, status)";
 
 type WierszPakietu = {
   id: string;
@@ -25,7 +25,7 @@ type WierszPakietu = {
   auto_approve_enabled: boolean;
   auto_approve_at: string | null;
   submitted_at: string | null;
-  clients: { slug: string; name: string; slack_channel: string | null; auto_approve_hours: number | null; auto_approve_default: boolean };
+  clients: { slug: string; name: string; slack_channel: string | null; auto_approve_hours: number | null; auto_approve_default: boolean; status: PakietDoPrzejscia["klient"]["status"] };
 };
 
 function naPakietDoPrzejscia(w: WierszPakietu): PakietDoPrzejscia {
@@ -40,7 +40,7 @@ function naPakietDoPrzejscia(w: WierszPakietu): PakietDoPrzejscia {
     autoApproveEnabled: w.auto_approve_enabled,
     autoApproveAt: w.auto_approve_at,
     submittedAt: w.submitted_at,
-    klient: { slug: k.slug, name: k.name, slackChannel: k.slack_channel, autoApproveHours: k.auto_approve_hours, autoApproveDefault: k.auto_approve_default },
+    klient: { slug: k.slug, name: k.name, slackChannel: k.slack_channel, autoApproveHours: k.auto_approve_hours, autoApproveDefault: k.auto_approve_default, status: k.status },
   };
 }
 
@@ -137,7 +137,13 @@ export function zaleznosciCrona(): ZaleznosciCrona {
   const db = supabaseSerwer();
   return {
     async pobierzDoAkceptacji() {
-      const { data, error } = await db.from("packages").select(`${KOLUMNY_PAKIETU}, first_opened_at`).eq("status", "do_akceptacji").order("auto_approve_at", { ascending: true, nullsFirst: false });
+      // Tylko klienci z trwającą współpracą: pakiet klienta wstrzymanego albo zakończonego nie może się sam zaakceptować.
+      const { data, error } = await db
+        .from("packages")
+        .select(`${KOLUMNY_PAKIETU}, first_opened_at`)
+        .eq("status", "do_akceptacji")
+        .eq("clients.status", "aktywny")
+        .order("auto_approve_at", { ascending: true, nullsFirst: false });
       if (error) throw new Error(`pobierzDoAkceptacji: ${error.message}`);
       return (data ?? []).map((w) => ({ ...naPakietDoPrzejscia(w), firstOpenedAt: w.first_opened_at }));
     },

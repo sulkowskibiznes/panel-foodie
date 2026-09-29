@@ -2,7 +2,9 @@ import { expect, test } from "@playwright/test";
 import { copy } from "../../src/lib/copy";
 import { usunCzlonkaTestowego, utworzCzlonkaTestowego, utworzLinkTestowy, wyczyscLimity } from "./pomocnicze/baza";
 import { probaPinu, zalogujKlienta } from "./pomocnicze/klient";
-import { klientIstnieje, stanKlienta, usunKlientaTestowego, utworzKlientaTestowego } from "./pomocnicze/klienci";
+import { bearerCrona } from "./pomocnicze/faza5";
+import { klientIstnieje, stanKlienta, usunKlientaTestowego, ustawStatusKlienta, ustawTerminAutoAkceptacji, utworzKlientaTestowego, utworzPakietKlienta } from "./pomocnicze/klienci";
+import { odsunTerminySeedu, stanPakietu } from "./pomocnicze/pakiety";
 import { czyObiektIstnieje, wgrajObiektTestowy, wpisyAudytuPoEncji } from "./pomocnicze/retencja";
 import { PLIK_SESJI_ZESPOLU, zalogujZespol } from "./pomocnicze/zespol";
 
@@ -104,5 +106,58 @@ test("zakończenie współpracy wylogowuje klienta i wygasza linki; wznowienie i
   } finally {
     await usunKlientaTestowego(slug);
     await usunCzlonkaTestowego(admin);
+  }
+});
+
+test("klient nieaktywny: cron go nie akceptuje, pulpit i skrzynka go pomijają, zakończenie wycofuje pakiet w toku, a wysyłka jest odmówiona", async ({ browser, request }) => {
+  const projekt = test.info().project.name;
+  const slug = `e2e-offb-pakiet-${projekt}`;
+  const nazwa = `Pakiet w toku ${projekt === "mobile-390" ? "Mobile" : "Desktop"} E2E`;
+  const znacznik = `uwaga-offboarding-${projekt}-${Date.now()}`;
+  const klient = await utworzKlientaTestowego(slug, nazwa);
+  const zespol = await browser.newContext({ storageState: PLIK_SESJI_ZESPOLU });
+  try {
+    const wToku = await utworzPakietKlienta(klient.id, { status: "do_akceptacji", autoZaGodzin: 48 });
+    const szkic = await utworzPakietKlienta(klient.id, { status: "szkic", uwagaKlienta: znacznik });
+    const z = await zespol.newPage();
+
+    // kontrola: klient aktywny jest na pulpicie i w skrzynce
+    await z.goto("/zespol");
+    await expect(z.locator(`[data-pakiet-wiersz="${wToku.id}"]`)).toBeVisible();
+    await z.goto("/zespol/uwagi");
+    await expect(z.getByText(znacznik)).toBeVisible();
+
+    // klient wstrzymany (stan z bazy): znika z pulpitu i skrzynki, a cron nie akceptuje przeterminowanego pakietu
+    await ustawStatusKlienta(klient.id, "wstrzymany");
+    await ustawTerminAutoAkceptacji(wToku.id, -1);
+    await odsunTerminySeedu([wToku.id]);
+    await z.goto("/zespol");
+    await expect(z.getByRole("heading", { level: 1, name: copy.zespol.pulpit.tytul })).toBeVisible();
+    await expect(z.locator(`[data-pakiet-wiersz="${wToku.id}"]`)).toHaveCount(0);
+    await z.goto("/zespol/uwagi");
+    await expect(z.getByText(znacznik)).toHaveCount(0);
+    const cron = await request.get("/api/cron/auto-akceptacja", { headers: { authorization: bearerCrona() } });
+    expect(cron.status()).toBe(200);
+    expect((await stanPakietu(wToku.id)).status).toBe("do_akceptacji");
+
+    // „Zakończ współpracę" wycofuje pakiet w toku do szkicu przez maszynę stanów
+    await z.goto(`/zespol/klienci/${slug}/ustawienia`);
+    z.once("dialog", (d) => void d.accept());
+    await z.locator("[data-zakoncz-wspolprace]").click();
+    await expect(z.locator("[data-wspolpraca=zakonczony]")).toBeVisible();
+    const poZakonczeniu = await stanPakietu(wToku.id);
+    expect(poZakonczeniu.status).toBe("szkic");
+    expect(poZakonczeniu.auto_approve_at).toBeNull();
+    expect(await wpisyAudytuPoEncji(wToku.id, "zespol.pakiet_wycofany")).toBe(1);
+
+    // wysyłka pakietu zakończonego klienta: odmowa z podpowiedzią, pakiet zostaje w szkicu
+    await z.goto(`/zespol/klienci/${slug}/pakiety/${szkic.id}`);
+    await z.locator('[data-akcja="wyslij"]').click();
+    await z.locator("[data-potwierdz-wysylke]").click();
+    await expect(z.getByRole("dialog").getByText(copy.przejscia.odmowa.klient_nieaktywny)).toBeVisible();
+    expect((await stanPakietu(szkic.id)).status).toBe("szkic");
+  } finally {
+    await zespol.close();
+    await usunKlientaTestowego(slug);
   }
 });
