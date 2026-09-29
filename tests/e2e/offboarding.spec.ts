@@ -6,7 +6,7 @@ import { bearerCrona } from "./pomocnicze/faza5";
 import { klientIstnieje, stanKlienta, usunKlientaTestowego, ustawStatusKlienta, ustawTerminAutoAkceptacji, utworzKlientaTestowego, utworzPakietKlienta, wstawZdarzenieBezSluga, zdarzeniaOutboxKlienta } from "./pomocnicze/klienci";
 import { odsunTerminySeedu, stanPakietu } from "./pomocnicze/pakiety";
 import { czyObiektIstnieje, wgrajObiektTestowy, wpisyAudytuPoEncji } from "./pomocnicze/retencja";
-import { PLIK_SESJI_ZESPOLU, zalogujZespol } from "./pomocnicze/zespol";
+import { PLIK_SESJI_ZESPOLU, potwierdzOkno, zalogujZespol } from "./pomocnicze/zespol";
 
 /**
  * Faza 6, SPEC rozdz. 17: offboarding. „Zakończ współpracę" (admin i csm) wygasza linki, wylogowuje urządzenia
@@ -45,11 +45,8 @@ test("zakończenie współpracy wylogowuje klienta i wygasza linki; wznowienie i
     await expect(z.locator("[data-aktywne-linki]")).toHaveAttribute("data-aktywne-linki", "1");
     await expect(z.locator("[data-usuwanie-tylko-admin]")).toBeVisible();
     await expect(z.locator("[data-formularz-usuniecia]")).toHaveCount(0);
-    z.once("dialog", (d) => {
-      expect(d.message()).toContain(nazwa);
-      void d.accept();
-    });
     await z.locator("[data-zakoncz-wspolprace]").click();
+    await potwierdzOkno(z, nazwa);
     await expect(z.locator("[data-wspolpraca=zakonczony]")).toBeVisible();
     await expect(z.locator("[data-zakonczono]")).toBeVisible();
     await expect(z.locator("[data-status-klienta=zakonczony]")).toBeVisible();
@@ -80,8 +77,8 @@ test("zakończenie współpracy wylogowuje klienta i wygasza linki; wznowienie i
     await z.goto("/zespol");
     await expect(z.getByRole("cell", { name: nazwa, exact: true })).toBeVisible();
     await z.goto(`/zespol/klienci/${slug}/ustawienia`);
-    z.once("dialog", (d) => void d.accept());
     await z.locator("[data-zakoncz-wspolprace]").click();
+    await potwierdzOkno(z, nazwa);
     await expect(z.locator("[data-wspolpraca=zakonczony]")).toBeVisible();
     await zespol.close();
 
@@ -147,8 +144,8 @@ test("klient nieaktywny: cron go nie akceptuje, pulpit i skrzynka go pomijają, 
 
     // „Zakończ współpracę" wycofuje pakiet w toku do szkicu przez maszynę stanów
     await z.goto(`/zespol/klienci/${slug}/ustawienia`);
-    z.once("dialog", (d) => void d.accept());
     await z.locator("[data-zakoncz-wspolprace]").click();
+    await potwierdzOkno(z, nazwa);
     await expect(z.locator("[data-wspolpraca=zakonczony]")).toBeVisible();
     const poZakonczeniu = await stanPakietu(wToku.id);
     expect(poZakonczeniu.status).toBe("szkic");

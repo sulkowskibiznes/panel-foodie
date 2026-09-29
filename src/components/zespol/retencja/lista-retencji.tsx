@@ -4,6 +4,7 @@ import { useRouter } from "next/navigation";
 import { useState, useTransition } from "react";
 import { sprawdzTeraz, usunMaterialy, zachowajMaterialy } from "@/app/zespol/(panel)/ustawienia/retencja/akcje";
 import { Button } from "@/components/ui/button";
+import { usePotwierdzenie } from "@/components/zespol/potwierdzenie";
 import { copy } from "@/lib/copy";
 import type { PrzegladNaLiscie } from "@/lib/dane/retencja";
 import { etykietaOkresu, formatujDate, formatujDateCzas } from "@/lib/format";
@@ -15,6 +16,7 @@ export function ListaRetencji({ oczekujace, decyzje }: { oczekujace: PrzegladNaL
   const [komunikat, setKomunikat] = useState<string | null>(null);
   const [blad, setBlad] = useState<string | null>(null);
   const t = copy.zespol.retencja;
+  const { potwierdz, okno } = usePotwierdzenie();
 
   function wykonaj(fn: () => Promise<{ ok: boolean; blad?: string }>) {
     setBlad(null);
@@ -25,8 +27,8 @@ export function ListaRetencji({ oczekujace, decyzje }: { oczekujace: PrzegladNaL
     });
   }
 
-  function usun(p: PrzegladNaLiscie) {
-    if (!window.confirm(t.usunPotwierdz.replace("{pakiet}", p.tytul).replace("{klient}", p.klient.name))) return;
+  async function usun(p: PrzegladNaLiscie) {
+    if (!(await potwierdz({ tresc: t.usunPotwierdz.replace("{pakiet}", p.tytul).replace("{klient}", p.klient.name), przycisk: t.usun, niebezpieczne: true }))) return;
     wykonaj(() => usunMaterialy(p.id));
   }
 
@@ -75,7 +77,7 @@ export function ListaRetencji({ oczekujace, decyzje }: { oczekujace: PrzegladNaL
                   <td className="px-4 py-3 text-szary-600">{formatujDate(p.zgloszonoO)}</td>
                   <td className="px-4 py-3">
                     <div className="flex flex-wrap gap-2">
-                      <Button type="button" variant="destructive" size="sm" disabled={trwa} onClick={() => usun(p)} data-usun-materialy>
+                      <Button type="button" variant="destructive" size="sm" disabled={trwa} onClick={() => void usun(p)} data-usun-materialy>
                         {t.usun}
                       </Button>
                       <Button type="button" variant="outline" size="sm" disabled={trwa} onClick={() => wykonaj(() => zachowajMaterialy(p.id))} data-zachowaj-materialy>
@@ -114,6 +116,7 @@ export function ListaRetencji({ oczekujace, decyzje }: { oczekujace: PrzegladNaL
           </ul>
         )}
       </section>
+      {okno}
     </div>
   );
 }

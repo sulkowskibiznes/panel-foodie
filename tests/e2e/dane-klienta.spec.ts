@@ -6,7 +6,7 @@ import { daneKlientaTestowego, usunKlientaTestowego, utworzKlientaTestowego, utw
 import { stanPakietu } from "./pomocnicze/pakiety";
 import { grafikaTestowa } from "./pomocnicze/pliki";
 import { wpisyAudytuPoEncji } from "./pomocnicze/retencja";
-import { PLIK_SESJI_ZESPOLU, zalogujZespol } from "./pomocnicze/zespol";
+import { PLIK_SESJI_ZESPOLU, potwierdzOkno, zalogujZespol } from "./pomocnicze/zespol";
 
 /**
  * Plan domknięcia, Etap 1: zakładka „Dane i współpraca" karty klienta. Csm (Gosia, opiekun klienta jednorazowego)
@@ -231,11 +231,8 @@ test("akceptacja per klient i przerwa we współpracy: pakiet wraca do szkicu, l
     expect(await daneKlientaTestowego(klient.id)).toMatchObject({ auto_approve_default: false, auto_approve_hours: 96, default_publish_hours: [10, 19] });
 
     // Przerwa: pakiet czekający na akceptację wraca do szkicu, klient znika z pulpitu, link działa
-    z.once("dialog", (dlg) => {
-      expect(dlg.message()).toContain(nazwa);
-      void dlg.accept();
-    });
     await z.locator("[data-przerwa-wspolpracy]").click();
+    await potwierdzOkno(z, nazwa);
     await expect(z.locator("[data-wspolpraca=wstrzymany]")).toBeVisible();
     await expect(z.locator("[data-przerwa]")).toBeVisible();
     expect((await stanPakietu(wToku.id)).status).toBe("szkic");

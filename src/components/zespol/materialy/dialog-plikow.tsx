@@ -10,6 +10,7 @@ import type { AkcjeMaterialow } from "@/components/zespol/materialy/typy";
 import { useUploadPliku } from "@/components/zespol/materialy/use-upload-pliku";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { usePotwierdzenie } from "@/components/zespol/potwierdzenie";
 import { copy } from "@/lib/copy";
 import type { MaterialDto, PlikDto, StatusPakietu } from "@/lib/dto/materialy";
 
@@ -26,6 +27,7 @@ export function DialogPlikow({ open, onClose, material, status, akcje }: { open:
   const [potwierdzono, setPotwierdzono] = useState(false);
   const [wynik, setWynik] = useState<WynikZmiany | null>(null);
   const [trwa, startTransition] = useTransition();
+  const { potwierdz, okno } = usePotwierdzenie();
   const upload = useUploadPliku(useMemo(() => ({ przygotuj: akcje.przygotuj, zakoncz: akcje.zakoncz, pobierzZDysku: (url: string) => akcje.pobierzZDysku({ url, materialId: material.id, rodzaj: tryb?.rodzaj === "podmiana" ? "podmiana" : "dodatkowy" }) }), [akcje, material.id, tryb?.rodzaj]));
   const reklama = material.typ === "reklama";
   const pliki: PlikDto[] = reklama ? material.warianty.filter((w) => w.rodzaj === "grafika" && w.plik).map((w) => w.plik as PlikDto) : material.pliki;
@@ -53,8 +55,8 @@ export function DialogPlikow({ open, onClose, material, status, akcje }: { open:
     });
   }
 
-  function usun(assetId: string) {
-    if (!window.confirm(t.usunPlikPotwierdz)) return;
+  async function usun(assetId: string) {
+    if (!(await potwierdz({ tresc: t.usunPlikPotwierdz, przycisk: t.usunPlik, niebezpieczne: true }))) return;
     startTransition(async () => {
       const w = await akcje.usunPlik({ materialId: material.id, assetId, potwierdzono });
       setWynik(w);
@@ -84,7 +86,7 @@ export function DialogPlikow({ open, onClose, material, status, akcje }: { open:
               <Button type="button" variant="outline" size="sm" disabled={trwa || wymagaPotwierdzenia} onClick={() => { setWynik(null); setTryb({ rodzaj: "podmiana", assetId: p.id }); }} data-podmien-plik={p.id}>
                 {t.podmienPlik}
               </Button>
-              <Button type="button" variant="ghost" size="sm" disabled={trwa || wymagaPotwierdzenia || (status !== "szkic" && pliki.length <= 1)} title={status !== "szkic" && pliki.length <= 1 ? t.ostatniPlik : undefined} onClick={() => usun(p.id)} data-usun-plik={p.id}>
+              <Button type="button" variant="ghost" size="sm" disabled={trwa || wymagaPotwierdzenia || (status !== "szkic" && pliki.length <= 1)} title={status !== "szkic" && pliki.length <= 1 ? t.ostatniPlik : undefined} onClick={() => void usun(p.id)} data-usun-plik={p.id}>
                 {t.usunPlik}
               </Button>
             </li>
@@ -104,6 +106,7 @@ export function DialogPlikow({ open, onClose, material, status, akcje }: { open:
         <div className="flex justify-end">
           <Button type="button" variant="outline" size="lg" onClick={zamknij}>{copy.zespol.dostep.gotowy.zamknij}</Button>
         </div>
+      {okno}
       </DialogContent>
     </Dialog>
   );

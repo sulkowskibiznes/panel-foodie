@@ -5,6 +5,7 @@ import { odnotujSkopiowanie, utworzLink, type WynikNowegoLinku } from "@/app/zes
 import { PolaKopiowania } from "@/components/zespol/dostep/pola-kopiowania";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { usePotwierdzenie } from "@/components/zespol/potwierdzenie";
 import { copy } from "@/lib/copy";
 
 type Kontakt = { id: string; name: string; role_label: string | null };
@@ -16,11 +17,12 @@ export function DialogNowegoLinku({ slug, kontakty }: { slug: string; kontakty: 
   const [wynik, setWynik] = useState<WynikNowegoLinku | null>(null);
   const [kodSkopiowany, setKodSkopiowany] = useState(false);
   const [trwa, startTransition] = useTransition();
+  const { potwierdz, okno } = usePotwierdzenie();
   const d = copy.zespol.dostep;
 
-  function zmienOtwarcie(open: boolean) {
-    // Kod startowy widać tylko raz: zamknięcie bez kopiowania wymaga potwierdzenia (plan 3a).
-    if (!open && wynik?.ok && !kodSkopiowany && !window.confirm(d.gotowy.zamknijBezKopiowania)) return;
+  async function zmienOtwarcie(open: boolean) {
+    // Kod startowy widać tylko raz: zamknięcie bez kopiowania wymaga potwierdzenia (okno w oknie, plan 3a).
+    if (!open && wynik?.ok && !kodSkopiowany && !(await potwierdz({ tresc: d.gotowy.zamknijBezKopiowania, przycisk: d.gotowy.zamknij }))) return;
     setOtwarty(open);
     if (!open) {
       setWynik(null);
@@ -43,7 +45,7 @@ export function DialogNowegoLinku({ slug, kontakty }: { slug: string; kontakty: 
   }
 
   return (
-    <Dialog open={otwarty} onOpenChange={zmienOtwarcie}>
+    <Dialog open={otwarty} onOpenChange={(open) => void zmienOtwarcie(open)}>
       <DialogTrigger render={<Button size="lg" />}>{d.utworz}</DialogTrigger>
       <DialogContent className="sm:max-w-md">
         {wynik?.ok ? (
@@ -60,7 +62,7 @@ export function DialogNowegoLinku({ slug, kontakty }: { slug: string; kontakty: 
                 void odnotujSkopiowanie(slug, wynik.linkId, co);
               }}
             />
-            <Button type="button" variant="outline" size="lg" onClick={() => zmienOtwarcie(false)}>{d.gotowy.zamknij}</Button>
+            <Button type="button" variant="outline" size="lg" onClick={() => void zmienOtwarcie(false)}>{d.gotowy.zamknij}</Button>
           </>
         ) : (
           <form onSubmit={wyslij} className="space-y-4">
@@ -89,11 +91,12 @@ export function DialogNowegoLinku({ slug, kontakty }: { slug: string; kontakty: 
             </label>
             {wynik && !wynik.ok ? <p role="alert" className="rounded-lg bg-red-50 px-3 py-2 text-sm text-czerwony">{wynik.blad}</p> : null}
             <div className="flex justify-end gap-2">
-              <Button type="button" variant="outline" size="lg" onClick={() => zmienOtwarcie(false)}>{d.nowy.anuluj}</Button>
+              <Button type="button" variant="outline" size="lg" onClick={() => void zmienOtwarcie(false)}>{d.nowy.anuluj}</Button>
               <Button type="submit" size="lg" disabled={trwa}>{trwa ? d.nowy.tworzenie : d.nowy.utworz}</Button>
             </div>
           </form>
         )}
+        {okno}
       </DialogContent>
     </Dialog>
   );

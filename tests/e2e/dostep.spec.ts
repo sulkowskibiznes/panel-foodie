@@ -2,7 +2,7 @@ import { expect, test, type BrowserContext, type Page } from "@playwright/test";
 import { copy } from "../../src/lib/copy";
 import { aktywneSesje, nieistniejacyToken, nowyPinKlienta, pakietKlienta, przesunSesjeWczas, rotatedAt, stanLinku, usunLinkTestowy, utworzLinkTestowy, wyczyscLimity, zasobKlienta, type LinkTestowy } from "./pomocnicze/baza";
 import { probaPinu, wpiszNowyPin, zalogujKlienta, zalogujKodemStartowym } from "./pomocnicze/klient";
-import { PLIK_SESJI_ZESPOLU } from "./pomocnicze/zespol";
+import { PLIK_SESJI_ZESPOLU, potwierdzOkno } from "./pomocnicze/zespol";
 
 /** Kryteria odbioru 1-6 z SPEC rozdz. 18. Serial: limit prób na IP jest wspólny dla localhost. */
 test.describe.configure({ mode: "serial" });
@@ -129,8 +129,8 @@ test("5. wygaszenie linku przez zespół wylogowuje otwartą sesję przy następ
   await stronaZespolu.goto(`/zespol/klienci/${KLIENT_A}/dostep`);
   const wiersz = stronaZespolu.getByRole("table", { name: copy.zespol.dostep.tytul }).locator("tr", { hasText: l.label });
   await expect(wiersz).toBeVisible();
-  stronaZespolu.once("dialog", (d) => void d.accept());
   await wiersz.getByRole("button", { name: copy.zespol.dostep.akcje.wygas }).click();
+  await potwierdzOkno(stronaZespolu, copy.zespol.dostep.akcje.wygasPotwierdz);
   await expect(wiersz.getByText(copy.zespol.dostep.status.wygaszony)).toBeVisible();
   await zespol.close();
 
@@ -152,8 +152,8 @@ test("6. nowy kod startowy wylogowuje wszystkie urządzenia linku, a po nim klie
   const stronaZespolu = await zespol.newPage();
   await stronaZespolu.goto(`/zespol/klienci/${KLIENT_A}/dostep`);
   const wiersz = stronaZespolu.getByRole("table", { name: copy.zespol.dostep.tytul }).locator("tr", { hasText: l.label });
-  stronaZespolu.once("dialog", (d) => void d.accept());
   await wiersz.getByRole("button", { name: copy.zespol.dostep.akcje.resetujPin }).click();
+  await potwierdzOkno(stronaZespolu, copy.zespol.dostep.akcje.resetujPotwierdz);
   const dialog = stronaZespolu.getByRole("dialog");
   await expect(dialog.getByRole("heading", { name: copy.zespol.dostep.gotowy.nowyPinTytul })).toBeVisible();
   const kod = await dialog.getByLabel(copy.zespol.dostep.gotowy.pin).inputValue();

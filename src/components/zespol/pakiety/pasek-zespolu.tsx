@@ -4,6 +4,7 @@ import { useRouter } from "next/navigation";
 import { useState, useTransition } from "react";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { usePotwierdzenie } from "@/components/zespol/potwierdzenie";
 import { copy } from "@/lib/copy";
 import type { PakietSzczegoly } from "@/lib/dto/materialy";
 import type { WynikAkcji } from "@/lib/dto/wynik";
@@ -23,12 +24,13 @@ export function PasekZespolu({ pakiet, teraz, mozeZmieniac, wykonaj }: { pakiet:
   const [powod, setPowod] = useState("");
   const [wynik, setWynik] = useState<WynikAkcji | null>(null);
   const [trwa, startTransition] = useTransition();
+  const { potwierdz, okno } = usePotwierdzenie();
   const t = copy.zespol.pakietyMaterialow;
   const a = t.akcje;
   const wstrzymana = pakiet.status === "do_akceptacji" && pakiet.autoAkceptacjaO !== null && new Date(pakiet.autoAkceptacjaO).getTime() <= new Date(teraz).getTime() && pakiet.nierozwiazaneUwagiKlienta > 0;
 
-  function uruchom(przejscie: Przejscie, potwierdzenie?: string) {
-    if (potwierdzenie && !window.confirm(potwierdzenie)) return;
+  async function uruchom(przejscie: Przejscie, potwierdzenie?: string) {
+    if (potwierdzenie && !(await potwierdz({ tresc: potwierdzenie }))) return;
     setWynik(null);
     startTransition(async () => {
       const w = await wykonaj(przejscie);
@@ -58,9 +60,9 @@ export function PasekZespolu({ pakiet, teraz, mozeZmieniac, wykonaj }: { pakiet:
       {mozeZmieniac ? (
         <div className="mt-4 flex flex-wrap gap-2">
           {pakiet.status === "szkic" ? <Button type="button" size="lg" disabled={trwa} onClick={() => setDialog("wyslij")} data-akcja="wyslij">{a.wyslij}</Button> : null}
-          {pakiet.status === "do_akceptacji" ? <Button type="button" variant="outline" size="lg" disabled={trwa} onClick={() => uruchom({ typ: "wycofaj" }, a.wycofajPotwierdz)} data-akcja="wycofaj">{a.wycofaj}</Button> : null}
+          {pakiet.status === "do_akceptacji" ? <Button type="button" variant="outline" size="lg" disabled={trwa} onClick={() => void uruchom({ typ: "wycofaj" }, a.wycofajPotwierdz)} data-akcja="wycofaj">{a.wycofaj}</Button> : null}
           {pakiet.status === "poprawki" ? <Button type="button" size="lg" disabled={trwa} onClick={() => setDialog("wyslij_v2")} data-akcja="wyslij_v2">{a.wyslijV2.replace("{n}", String(pakiet.runda + 1))}</Button> : null}
-          {pakiet.status === "zaakceptowany" ? <Button type="button" size="lg" disabled={trwa} onClick={() => uruchom({ typ: "zaplanuj" }, a.zaplanowanoPotwierdz)} data-akcja="zaplanuj">{a.zaplanowano}</Button> : null}
+          {pakiet.status === "zaakceptowany" ? <Button type="button" size="lg" disabled={trwa} onClick={() => void uruchom({ typ: "zaplanuj" }, a.zaplanowanoPotwierdz)} data-akcja="zaplanuj">{a.zaplanowano}</Button> : null}
           {pakiet.status === "zaakceptowany" || pakiet.status === "zaplanowany" ? <Button type="button" variant="outline" size="lg" disabled={trwa} onClick={() => setDialog("cofnij")} data-akcja="cofnij">{a.cofnij}</Button> : null}
         </div>
       ) : null}
@@ -107,7 +109,7 @@ export function PasekZespolu({ pakiet, teraz, mozeZmieniac, wykonaj }: { pakiet:
           ) : null}
           <div className="flex justify-end gap-2">
             <Button type="button" variant="outline" size="lg" onClick={() => setDialog(null)}>{a.anuluj}</Button>
-            <Button type="button" size="lg" disabled={trwa} onClick={() => uruchom(dialog === "wyslij_v2" ? { typ: "wyslij_v2", autoAkceptacja: auto } : { typ: "wyslij", autoAkceptacja: auto })} data-potwierdz-wysylke>
+            <Button type="button" size="lg" disabled={trwa} onClick={() => void uruchom(dialog === "wyslij_v2" ? { typ: "wyslij_v2", autoAkceptacja: auto } : { typ: "wyslij", autoAkceptacja: auto })} data-potwierdz-wysylke>
               {trwa ? a.trwa : dialog === "wyslij_v2" ? a.wyslijV2.replace("{n}", String(pakiet.runda + 1)) : a.wyslij}
             </Button>
           </div>
@@ -127,12 +129,13 @@ export function PasekZespolu({ pakiet, teraz, mozeZmieniac, wykonaj }: { pakiet:
           {wynik && !wynik.ok ? <p role="alert" className="rounded-lg bg-red-50 px-3 py-2 text-sm text-czerwony">{wynik.blad}</p> : null}
           <div className="flex justify-end gap-2">
             <Button type="button" variant="outline" size="lg" onClick={() => setDialog(null)}>{a.anuluj}</Button>
-            <Button type="button" size="lg" disabled={trwa || powod.trim().length === 0} onClick={() => uruchom({ typ: "cofnij_do_poprawek", powod })} data-potwierdz-cofniecie>
+            <Button type="button" size="lg" disabled={trwa || powod.trim().length === 0} onClick={() => void uruchom({ typ: "cofnij_do_poprawek", powod })} data-potwierdz-cofniecie>
               {trwa ? a.trwa : a.potwierdzCofniecie}
             </Button>
           </div>
         </DialogContent>
       </Dialog>
+      {okno}
     </section>
   );
 }

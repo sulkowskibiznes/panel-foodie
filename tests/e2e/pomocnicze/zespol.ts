@@ -50,3 +50,21 @@ export async function zalogujZespol(page: Page, email: string): Promise<void> {
   await page.waitForURL(/\/zespol$/);
   await expect(page.getByRole("heading", { level: 1, name: copy.zespol.pulpit.tytul })).toBeVisible();
 }
+
+/** Okno potwierdzenia panelu (zamiast window.confirm, plan 3a): sprawdza treść i klika przycisk potwierdzenia. */
+export async function potwierdzOkno(page: Page, zawiera?: string): Promise<void> {
+  const okno = page.locator("[data-okno-potwierdzenia]");
+  await expect(okno).toBeVisible();
+  if (zawiera) await expect(okno).toContainText(zawiera);
+  await okno.locator("[data-potwierdz]").click();
+  await expect(okno).toHaveCount(0);
+}
+
+/** Okno potwierdzenia: „Anuluj" (np. zostajemy w oknie z kodem startowym). */
+export async function anulujOkno(page: Page, zawiera?: string): Promise<void> {
+  const okno = page.locator("[data-okno-potwierdzenia]");
+  await expect(okno).toBeVisible();
+  if (zawiera) await expect(okno).toContainText(zawiera);
+  await okno.locator("[data-anuluj-potwierdzenie]").click();
+  await expect(okno).toHaveCount(0);
+}

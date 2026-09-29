@@ -8,6 +8,7 @@ import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { PolePdf } from "@/components/zespol/pliki/pole-pdf";
 import { useUploadPdf } from "@/components/zespol/pliki/use-upload-pdf";
+import { usePotwierdzenie } from "@/components/zespol/potwierdzenie";
 import { copy } from "@/lib/copy";
 import type { FakturaZespolu } from "@/lib/dane/faktury";
 import { dniPoTerminie } from "@/lib/faktury/status";
@@ -28,6 +29,7 @@ export function ListaFaktur({ slug, faktury, mozeZmieniac, dzis }: { slug: strin
   const akcjeUploadu = useMemo(() => ({ przygotuj: (p: { nazwa: string; mime: string; bytes: number }) => przygotujPdf(slug, "faktury", p), zakoncz: (poz: string) => zakonczPdf(slug, "faktury", poz) }), [slug]);
   const upload = useUploadPdf(akcjeUploadu);
   const t = copy.zespol.faktury;
+  const { potwierdz, okno } = usePotwierdzenie();
 
   if (faktury.length === 0) return <p className="text-sm text-szary-600" data-brak-faktur>{t.brak}</p>;
 
@@ -103,7 +105,7 @@ export function ListaFaktur({ slug, faktury, mozeZmieniac, dzis }: { slug: strin
                 <td className="py-3">
                   <div className="flex flex-wrap gap-x-3 gap-y-1 whitespace-nowrap">
                     {f.status === "oplacona" ? (
-                      <button type="button" disabled={trwa} onClick={() => window.confirm(t.cofnijPotwierdz) && wykonaj(() => cofnijOplacenie(slug, f.id))} className="font-medium text-szary-600 hover:text-foodie-czern disabled:opacity-50" data-cofnij-oplacenie>
+                      <button type="button" disabled={trwa} onClick={() => void potwierdz({ tresc: t.cofnijPotwierdz, przycisk: t.cofnijOplacenie }).then((tak) => tak && wykonaj(() => cofnijOplacenie(slug, f.id)))} className="font-medium text-szary-600 hover:text-foodie-czern disabled:opacity-50" data-cofnij-oplacenie>
                         {t.cofnijOplacenie}
                       </button>
                     ) : (
@@ -114,7 +116,7 @@ export function ListaFaktur({ slug, faktury, mozeZmieniac, dzis }: { slug: strin
                     <button type="button" disabled={trwa} onClick={() => setDialog({ rodzaj: "pdf", faktura: f })} className="font-medium text-foodie-fiolet hover:underline disabled:opacity-50" data-pdf-faktury>
                       {f.maPdf ? t.pdfPodmien : t.pdfDodaj}
                     </button>
-                    <button type="button" disabled={trwa} onClick={() => window.confirm(t.usunPotwierdz.replace("{numer}", f.numer)) && wykonaj(() => usunFakture(slug, f.id))} className="font-medium text-szary-600 hover:text-czerwony disabled:opacity-50" data-usun-fakture>
+                    <button type="button" disabled={trwa} onClick={() => void potwierdz({ tresc: t.usunPotwierdz.replace("{numer}", f.numer), przycisk: t.usun, niebezpieczne: true }).then((tak) => tak && wykonaj(() => usunFakture(slug, f.id)))} className="font-medium text-szary-600 hover:text-czerwony disabled:opacity-50" data-usun-fakture>
                       {t.usun}
                     </button>
                   </div>
@@ -182,6 +184,7 @@ export function ListaFaktur({ slug, faktury, mozeZmieniac, dzis }: { slug: strin
           </div>
         </DialogContent>
       </Dialog>
+      {okno}
     </div>
   );
 }

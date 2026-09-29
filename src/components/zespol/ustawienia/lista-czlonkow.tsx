@@ -3,6 +3,7 @@
 import { useState, useTransition } from "react";
 import { przelaczAktywnosc, zapiszKontaktDlaKlienta } from "@/app/zespol/(panel)/ustawienia/zespol/akcje";
 import { Button } from "@/components/ui/button";
+import { usePotwierdzenie } from "@/components/zespol/potwierdzenie";
 import { copy } from "@/lib/copy";
 import type { KlienciCzlonka } from "@/lib/dane/dane-klienta";
 import type { Rola } from "@/lib/uprawnienia";
@@ -42,6 +43,7 @@ function PoleKontaktu({ czlonek }: { czlonek: Czlonek }) {
 export function ListaCzlonkow({ czlonkowie, adminId, klienci }: { czlonkowie: Czlonek[]; adminId: string; klienci: Record<string, KlienciCzlonka> }) {
   const [trwa, startTransition] = useTransition();
   const u = copy.zespol.ustawienia.zespol;
+  const { potwierdz, okno } = usePotwierdzenie();
   return (
     <div className="overflow-x-auto rounded-xl bg-white shadow-miekki">
       <table className="w-full min-w-[860px] text-sm">
@@ -77,10 +79,10 @@ export function ListaCzlonkow({ czlonkowie, adminId, klienci }: { czlonkowie: Cz
                     variant="ghost"
                     size="sm"
                     disabled={trwa}
-                    onClick={() => {
+                    onClick={async () => {
                       // Dezaktywacja opiekuna zostawia klientów bez opiekuna w „Twój pakiet": ostrzegamy przed kliknięciem.
                       const podOpieka = klienci[c.id]?.opiekun ?? 0;
-                      if (c.active && podOpieka > 0 && !window.confirm(u.dezaktywujOpiekuna.replace("{osoba}", c.name).replace("{n}", String(podOpieka)))) return;
+                      if (c.active && podOpieka > 0 && !(await potwierdz({ tresc: u.dezaktywujOpiekuna.replace("{osoba}", c.name).replace("{n}", String(podOpieka)), przycisk: u.dezaktywuj, niebezpieczne: true }))) return;
                       startTransition(() => przelaczAktywnosc(c.id, !c.active));
                     }}
                   >
@@ -93,6 +95,7 @@ export function ListaCzlonkow({ czlonkowie, adminId, klienci }: { czlonkowie: Cz
         </tbody>
       </table>
       <p className="px-4 pb-4 text-xs text-szary-600">{u.kontaktOpis}</p>
+      {okno}
     </div>
   );
 }

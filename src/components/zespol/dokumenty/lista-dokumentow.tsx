@@ -3,6 +3,7 @@
 import { useRouter } from "next/navigation";
 import { useState, useTransition } from "react";
 import { usunDokument } from "@/app/zespol/(panel)/klienci/[slug]/dokumenty/akcje";
+import { usePotwierdzenie } from "@/components/zespol/potwierdzenie";
 import { copy } from "@/lib/copy";
 import type { DokumentDlaKlienta } from "@/lib/dto/klient";
 import { formatujDate } from "@/lib/format";
@@ -12,10 +13,11 @@ export function ListaDokumentow({ slug, dokumenty, mozeUsuwac }: { slug: string;
   const [blad, setBlad] = useState<string | null>(null);
   const [trwa, startTransition] = useTransition();
   const t = copy.zespol.dokumenty;
+  const { potwierdz, okno } = usePotwierdzenie();
   if (dokumenty.length === 0) return <p className="text-sm text-szary-600" data-brak-dokumentow>{t.brak}</p>;
 
-  function usun(d: DokumentDlaKlienta) {
-    if (!window.confirm(t.usunPotwierdz.replace("{tytul}", d.tytul))) return;
+  async function usun(d: DokumentDlaKlienta) {
+    if (!(await potwierdz({ tresc: t.usunPotwierdz.replace("{tytul}", d.tytul), przycisk: t.usun, niebezpieczne: true }))) return;
     setBlad(null);
     startTransition(async () => {
       const w = await usunDokument(slug, d.id);
@@ -46,7 +48,7 @@ export function ListaDokumentow({ slug, dokumenty, mozeUsuwac }: { slug: string;
               <td className="py-3 text-right whitespace-nowrap">
                 <a href={`/zespol/dokument/${d.id}`} className="font-medium text-foodie-fiolet hover:underline" data-pobierz-dokument>{t.pobierz}</a>
                 {mozeUsuwac ? (
-                  <button type="button" disabled={trwa} onClick={() => usun(d)} className="ml-3 font-medium text-szary-600 hover:text-czerwony disabled:opacity-50" data-usun-dokument>
+                  <button type="button" disabled={trwa} onClick={() => void usun(d)} className="ml-3 font-medium text-szary-600 hover:text-czerwony disabled:opacity-50" data-usun-dokument>
                     {t.usun}
                   </button>
                 ) : null}
@@ -56,6 +58,7 @@ export function ListaDokumentow({ slug, dokumenty, mozeUsuwac }: { slug: string;
         </tbody>
       </table>
       {blad ? <p role="alert" className="mt-3 rounded-lg bg-red-50 px-3 py-2 text-sm text-czerwony">{blad}</p> : null}
+      {okno}
     </div>
   );
 }

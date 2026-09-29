@@ -5,7 +5,7 @@ import { usunCzlonkaTestowego, usunLinkTestowy, utworzCzlonkaTestowego, utworzLi
 import { bearerCrona } from "./pomocnicze/faza5";
 import { sklonujPakiet, usunPakiet } from "./pomocnicze/pakiety";
 import { audytIstnieje, czyObiektIstnieje, liczbaZdarzenRetencjiOd, pakietIstnieje, podmienPlikiKlonu, przegladPoId, przegladyPakietu, sesjaIstnieje, usunAudytTestowy, usunZdarzeniaRetencjiOd, ustawOdroczenie, wpisyAudytuPoEncji, wstawStaraSesje, wstawStaryAudyt } from "./pomocnicze/retencja";
-import { PLIK_SESJI_ZESPOLU, zalogujZespol } from "./pomocnicze/zespol";
+import { PLIK_SESJI_ZESPOLU, potwierdzOkno, zalogujZespol } from "./pomocnicze/zespol";
 
 /**
  * Faza 6, SPEC rozdz. 17: cron miesięczny zgłasza pakiety starsze niż 24 miesiące do decyzji admina i NICZEGO
@@ -99,11 +99,8 @@ test("cron zgłasza stary pakiet raz, admin odracza i usuwa; sesje i audyt sprz�
     expect((await przegladPoId(przeglad!.id))?.decision).toBeNull();
 
     // „Usuń materiały": potwierdzenie, pakiet i pliki znikają, wiersz zostaje jako ślad
-    page.once("dialog", (d) => {
-      expect(d.message()).toContain("Burger Brothers");
-      void d.accept();
-    });
     await wiersz.locator("[data-usun-materialy]").click();
+    await potwierdzOkno(page, "Burger Brothers");
     await expect(wiersz).toHaveCount(0);
     await expect(page.locator("[data-historia-retencji] [data-decyzja=usun]").first()).toBeVisible();
     expect(await pakietIstnieje(klon.id)).toBe(false);

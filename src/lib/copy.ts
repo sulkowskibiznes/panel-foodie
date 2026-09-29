@@ -458,6 +458,8 @@ export const copy = {
       zbytWiele: "Za dużo prób. Odczekaj chwilę i spróbuj ponownie.",
       brakDostepu: "Ten adres nie ma dostępu do panelu zespołu. Zostałeś wylogowany. Jeśli to pomyłka, poproś admina o dodanie Cię do zespołu.",
     },
+    /** Okno potwierdzenia zamiast window.confirm (plan domknięcia, Etap 3a). */
+    potwierdzenie: { tytul: "Na pewno?", potwierdz: "Tak, dalej", anuluj: "Anuluj" },
     nawigacja: {
       pulpit: "Pulpit",
       klienci: "Klienci",

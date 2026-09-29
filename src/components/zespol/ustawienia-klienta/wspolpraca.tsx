@@ -4,6 +4,7 @@ import { useRouter } from "next/navigation";
 import { useState, useTransition } from "react";
 import { wstrzymajWspolprace, wznowWspolprace, zakonczWspolprace } from "@/app/zespol/(panel)/klienci/[slug]/ustawienia/akcje";
 import { Button } from "@/components/ui/button";
+import { usePotwierdzenie } from "@/components/zespol/potwierdzenie";
 import { copy } from "@/lib/copy";
 import type { StanWspolpracy } from "@/lib/dane/offboarding";
 import { formatujDateCzas } from "@/lib/format";
@@ -16,6 +17,7 @@ export function Wspolpraca({ slug, nazwa, stan }: { slug: string; nazwa: string;
   const router = useRouter();
   const [trwa, startTransition] = useTransition();
   const [blad, setBlad] = useState<string | null>(null);
+  const { potwierdz, okno } = usePotwierdzenie();
   const u = copy.zespol.ustawieniaKlienta;
 
   function wykonaj(fn: () => Promise<{ ok: boolean; blad?: string }>) {
@@ -27,18 +29,18 @@ export function Wspolpraca({ slug, nazwa, stan }: { slug: string; nazwa: string;
     });
   }
 
-  function zakoncz() {
-    if (!window.confirm(u.zakonczPotwierdz.replace("{klient}", nazwa))) return;
+  async function zakoncz() {
+    if (!(await potwierdz({ tresc: u.zakonczPotwierdz.replace("{klient}", nazwa), przycisk: u.zakoncz, niebezpieczne: true }))) return;
     wykonaj(() => zakonczWspolprace(slug));
   }
 
-  function przerwa() {
-    if (!window.confirm(u.przerwaPotwierdz.replace("{klient}", nazwa))) return;
+  async function przerwa() {
+    if (!(await potwierdz({ tresc: u.przerwaPotwierdz.replace("{klient}", nazwa), przycisk: u.przerwa }))) return;
     wykonaj(() => wstrzymajWspolprace(slug));
   }
 
   const zakonczButton = (
-    <Button type="button" variant="destructive" size="lg" disabled={trwa} onClick={zakoncz} data-zakoncz-wspolprace>
+    <Button type="button" variant="destructive" size="lg" disabled={trwa} onClick={() => void zakoncz()} data-zakoncz-wspolprace>
       {u.zakoncz}
     </Button>
   );
@@ -70,7 +72,7 @@ export function Wspolpraca({ slug, nazwa, stan }: { slug: string; nazwa: string;
         <>
           <p className="text-sm text-szary-600" data-aktywne-linki={stan.aktywneLinki}>{u.aktywneLinki.replace("{n}", String(stan.aktywneLinki))}</p>
           <div className="flex flex-wrap gap-2">
-            <Button type="button" variant="outline" size="lg" disabled={trwa} onClick={przerwa} data-przerwa-wspolpracy>
+            <Button type="button" variant="outline" size="lg" disabled={trwa} onClick={() => void przerwa()} data-przerwa-wspolpracy>
               {u.przerwa}
             </Button>
             {zakonczButton}
@@ -78,6 +80,7 @@ export function Wspolpraca({ slug, nazwa, stan }: { slug: string; nazwa: string;
         </>
       )}
       {blad ? <p role="alert" className="rounded-lg bg-red-50 px-3 py-2 text-sm text-czerwony">{blad}</p> : null}
+      {okno}
     </div>
   );
 }

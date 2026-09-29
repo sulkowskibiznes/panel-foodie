@@ -7,6 +7,7 @@ import { DialogPlikow } from "@/components/zespol/materialy/dialog-plikow";
 import { DialogReklamy } from "@/components/zespol/materialy/dialog-reklamy";
 import type { AkcjeMaterialow, UprawnieniaMaterialow } from "@/components/zespol/materialy/typy";
 import { Button } from "@/components/ui/button";
+import { usePotwierdzenie } from "@/components/zespol/potwierdzenie";
 import { copy } from "@/lib/copy";
 import type { MaterialDto, PakietSzczegoly } from "@/lib/dto/materialy";
 
@@ -19,12 +20,13 @@ export function NarzedziaMaterialu({ material, pakiet, akcje, uprawnienia }: { m
   const [dialog, setDialog] = useState<Dialogowe>(null);
   const [blad, setBlad] = useState<string | null>(null);
   const [trwa, startTransition] = useTransition();
+  const { potwierdz, okno } = usePotwierdzenie();
   const reklama = material.typ === "reklama";
   const moze = reklama ? uprawnienia.kampanie : uprawnienia.content;
   if (!moze) return null;
 
-  function usun() {
-    if (!window.confirm(t.usunPotwierdz)) return;
+  async function usun() {
+    if (!(await potwierdz({ tresc: t.usunPotwierdz, niebezpieczne: true }))) return;
     setBlad(null);
     startTransition(async () => {
       const w = await akcje.usunMaterial(material.id);
@@ -39,7 +41,7 @@ export function NarzedziaMaterialu({ material, pakiet, akcje, uprawnienia }: { m
       {reklama ? <Button type="button" variant="outline" size="sm" onClick={() => setDialog("reklama")} data-edytuj-reklame>{t.reklama.tytul}</Button> : null}
       <Button type="button" variant="outline" size="sm" onClick={() => setDialog("pliki")} data-pliki-materialu>{t.pliki}</Button>
       {!reklama ? (
-        <Button type="button" variant="ghost" size="sm" disabled={trwa || pakiet.status !== "szkic"} title={pakiet.status !== "szkic" ? t.tylkoSzkic : undefined} onClick={usun} data-usun-material>
+        <Button type="button" variant="ghost" size="sm" disabled={trwa || pakiet.status !== "szkic"} title={pakiet.status !== "szkic" ? t.tylkoSzkic : undefined} onClick={() => void usun()} data-usun-material>
           {t.usun}
         </Button>
       ) : null}
@@ -47,6 +49,7 @@ export function NarzedziaMaterialu({ material, pakiet, akcje, uprawnienia }: { m
       {dialog === "edycja" ? <DialogEdycjiMaterialu open onClose={() => setDialog(null)} material={material} status={pakiet.status} kategoria={pakiet.kategoria} lokale={pakiet.lokale} akcje={akcje} /> : null}
       {dialog === "pliki" ? <DialogPlikow open onClose={() => setDialog(null)} material={material} status={pakiet.status} akcje={akcje} /> : null}
       {dialog === "reklama" ? <DialogReklamy open onClose={() => setDialog(null)} material={material} status={pakiet.status} kategoria={pakiet.kategoria} lokale={pakiet.lokale} akcje={akcje} /> : null}
+      {okno}
     </div>
   );
 }

@@ -3,6 +3,7 @@
 import { useRouter } from "next/navigation";
 import { useTransition } from "react";
 import { usunRaport } from "@/app/zespol/(panel)/klienci/[slug]/raporty/akcje";
+import { usePotwierdzenie } from "@/components/zespol/potwierdzenie";
 import { copy } from "@/lib/copy";
 import type { RaportZespolu } from "@/lib/dane/raporty";
 import { etykietaMiesiaca, formatujDate } from "@/lib/format";
@@ -11,10 +12,11 @@ export function ListaRaportow({ slug, raporty, mozeUsuwac }: { slug: string; rap
   const router = useRouter();
   const [trwa, startTransition] = useTransition();
   const t = copy.zespol.raporty;
+  const { potwierdz, okno } = usePotwierdzenie();
   if (raporty.length === 0) return <p className="text-sm text-szary-600" data-brak-raportow>{t.brak}</p>;
 
-  function usun(id: string) {
-    if (!window.confirm(t.usunPotwierdz)) return;
+  async function usun(id: string) {
+    if (!(await potwierdz({ tresc: t.usunPotwierdz, przycisk: t.usun, niebezpieczne: true }))) return;
     startTransition(async () => {
       await usunRaport(slug, id);
       router.refresh();
@@ -48,7 +50,7 @@ export function ListaRaportow({ slug, raporty, mozeUsuwac }: { slug: string; rap
               <td className="py-3 text-right whitespace-nowrap">
                 <a href={r.url} target="_blank" rel="noopener noreferrer" className="font-medium text-foodie-fiolet hover:underline">{t.otworz}</a>
                 {mozeUsuwac ? (
-                  <button type="button" disabled={trwa} onClick={() => usun(r.id)} className="ml-3 font-medium text-szary-600 hover:text-czerwony disabled:opacity-50" data-usun-raport>
+                  <button type="button" disabled={trwa} onClick={() => void usun(r.id)} className="ml-3 font-medium text-szary-600 hover:text-czerwony disabled:opacity-50" data-usun-raport>
                     {t.usun}
                   </button>
                 ) : null}
@@ -57,6 +59,7 @@ export function ListaRaportow({ slug, raporty, mozeUsuwac }: { slug: string; rap
           ))}
         </tbody>
       </table>
+      {okno}
     </div>
   );
 }

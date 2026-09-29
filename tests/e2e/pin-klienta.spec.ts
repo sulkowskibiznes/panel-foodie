@@ -15,7 +15,7 @@ import {
   type LinkTestowy,
 } from "./pomocnicze/baza";
 import { probaPinu, wpiszNowyPin, zalogujKlienta, zalogujKodemStartowym } from "./pomocnicze/klient";
-import { PLIK_SESJI_ZESPOLU } from "./pomocnicze/zespol";
+import { anulujOkno, PLIK_SESJI_ZESPOLU, potwierdzOkno } from "./pomocnicze/zespol";
 
 /**
  * Etap 2 planu domknięcia: własny PIN klienta. Zespół wydaje jednorazowy kod startowy (6 cyfr, 7 dni), klient po nim
@@ -67,11 +67,8 @@ test("zespół tworzy link z kodem startowym, klient ustawia własny PIN, kod dz
     expect(kod).toMatch(/^\d{6}$/);
 
     // zamknięcie bez skopiowania kodu pyta o potwierdzenie; po skopiowaniu już nie
-    z.once("dialog", (d) => {
-      expect(d.message()).toBe(copy.zespol.dostep.gotowy.zamknijBezKopiowania);
-      void d.dismiss();
-    });
     await dialog.getByRole("button", { name: copy.zespol.dostep.gotowy.zamknij }).click();
+    await anulujOkno(z, copy.zespol.dostep.gotowy.zamknijBezKopiowania);
     await expect(dialog).toBeVisible();
     await dialog.locator("[data-kopiuj-kod]").click();
     await expect(dialog.locator("[data-kopiuj-kod]")).toHaveText(copy.zespol.dostep.gotowy.skopiowano);
@@ -255,8 +252,8 @@ test("druga blokada 24 h w ciągu 30 dni zamraża link; nowy kod od zespołu go 
     await z.goto(`/zespol/klienci/${KLIENT_A}/dostep`);
     const wiersz = wierszLinku(z, l.label);
     await expect(wiersz.locator("[data-zamrozony]")).toBeVisible();
-    z.once("dialog", (d) => void d.accept());
     await wiersz.getByRole("button", { name: copy.zespol.dostep.akcje.resetujPin }).click();
+    await potwierdzOkno(z, copy.zespol.dostep.akcje.resetujPotwierdz);
     const dialog = z.getByRole("dialog");
     const kod = await dialog.getByLabel(copy.zespol.dostep.gotowy.pin).inputValue();
     expect(kod).toMatch(/^\d{6}$/);

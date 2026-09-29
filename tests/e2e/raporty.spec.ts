@@ -3,7 +3,7 @@ import { copy } from "../../src/lib/copy";
 import { usunLinkTestowy, utworzLinkTestowy, wyczyscLimity, type LinkTestowy } from "./pomocnicze/baza";
 import { raportyKlienta, tokenWebhooka, usunRaportyTestowe } from "./pomocnicze/faza5";
 import { zalogujKlienta } from "./pomocnicze/klient";
-import { PLIK_SESJI_ZESPOLU } from "./pomocnicze/zespol";
+import { PLIK_SESJI_ZESPOLU, potwierdzOkno } from "./pomocnicze/zespol";
 
 /**
  * Faza 5, raporty (SPEC rozdz. 5.5, 9): webhook z bearerem INGEST_TOKEN (host tylko raporty.foodiemedia.pl,
@@ -127,8 +127,8 @@ test("opiekun dodaje raport ręcznie (link, miesiąc, lokal), zły host zablokow
     await page.goto(`/p/${link.token}/raporty`);
     await expect(page.locator(`[data-raport="${wiersz!.id}"]`)).toContainText("Trattoria Bella");
 
-    z.on("dialog", (d) => void d.accept());
     await z.locator(`[data-raport="${wiersz!.id}"] [data-usun-raport]`).click();
+    await potwierdzOkno(z, copy.zespol.raporty.usunPotwierdz);
     await expect(z.locator(`[data-raport="${wiersz!.id}"]`)).toHaveCount(0);
     await page.reload();
     await expect(page.locator(`[data-raport="${wiersz!.id}"]`)).toHaveCount(0);

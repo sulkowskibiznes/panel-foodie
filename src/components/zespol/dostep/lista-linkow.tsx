@@ -5,6 +5,7 @@ import { odnotujSkopiowanie, pokazLink, wygasLink, wylogujUrzadzenia, zresetujPi
 import { PolaKopiowania } from "@/components/zespol/dostep/pola-kopiowania";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { usePotwierdzenie } from "@/components/zespol/potwierdzenie";
 import { copy } from "@/lib/copy";
 import type { LinkDostepu } from "@/lib/dane/linki";
 import { formatujDate, formatujDateCzas } from "@/lib/format";
@@ -25,6 +26,8 @@ export function ListaLinkow({ slug, linki }: { slug: string; linki: LinkDostepu[
   const [skopiowany, setSkopiowany] = useState<string | null>(null);
   const [blad, setBlad] = useState<string | null>(null);
   const [trwa, startTransition] = useTransition();
+  const { potwierdz, okno } = usePotwierdzenie();
+  const potwierdzenieResetu = usePotwierdzenie();
   const d = copy.zespol.dostep;
 
   if (linki.length === 0) return <p className="text-sm text-szary-600">{d.brakLinkow}</p>;
@@ -61,8 +64,8 @@ export function ListaLinkow({ slug, linki }: { slug: string; linki: LinkDostepu[
     void odnotujSkopiowanie(slug, l.id, "link");
   }
 
-  function wykonaj(potwierdzenie: string, akcja: () => Promise<unknown>) {
-    if (!window.confirm(potwierdzenie)) return;
+  async function wykonaj(potwierdzenie: string, przycisk: string, akcja: () => Promise<unknown>) {
+    if (!(await potwierdz({ tresc: potwierdzenie, przycisk, niebezpieczne: true }))) return;
     setBlad(null);
     startTransition(async () => {
       try {
@@ -74,7 +77,7 @@ export function ListaLinkow({ slug, linki }: { slug: string; linki: LinkDostepu[
   }
 
   function resetuj(l: LinkDostepu) {
-    wykonaj(d.akcje.resetujPotwierdz, async () => {
+    void wykonaj(d.akcje.resetujPotwierdz, d.akcje.resetujPin, async () => {
       const r = await zresetujPin(slug, l.id);
       if (r.ok) {
         setKodSkopiowany(false);
@@ -83,9 +86,9 @@ export function ListaLinkow({ slug, linki }: { slug: string; linki: LinkDostepu[
     });
   }
 
-  function zamknijReset() {
-    // Kod startowy widać tylko raz: zamknięcie bez kopiowania wymaga potwierdzenia.
-    if (!kodSkopiowany && !window.confirm(d.gotowy.zamknijBezKopiowania)) return;
+  async function zamknijReset() {
+    // Kod startowy widać tylko raz: zamknięcie bez kopiowania wymaga potwierdzenia (okno w oknie).
+    if (!kodSkopiowany && !(await potwierdzenieResetu.potwierdz({ tresc: d.gotowy.zamknijBezKopiowania, przycisk: d.gotowy.zamknij }))) return;
     setReset(null);
   }
 
@@ -137,9 +140,9 @@ export function ListaLinkow({ slug, linki }: { slug: string; linki: LinkDostepu[
                   {!l.revokedAt ? (
                     <div className="flex flex-wrap justify-end gap-1">
                       {!pokazane[l.id] ? <Button type="button" variant="outline" size="sm" disabled={trwa} onClick={() => pokaz(l)}>{d.akcje.pokazLink}</Button> : null}
-                      <Button type="button" variant="ghost" size="sm" disabled={trwa} onClick={() => wykonaj(d.akcje.wylogujPotwierdz, () => wylogujUrzadzenia(slug, l.id))}>{d.akcje.wylogujUrzadzenia}</Button>
+                      <Button type="button" variant="ghost" size="sm" disabled={trwa} onClick={() => void wykonaj(d.akcje.wylogujPotwierdz, d.akcje.wylogujUrzadzenia, () => wylogujUrzadzenia(slug, l.id))}>{d.akcje.wylogujUrzadzenia}</Button>
                       <Button type="button" variant="ghost" size="sm" disabled={trwa} onClick={() => resetuj(l)}>{d.akcje.resetujPin}</Button>
-                      <Button type="button" variant="destructive" size="sm" disabled={trwa} onClick={() => wykonaj(d.akcje.wygasPotwierdz, () => wygasLink(slug, l.id))}>{d.akcje.wygas}</Button>
+                      <Button type="button" variant="destructive" size="sm" disabled={trwa} onClick={() => void wykonaj(d.akcje.wygasPotwierdz, d.akcje.wygas, () => wygasLink(slug, l.id))}>{d.akcje.wygas}</Button>
                     </div>
                   ) : null}
                 </td>
@@ -149,7 +152,7 @@ export function ListaLinkow({ slug, linki }: { slug: string; linki: LinkDostepu[
         </table>
       </div>
 
-      <Dialog open={reset !== null} onOpenChange={(open) => { if (!open) zamknijReset(); }}>
+      <Dialog open={reset !== null} onOpenChange={(open) => { if (!open) void zamknijReset(); }}>
         <DialogContent className="sm:max-w-md">
           <DialogHeader>
             <DialogTitle className="font-naglowek text-lg">{d.gotowy.nowyPinTytul}</DialogTitle>
@@ -165,9 +168,11 @@ export function ListaLinkow({ slug, linki }: { slug: string; linki: LinkDostepu[
               }}
             />
           ) : null}
-          <Button type="button" variant="outline" size="lg" onClick={zamknijReset}>{d.gotowy.zamknij}</Button>
+          <Button type="button" variant="outline" size="lg" onClick={() => void zamknijReset()}>{d.gotowy.zamknij}</Button>
+          {potwierdzenieResetu.okno}
         </DialogContent>
       </Dialog>
+      {okno}
     </div>
   );
 }

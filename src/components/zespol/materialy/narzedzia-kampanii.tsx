@@ -6,6 +6,7 @@ import { DialogKampanii } from "@/components/zespol/materialy/dialog-kampanii";
 import { NarzedziaMaterialu } from "@/components/zespol/materialy/narzedzia-materialu";
 import type { AkcjeMaterialow, UprawnieniaMaterialow } from "@/components/zespol/materialy/typy";
 import { Button } from "@/components/ui/button";
+import { usePotwierdzenie } from "@/components/zespol/potwierdzenie";
 import { copy } from "@/lib/copy";
 import type { KampaniaDto, PakietSzczegoly } from "@/lib/dto/materialy";
 
@@ -16,10 +17,11 @@ export function NarzedziaKampanii({ kampania, pakiet, akcje, uprawnienia }: { ka
   const [edycja, setEdycja] = useState(false);
   const [blad, setBlad] = useState<string | null>(null);
   const [trwa, startTransition] = useTransition();
+  const { potwierdz, okno } = usePotwierdzenie();
   if (!uprawnienia.kampanie) return null;
 
-  function usun() {
-    if (!window.confirm(t.usunKampaniePotwierdz)) return;
+  async function usun() {
+    if (!(await potwierdz({ tresc: t.usunKampaniePotwierdz, niebezpieczne: true }))) return;
     setBlad(null);
     startTransition(async () => {
       const w = await akcje.usunKampanie(kampania.id);
@@ -32,7 +34,7 @@ export function NarzedziaKampanii({ kampania, pakiet, akcje, uprawnienia }: { ka
     <div className="space-y-2" data-narzedzia-kampanii={kampania.id}>
       <div className="flex flex-wrap items-center gap-2">
         <Button type="button" variant="outline" size="sm" onClick={() => setEdycja(true)} data-edytuj-kampanie>{t.kampania.tytulEdycja}: {t.edytuj.toLowerCase()}</Button>
-        <Button type="button" variant="ghost" size="sm" disabled={trwa || pakiet.status !== "szkic"} title={pakiet.status !== "szkic" ? t.tylkoSzkic : undefined} onClick={usun} data-usun-kampanie>
+        <Button type="button" variant="ghost" size="sm" disabled={trwa || pakiet.status !== "szkic"} title={pakiet.status !== "szkic" ? t.tylkoSzkic : undefined} onClick={() => void usun()} data-usun-kampanie>
           {copy.zespol.kreator.usunKampanie}
         </Button>
         {kampania.folderReklamUrl ? (
@@ -42,6 +44,7 @@ export function NarzedziaKampanii({ kampania, pakiet, akcje, uprawnienia }: { ka
       </div>
       {kampania.reklama ? <NarzedziaMaterialu material={kampania.reklama} pakiet={pakiet} akcje={akcje} uprawnienia={uprawnienia} /> : null}
       {edycja ? <DialogKampanii open onClose={() => setEdycja(false)} status={pakiet.status} kampania={kampania} onZapisz={(d) => akcje.edytujKampanie(kampania.id, d)} /> : null}
+      {okno}
     </div>
   );
 }

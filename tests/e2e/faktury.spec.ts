@@ -4,7 +4,7 @@ import { prostyPdf } from "../../supabase/seed/pdf";
 import { usunLinkTestowy, utworzLinkTestowy, wyczyscLimity, type LinkTestowy } from "./pomocnicze/baza";
 import { bearerCrona, dataLokalna, dokumentPoTytule, fakturaPoNumerze, stanFaktury, usunDokumentyTestowe, usunFakturyTestowe, wstawFakture } from "./pomocnicze/faza5";
 import { zalogujKlienta } from "./pomocnicze/klient";
-import { PLIK_SESJI_ZESPOLU } from "./pomocnicze/zespol";
+import { PLIK_SESJI_ZESPOLU, potwierdzOkno } from "./pomocnicze/zespol";
 
 /**
  * Faza 5, faktury i dokumenty (SPEC rozdz. 5.6, 10, 16.3): ręczne wpisanie faktury z PDF-em, pobieranie przez
@@ -132,7 +132,6 @@ test("cron o 6:00 przestawia do_zaplaty na po_terminie; klient widzi czerwony st
   const zespol = await browser.newContext({ storageState: PLIK_SESJI_ZESPOLU });
   try {
     const z = await zespol.newPage();
-    z.on("dialog", (d) => void d.accept());
     await z.goto(`/zespol/klienci/${KLIENT_A}/faktury`);
     const w = z.locator(`[data-faktura="${poTerminie.id}"]`);
     await expect(w).toHaveAttribute("data-status", "po_terminie");
@@ -146,10 +145,12 @@ test("cron o 6:00 przestawia do_zaplaty na po_terminie; klient widzi czerwony st
     expect(poOplaceniu?.paid_at).toBe(dataLokalna(0));
 
     await w.locator("[data-cofnij-oplacenie]").click();
+    await potwierdzOkno(z, copy.zespol.faktury.cofnijPotwierdz);
     await expect(w).toHaveAttribute("data-status", "po_terminie");
     expect((await stanFaktury(poTerminie.id))?.paid_at).toBeNull();
 
     await w.locator("[data-usun-fakture]").click();
+    await potwierdzOkno(z);
     await expect(z.locator(`[data-faktura="${poTerminie.id}"]`)).toHaveCount(0);
     expect(await stanFaktury(poTerminie.id)).toBeNull();
   } finally {
