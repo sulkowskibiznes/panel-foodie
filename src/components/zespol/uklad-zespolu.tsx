@@ -9,7 +9,8 @@ import { maUprawnienie } from "@/lib/uprawnienia";
 const KLASA_LINKU = "font-medium hover:text-foodie-fiolet aria-[current=page]:text-foodie-fiolet aria-[current=page]:underline aria-[current=page]:decoration-2 aria-[current=page]:underline-offset-8";
 
 /**
- * Nagłówek panelu zespołu: Pulpit, Skrzynka uwag, Ustawienia (admin, z zakładkami) i aktywna pozycja (`aria-current`).
+ * Nagłówek panelu zespołu: Pulpit, Klienci, Skrzynka uwag, Ustawienia (admin, z zakładkami), „Przejdź do klienta"
+ * i aktywna pozycja (`aria-current`).
  * Toaster pokazuje skutki akcji (plan domknięcia, Etap 3a); panel jest wyłącznie jasny (bez trybu ciemnego w MVP).
  */
 export function UkladZespolu({ czlonek, nieprzeczytaneUwagi = 0, sciezka, children }: { czlonek: CzlonekZespolu; nieprzeczytaneUwagi?: number; sciezka: string; children: ReactNode }) {
@@ -28,6 +29,9 @@ export function UkladZespolu({ czlonek, nieprzeczytaneUwagi = 0, sciezka, childr
             <Link href="/zespol" className={KLASA_LINKU} aria-current={aktualna(biezaca("/zespol", true))} data-link-pulpitu>
               {n.pulpit}
             </Link>
+            <Link href="/zespol/klienci" className={KLASA_LINKU} aria-current={aktualna(biezaca("/zespol/klienci"))} data-link-klientow>
+              {n.klienci}
+            </Link>
             {maUprawnienie(czlonek.role, "materialy", "podglad") ? (
               <Link href="/zespol/uwagi" className={`flex items-center gap-1.5 ${KLASA_LINKU}`} aria-current={aktualna(biezaca("/zespol/uwagi"))} data-link-skrzynki>
                 {n.skrzynka}
@@ -40,6 +44,11 @@ export function UkladZespolu({ czlonek, nieprzeczytaneUwagi = 0, sciezka, childr
               </Link>
             ) : null}
           </nav>
+          {/* „Przejdź do klienta": GET na listę; przy jednym trafieniu lista od razu otwiera kartę (plan 3b). */}
+          <form action="/zespol/klienci" method="get" role="search" className="order-last w-full sm:order-none sm:w-auto" data-przejdz-do-klienta>
+            <input type="hidden" name="idz" value="1" />
+            <input type="search" name="q" required maxLength={80} aria-label={copy.zespol.listaKlientow.przejdz} placeholder={copy.zespol.listaKlientow.przejdz} title={copy.zespol.listaKlientow.przejdzPodpowiedz} className="h-9 w-full rounded-lg border border-szary-300 bg-white px-3 text-sm text-foodie-czern outline-none focus:border-foodie-fiolet focus:ring-2 focus:ring-foodie-fiolet/30 sm:w-56" />
+          </form>
           <div className="ml-auto flex items-center gap-4 text-sm">
             <span className="text-szary-600">
               <span className="font-medium text-foodie-czern">{czlonek.name}</span> · {copy.zespol.role[czlonek.role]}

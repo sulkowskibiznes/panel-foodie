@@ -60,9 +60,10 @@ test("zakończenie współpracy wylogowuje klienta i wygasza linki; wznowienie i
     await expect(page).toHaveURL(`/p/${link.token}`);
     await probaPinu(page, link.token, link.pin);
 
-    // pulpit: klient poza główną listą, na liście zakończonych; Dostęp bez „Utwórz link"
-    await z.goto("/zespol");
+    // lista klientów: poza trwającymi, w filtrze „Przerwy i zakończone"; Dostęp bez „Utwórz link"
+    await z.goto("/zespol/klienci");
     await expect(z.getByRole("cell", { name: nazwa, exact: true })).toHaveCount(0);
+    await z.locator("[data-link-nieaktywnych]").click();
     await expect(z.locator(`[data-klient-nieaktywny="${slug}"]`)).toContainText(copy.zespol.karta.statusKlienta.zakonczony);
     await z.goto(`/zespol/klienci/${slug}/dostep`);
     await expect(z.locator("[data-dostep-zakonczony]")).toBeVisible();
@@ -74,7 +75,7 @@ test("zakończenie współpracy wylogowuje klienta i wygasza linki; wznowienie i
     await expect(z.locator("[data-wspolpraca=aktywny]")).toBeVisible();
     expect((await stanKlienta(klient.id))?.status).toBe("aktywny");
     expect(await wpisyAudytuPoEncji(klient.id, "zespol.klient_wznowiony")).toBe(1);
-    await z.goto("/zespol");
+    await z.goto("/zespol/klienci");
     await expect(z.getByRole("cell", { name: nazwa, exact: true })).toBeVisible();
     await z.goto(`/zespol/klienci/${slug}/ustawienia`);
     await z.locator("[data-zakoncz-wspolprace]").click();

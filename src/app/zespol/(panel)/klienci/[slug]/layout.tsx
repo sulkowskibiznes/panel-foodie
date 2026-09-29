@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { notFound } from "next/navigation";
 import type { ReactNode } from "react";
 import { ZakladkiKarty } from "@/components/zespol/zakladki-karty";
@@ -5,7 +6,7 @@ import { assertTeamClientAccess, wymagajCzlonka } from "@/lib/auth-zespol";
 import { copy } from "@/lib/copy";
 import { pobierzKlientaPoSlugu } from "@/lib/dane/klienci-zespolu";
 import { formatujDate, formatujKwote } from "@/lib/format";
-import { mozeImpersonowac } from "@/lib/uprawnienia";
+import { maUprawnienie, mozeImpersonowac } from "@/lib/uprawnienia";
 import { rozpocznijPodglad } from "./akcje";
 
 /** Karta klienta (SPEC rozdz. 12.2): nagłówek + zakładki. Klient poza przypisaniami = 404. */
@@ -30,13 +31,25 @@ export default async function UkladKartyKlienta({ children, params }: { children
               </span>
             ) : null}
           </h1>
-          {mozeImpersonowac(czlonek.role, klient.demo) ? (
-            <form action={rozpocznijPodglad.bind(null, slug)}>
-              <button type="submit" className="inline-flex h-9 items-center rounded-lg border border-szary-300 bg-white px-3 text-sm font-medium text-foodie-czern hover:bg-szary-050" data-zobacz-jak-klient>
-                {copy.podgladKlienta.przycisk}
-              </button>
-            </form>
-          ) : null}
+          <div className="flex flex-wrap items-center gap-2" data-szybkie-akcje>
+            {klient.status === "aktywny" && maUprawnienie(czlonek.role, "materialy", "pelne") ? (
+              <Link href={`/zespol/klienci/${slug}/pakiety/nowy`} className="inline-flex h-9 items-center rounded-lg bg-foodie-fiolet px-3 text-sm font-medium text-white hover:bg-fiolet-600" data-szybki-nowy-pakiet>
+                {k.szybkie.nowyPakiet}
+              </Link>
+            ) : null}
+            {klient.status !== "zakonczony" && !klient.demo && maUprawnienie(czlonek.role, "dostep", "pelne") ? (
+              <Link href={`/zespol/klienci/${slug}/dostep?nowy=1`} className="inline-flex h-9 items-center rounded-lg border border-szary-300 bg-white px-3 text-sm font-medium text-foodie-czern hover:bg-szary-050" data-szybki-link>
+                {k.szybkie.utworzLink}
+              </Link>
+            ) : null}
+            {mozeImpersonowac(czlonek.role, klient.demo) ? (
+              <form action={rozpocznijPodglad.bind(null, slug)}>
+                <button type="submit" className="inline-flex h-9 items-center rounded-lg border border-szary-300 bg-white px-3 text-sm font-medium text-foodie-czern hover:bg-szary-050" data-zobacz-jak-klient>
+                  {copy.podgladKlienta.przycisk}
+                </button>
+              </form>
+            ) : null}
+          </div>
         </div>
         <p className="mt-1 text-sm text-szary-600">
           {copy.zespol.kategorie[klient.category]} · {copy.zespol.pakiety[klient.tier]}

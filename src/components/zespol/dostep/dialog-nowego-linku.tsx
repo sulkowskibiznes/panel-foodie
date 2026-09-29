@@ -11,8 +11,8 @@ import { copy } from "@/lib/copy";
 type Kontakt = { id: string; name: string; role_label: string | null };
 const POLE = "mt-1 h-11 w-full rounded-lg border border-szary-300 bg-white px-3 text-sm text-foodie-czern outline-none focus:border-foodie-fiolet focus:ring-2 focus:ring-foodie-fiolet/30";
 
-export function DialogNowegoLinku({ slug, kontakty }: { slug: string; kontakty: Kontakt[] }) {
-  const [otwarty, setOtwarty] = useState(false);
+export function DialogNowegoLinku({ slug, kontakty, otwartyNaStart = false }: { slug: string; kontakty: Kontakt[]; otwartyNaStart?: boolean }) {
+  const [otwarty, setOtwarty] = useState(otwartyNaStart);
   const [kontaktId, setKontaktId] = useState<string>(kontakty[0]?.id ?? "inna");
   const [wynik, setWynik] = useState<WynikNowegoLinku | null>(null);
   const [kodSkopiowany, setKodSkopiowany] = useState(false);

@@ -1,6 +1,7 @@
 import "server-only";
 import type { CzlonekZespolu } from "@/lib/auth-zespol";
 import type { Database } from "@/lib/db-types";
+import type { KlientNaLiscie } from "@/lib/klienci/lista";
 import { supabaseSerwer } from "@/lib/supabase/server";
 import { WIDZI_WSZYSTKICH_KLIENTOW } from "@/lib/uprawnienia";
 
@@ -52,6 +53,45 @@ export async function pobierzKlientowDla(czlonek: CzlonekZespolu): Promise<Klien
   ]);
   const licz = (wiersze: { client_id: string }[] | null, id: string) => (wiersze ?? []).filter((w) => w.client_id === id).length;
   return klienci.map((k) => ({ ...k, doAkceptacji: licz(pakiety, k.id), aktywneLinki: licz(linki, k.id) }));
+}
+
+/**
+ * Lista klientów zespołu (plan domknięcia, Etap 3b): wszyscy w zakresie członka zespołu (admin i sales wszyscy,
+ * reszta przypisani albo pod opieką), każdego statusu, z opiekunem, liczbą pakietów do akceptacji, aktywnych linków
+ * i końcem ostatniego okresu. Filtrowanie i sortowanie robi czysty lib/klienci/lista.ts.
+ */
+export async function pobierzListeKlientow(czlonek: CzlonekZespolu): Promise<KlientNaLiscie[]> {
+  const db = supabaseSerwer();
+  const zakres = await zakresKlientow(czlonek);
+  if (zakres && zakres.length === 0) return [];
+  let zapytanie = db.from("clients").select("id, slug, name, category, status, demo, opiekun_id, opiekun:team_members!clients_opiekun_id_fkey(name)").order("name");
+  if (zakres) zapytanie = zapytanie.in("id", zakres);
+  const { data: klienci, error } = await zapytanie;
+  if (error) throw new Error(`pobierzListeKlientow: ${error.message}`);
+  if (!klienci || klienci.length === 0) return [];
+  const ids = klienci.map((k) => k.id);
+  const [{ data: pakiety }, { data: linki }] = await Promise.all([
+    db.from("packages").select("client_id, status, period_to").in("client_id", ids),
+    db.from("access_links").select("client_id").in("client_id", ids).is("revoked_at", null),
+  ]);
+  return klienci.map((k) => {
+    const opiekun = k.opiekun as unknown as { name: string } | { name: string }[] | null;
+    const jego = (pakiety ?? []).filter((p) => p.client_id === k.id);
+    const ostatni = jego.reduce<string | null>((max, p) => (max === null || p.period_to > max ? p.period_to : max), null);
+    return {
+      id: k.id,
+      slug: k.slug,
+      name: k.name,
+      category: k.category,
+      status: k.status,
+      demo: k.demo,
+      opiekunId: k.opiekun_id,
+      opiekun: (Array.isArray(opiekun) ? opiekun[0]?.name : opiekun?.name) ?? null,
+      doAkceptacji: jego.filter((p) => p.status === "do_akceptacji").length,
+      aktywneLinki: (linki ?? []).filter((l) => l.client_id === k.id).length,
+      ostatniOkresDo: ostatni,
+    };
+  });
 }
 
 export type KartaKlienta = {

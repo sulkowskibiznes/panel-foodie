@@ -237,7 +237,7 @@ test("akceptacja per klient i przerwa we współpracy: pakiet wraca do szkicu, l
     await expect(z.locator("[data-przerwa]")).toBeVisible();
     expect((await stanPakietu(wToku.id)).status).toBe("szkic");
     expect(await wpisyAudytuPoEncji(klient.id, "zespol.klient_wstrzymany")).toBe(1);
-    await z.goto("/zespol");
+    await z.goto("/zespol/klienci?status=nieaktywne");
     await expect(z.locator(`[data-klient-nieaktywny="${slug}"]`)).toContainText(copy.zespol.karta.statusKlienta.wstrzymany);
     await zalogujKlienta(page, link.token, link.pin);
     await expect(page).toHaveURL(new RegExp(`/p/${link.token}/`));

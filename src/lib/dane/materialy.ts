@@ -265,14 +265,15 @@ export async function pobierzPakietyKlienta(clientId: string, o: { zeSzkicami: b
   return ((data ?? []) as unknown as WierszListy[]).map(naPakietNaLiscie);
 }
 
-export type PakietNaPulpicie = PakietNaLiscie & { klient: { id: string; slug: string; name: string }; wstrzymana: boolean };
+/** Pulpit zespołu: `otwartoO` (pierwsze otwarcie przez klienta) tylko tu, nie w DTO klienta (plan 3b). */
+export type PakietNaPulpicie = PakietNaLiscie & { klient: { id: string; slug: string; name: string }; wstrzymana: boolean; otwartoO: string | null };
 
 /** Pakiety w toku (poza zaplanowanymi) dla pulpitu zespołu (SPEC rozdz. 12.1), z osobnym stanem „wstrzymana" (1.4, poz. 26). */
 export async function pobierzPakietyNaPulpit(clientIds: string[] | null, teraz = new Date()): Promise<PakietNaPulpicie[]> {
   // Pulpit pokazuje wyłącznie klientów z trwającą współpracą (wstrzymani i zakończeni mają osobną listę).
   let zapytanie = supabaseSerwer()
     .from("packages")
-    .select(`${KOLUMNY_LISTY}, clients!inner(id, slug, name)`)
+    .select(`${KOLUMNY_LISTY}, first_opened_at, clients!inner(id, slug, name)`)
     .neq("status", "zaplanowany")
     .eq("clients.status", "aktywny")
     .order("submitted_at", { ascending: true, nullsFirst: false });
@@ -282,9 +283,21 @@ export async function pobierzPakietyNaPulpit(clientIds: string[] | null, teraz =
   }
   const { data, error } = await zapytanie;
   if (error) throw new Error(`pobierzPakietyNaPulpit: ${error.message}`);
-  return ((data ?? []) as unknown as Array<WierszListy & { clients: { id: string; slug: string; name: string } }>).map((w) => {
+  return ((data ?? []) as unknown as Array<WierszListy & { first_opened_at: string | null; clients: { id: string; slug: string; name: string } }>).map((w) => {
     const p = naPakietNaLiscie(w);
     const wstrzymana = p.status === "do_akceptacji" && p.autoAkceptacjaO !== null && new Date(p.autoAkceptacjaO).getTime() <= teraz.getTime() && p.nierozwiazaneUwagi > 0;
-    return { ...p, klient: w.clients, wstrzymana };
+    return { ...p, klient: w.clients, wstrzymana, otwartoO: w.first_opened_at };
   });
+}
+
+/** Okresy wszystkich pakietów (także zaplanowanych) klientów z trwającą współpracą: „Klienci bez pakietu na następny okres". */
+export async function pobierzOkresyPakietow(clientIds: string[] | null): Promise<Array<{ clientId: string; od: string; do: string }>> {
+  let zapytanie = supabaseSerwer().from("packages").select("client_id, period_from, period_to, clients!inner(status)").eq("clients.status", "aktywny");
+  if (clientIds) {
+    if (clientIds.length === 0) return [];
+    zapytanie = zapytanie.in("client_id", clientIds);
+  }
+  const { data, error } = await zapytanie;
+  if (error) throw new Error(`pobierzOkresyPakietow: ${error.message}`);
+  return (data ?? []).map((p) => ({ clientId: p.client_id, od: p.period_from, do: p.period_to }));
 }

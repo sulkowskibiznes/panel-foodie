@@ -48,7 +48,8 @@ export async function zalogujZespol(page: Page, email: string): Promise<void> {
   await page.getByLabel(l.kod).fill(kod);
   await page.getByRole("button", { name: l.zaloguj }).click();
   await page.waitForURL(/\/zespol$/);
-  await expect(page.getByRole("heading", { level: 1, name: copy.zespol.pulpit.tytul })).toBeVisible();
+  // content creator widzi pulpit jako „Moja praca" (plan 3b)
+  await expect(page.getByRole("heading", { level: 1 })).toHaveText(new RegExp(`^(${copy.zespol.pulpit.tytul}|${copy.zespol.pulpit.tytulMojaPraca})$`));
 }
 
 /** Okno potwierdzenia panelu (zamiast window.confirm, plan 3a): sprawdza treść i klika przycisk potwierdzenia. */

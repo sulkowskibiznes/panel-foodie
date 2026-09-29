@@ -8,8 +8,10 @@ import { pobierzKlientaPoSlugu } from "@/lib/dane/klienci-zespolu";
 import { pobierzHistorieDostepu, pobierzLinkiKlienta } from "@/lib/dane/linki";
 
 /** Zakładka Dostęp (SPEC rozdz. 4.4, 12.4). */
-export default async function DostepKlienta({ params }: { params: Promise<{ slug: string }> }) {
+export default async function DostepKlienta({ params, searchParams }: { params: Promise<{ slug: string }>; searchParams: Promise<Record<string, string | string[] | undefined>> }) {
   const { slug } = await params;
+  // „Utwórz link" z karty klienta (plan 3b) otwiera okno od razu.
+  const otworzNowy = (await searchParams).nowy === "1";
   const czlonek = await wymagajCzlonka();
   wymagajUprawnienia(czlonek, "dostep", "pelne");
   const klient = await pobierzKlientaPoSlugu(slug);
@@ -26,7 +28,7 @@ export default async function DostepKlienta({ params }: { params: Promise<{ slug
             <h2 className="font-naglowek text-xl text-foodie-czern">{d.tytul}</h2>
             <p className="mt-1 max-w-prose text-sm text-szary-600">{d.opis}</p>
           </div>
-          {klient.demo || klient.status === "zakonczony" ? null : <DialogNowegoLinku slug={slug} kontakty={klient.client_contacts} />}
+          {klient.demo || klient.status === "zakonczony" ? null : <DialogNowegoLinku slug={slug} kontakty={klient.client_contacts} otwartyNaStart={otworzNowy} />}
         </div>
         <div className="mt-5 space-y-4">
           {klient.demo ? <p className="rounded-lg bg-fiolet-050 px-3 py-2 text-sm leading-6 text-fiolet-700">{d.demo}</p> : null}

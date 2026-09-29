@@ -34,6 +34,8 @@ test("csm zakłada klienta z formularza i trafia na jego kartę; zajęty slug da
   const t = copy.zespol.nowyKlient;
   try {
     await page.goto("/zespol");
+    await page.locator("[data-link-klientow]").click();
+    await expect(page).toHaveURL("/zespol/klienci");
     await page.locator("[data-nowy-klient-link]").click();
     await expect(page.getByRole("heading", { level: 1, name: t.tytul })).toBeVisible();
 
