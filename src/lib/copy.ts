@@ -640,6 +640,18 @@ export const copy = {
     },
     /** Narzędzia nad materiałami w panelu zespołu (SPEC rozdz. 12.6). */
     materialy: {
+      /** „Ustawienia pakietu": tytuł i link do folderu z contentem (plan domknięcia, Etap 3a). */
+      ustawieniaPakietu: {
+        przycisk: "Ustawienia pakietu",
+        tytul: "Ustawienia pakietu",
+        opis: "Tytuł widzi klient. Link do folderu z contentem na Dysku pozwala zaimportować materiały.",
+        importInfo: "Import potrzebuje linku do folderu z contentem. Wklej go i zapisz, potem kliknij „Importuj z Dysku”.",
+        tytulPole: "Tytuł pakietu",
+        folderPole: "Link do folderu z contentem (Dysk Google)",
+        folderPodpowiedz: "Folder „content {N} mies” z podfolderami „1. Posty” i „2. Relacje”. Puste pole usuwa link.",
+        zapisz: "Zapisz",
+        zapisywanie: "Zapisujemy...",
+      },
       dodajMaterial: "Dodaj materiał",
       dodajKampanie: "Dodaj kampanię",
       edytuj: "Edytuj",
@@ -763,6 +775,13 @@ export const copy = {
     },
     /** Kreator pakietu na wklejanych linkach (SPEC rozdz. 12.3). */
     kreator: {
+      /** Domyślne nazwy w kreatorze (plan domknięcia, Etap 3a: bez tekstów zaszytych w komponencie). */
+      kampaniaDomyslna: "Kampania standardowa",
+      tytulDomyslny: "Materiały",
+      tytulZOkresem: "Materiały {okres}",
+      poprzedniKonczyl: "Poprzedni pakiet kończył się {data}. Daty wpisz ręcznie: każdy klient zaczyna miesiąc innego dnia.",
+      kopiujKampanie: "Skopiuj kampanie z poprzedniego pakietu ({n})",
+      kopiujKampanieOpis: "Nazwy, cele i notatki. Linki do folderów z reklamami wklej nowe.",
       tytul: "Nowy pakiet materiałów",
       opis: "Pakiet powstaje w szkicu. Wklej linki do folderów na Dysku (osobny folder z contentem, osobny folder z reklamami dla każdej kampanii). Zaraz potem zobaczysz kartę weryfikacyjną każdego folderu i ekran mapowania; import kopiuje pliki w tle.",
       nowyPakiet: "Nowy pakiet",

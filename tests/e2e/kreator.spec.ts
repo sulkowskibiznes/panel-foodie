@@ -27,6 +27,10 @@ test("kreator: klient i miesiąc, link do folderu z contentem, dwie kampanie z o
     await z.locator("[data-nowy-pakiet]").click();
     await expect(z.locator("[data-kreator-pakietu]")).toBeVisible();
     await z.locator("[data-kreator-lokal]").selectOption({ label: "Ramen Ichi" });
+    // podpowiedź z poprzedniego pakietu lokalu (daty dalej wpisywane ręcznie) i kopiowanie jego kampanii (plan 3a)
+    await expect(z.locator("[data-poprzedni-okres]")).toBeVisible();
+    await z.locator("[data-kopiuj-kampanie]").click();
+    await expect(z.locator("[data-kampania-kreatora]")).toHaveCount(1);
     // bez dat nie da się utworzyć; koniec przed początkiem daje ostrzeżenie
     await expect(z.locator("[data-utworz-pakiet]")).toBeDisabled();
     await z.locator("#kreator-od").fill(okres.od);

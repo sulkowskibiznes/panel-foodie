@@ -8,14 +8,14 @@ import { POLE, type DaneKampaniiFormularz } from "@/components/zespol/materialy/
 import { Button } from "@/components/ui/button";
 import { copy } from "@/lib/copy";
 import { rozpoznajLinkDysku } from "@/lib/drive/linki";
-import type { KategoriaKlienta } from "@/lib/dto/materialy";
-import { etykietaOkresu } from "@/lib/format";
+import type { CelKampanii, KategoriaKlienta } from "@/lib/dto/materialy";
+import { etykietaOkresu, formatujDate } from "@/lib/format";
 import { czyOkresyZachodza, dlugoscOkresuDni, kolejnyMiesiacWspolpracy } from "@/lib/harmonogram/kalendarz";
 
 export type DaneKreatora = { od: string; do: string; miesiacWspolpracy: number | null; lokalId: string | null; tytul: string; folder: string | null; kampanie: Array<Omit<DaneKampaniiFormularz, "potwierdzono">> };
 
 /** Istniejący pakiet klienta: do podpowiedzi numeru miesiąca współpracy i ostrzeżenia o zachodzących okresach. */
-export type IstniejacyPakiet = { id: string; tytul: string; lokalId: string | null; od: string; do: string; miesiacWspolpracy: number | null };
+export type IstniejacyPakiet = { id: string; tytul: string; lokalId: string | null; od: string; do: string; miesiacWspolpracy: number | null; kampanie: Array<{ nazwa: string; cel: CelKampanii | null; notatka: string | null }> };
 
 const DATA = /^\d{4}-\d{2}-\d{2}$/;
 
@@ -34,7 +34,7 @@ export function KreatorPakietu({ slug, kategoria, lokale, startWspolpracy, istni
   const [tytulWlasny, setTytulWlasny] = useState<string | null>(null);
   const [numerWlasny, setNumerWlasny] = useState<string | null>(null);
   const [folder, setFolder] = useState("");
-  const [kampanie, setKampanie] = useState<DaneKampaniiFormularz[]>([{ ...pusteDaneKampanii(), nazwa: "Kampania standardowa" }]);
+  const [kampanie, setKampanie] = useState<DaneKampaniiFormularz[]>([{ ...pusteDaneKampanii(), nazwa: k.kampaniaDomyslna }]);
   const [blad, setBlad] = useState<string | null>(null);
   const [trwa, startTransition] = useTransition();
 
@@ -42,7 +42,7 @@ export function KreatorPakietu({ slug, kategoria, lokale, startWspolpracy, istni
   const kolejnoscZla = datyPoprawne && od > do_;
   const zaDlugi = datyPoprawne && !kolejnoscZla && dlugoscOkresuDni(od, do_) > 366;
   const okresGotowy = datyPoprawne && !kolejnoscZla && !zaDlugi;
-  const tytul = tytulWlasny ?? (okresGotowy ? `Materiały ${etykietaOkresu(od, do_)}` : "Materiały");
+  const tytul = tytulWlasny ?? (okresGotowy ? k.tytulZOkresem.replace("{okres}", etykietaOkresu(od, do_)) : k.tytulDomyslny);
   const linkContentu = folder ? rozpoznajLinkDysku(folder) : null;
   const dlaLokalu = kategoria === "kat1" ? istniejace.filter((p) => p.lokalId === lokalId) : istniejace;
   const ostatni = dlaLokalu[0] ?? null;
@@ -50,6 +50,11 @@ export function KreatorPakietu({ slug, kategoria, lokale, startWspolpracy, istni
   const numerTekst = numerWlasny ?? (podpowiedz !== null ? String(podpowiedz) : "");
   const numer = numerTekst.trim() === "" ? null : Number(numerTekst);
   const nachodzace = okresGotowy ? dlaLokalu.filter((p) => czyOkresyZachodza({ od, do: do_ }, p)) : [];
+  const kampaniePoprzednie = ostatni?.kampanie ?? [];
+
+  function kopiujKampanie() {
+    setKampanie(kampaniePoprzednie.map((c) => ({ ...pusteDaneKampanii(), nazwa: c.nazwa, cel: c.cel, notatka: c.notatka ?? "" })));
+  }
 
   function wyslij(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
@@ -109,6 +114,9 @@ export function KreatorPakietu({ slug, kategoria, lokale, startWspolpracy, istni
           )}
         </div>
         <p className="mt-1 text-xs text-szary-600">{k.okresOpis}</p>
+        {ostatni && !datyPoprawne ? (
+          <p className="mt-1 text-xs font-medium text-foodie-czern" data-poprzedni-okres>{k.poprzedniKonczyl.replace("{data}", formatujDate(ostatni.do, { day: "numeric", month: "long", year: "numeric" }))}</p>
+        ) : null}
         {kolejnoscZla ? <p role="alert" className="mt-2 rounded-lg bg-red-50 px-3 py-2 text-sm text-czerwony" data-zly-okres>{k.bledy.zlyOkres}</p> : null}
         {zaDlugi ? <p role="alert" className="mt-2 rounded-lg bg-red-50 px-3 py-2 text-sm text-czerwony" data-zly-okres>{k.bledy.zaDlugiOkres}</p> : null}
         <div className="mt-3 grid gap-3 sm:grid-cols-[1fr_12rem]">
@@ -142,6 +150,14 @@ export function KreatorPakietu({ slug, kategoria, lokale, startWspolpracy, istni
       <section className="rounded-xl bg-white p-5 shadow-miekki sm:p-6">
         <h2 className="font-naglowek text-lg text-foodie-czern">{k.krokKampanie}</h2>
         <p className="mt-1 max-w-prose text-sm text-szary-600">{k.kampanieOpis}</p>
+        {kampaniePoprzednie.length > 0 ? (
+          <div className="mt-3 flex flex-wrap items-center gap-2">
+            <Button type="button" variant="outline" size="sm" onClick={kopiujKampanie} data-kopiuj-kampanie>
+              {k.kopiujKampanie.replace("{n}", String(kampaniePoprzednie.length))}
+            </Button>
+            <span className="text-xs text-szary-600">{k.kopiujKampanieOpis}</span>
+          </div>
+        ) : null}
         <div className="mt-4 space-y-4">
           {kampanie.map((kamp, i) => (
             <div key={i} className="rounded-lg border border-szary-100 p-4" data-kampania-kreatora={i}>

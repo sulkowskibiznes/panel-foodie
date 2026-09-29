@@ -5,6 +5,7 @@ import { useState } from "react";
 import { EkranPakietu, type AkcjeEkranu } from "@/components/pakiet/ekran-pakietu";
 import { DialogKampanii } from "@/components/zespol/materialy/dialog-kampanii";
 import { DialogNowegoMaterialu } from "@/components/zespol/materialy/dialog-nowego-materialu";
+import { DialogUstawienPakietu } from "@/components/zespol/materialy/dialog-ustawien-pakietu";
 import { NarzedziaKampanii } from "@/components/zespol/materialy/narzedzia-kampanii";
 import { NarzedziaMaterialu } from "@/components/zespol/materialy/narzedzia-materialu";
 import type { AkcjeMaterialow, UprawnieniaMaterialow } from "@/components/zespol/materialy/typy";
@@ -16,8 +17,8 @@ import type { PakietSzczegoly } from "@/lib/dto/materialy";
  * Ekran pakietu w panelu zespołu: te same komponenty co u klienta (SPEC rozdz. 12.3 pkt 6) plus narzędzia
  * zespołu nad każdym materiałem i kampanią oraz „Dodaj materiał" i „Dodaj kampanię" dostępne w każdej chwili (12.6).
  */
-export function EkranPakietuZespolu({ pakiet, teraz, akcje, akcjeMaterialow, uprawnienia, adresHarmonogramu, adresImportu }: { pakiet: PakietSzczegoly; teraz: string; akcje: AkcjeEkranu; akcjeMaterialow: AkcjeMaterialow; uprawnienia: UprawnieniaMaterialow; adresHarmonogramu: string; /** Import z Dysku (SPEC rozdz. 13): tylko szkic z wklejonymi linkami i skonfigurowanym kontem usługi. */ adresImportu?: string | null }) {
-  const [dialog, setDialog] = useState<"material" | "kampania" | null>(null);
+export function EkranPakietuZespolu({ pakiet, teraz, akcje, akcjeMaterialow, uprawnienia, adresHarmonogramu, adresImportu, importMozliwy = false }: { pakiet: PakietSzczegoly; teraz: string; akcje: AkcjeEkranu; akcjeMaterialow: AkcjeMaterialow; uprawnienia: UprawnieniaMaterialow; adresHarmonogramu: string; /** Import z Dysku (SPEC rozdz. 13): szkic z wklejonymi linkami i skonfigurowanym kontem usługi. */ adresImportu?: string | null; /** Szkic przy skonfigurowanym Dysku: „Importuj z Dysku" widać zawsze, bez linku prowadzi do ustawień pakietu. */ importMozliwy?: boolean }) {
+  const [dialog, setDialog] = useState<"material" | "kampania" | "ustawienia" | "ustawienia-import" | null>(null);
   const t = copy.zespol.materialy;
   const cokolwiek = uprawnienia.content || uprawnienia.kampanie;
 
@@ -33,6 +34,11 @@ export function EkranPakietuZespolu({ pakiet, teraz, akcje, akcjeMaterialow, upr
           ) : null}
           {adresImportu && uprawnienia.content ? (
             <Link href={adresImportu} className="inline-flex h-10 items-center rounded-lg border border-szary-300 bg-white px-4 text-sm font-medium text-foodie-czern hover:bg-szary-050" data-importuj-z-dysku>{copy.zespol.import.przyciskWPakiecie}</Link>
+          ) : importMozliwy && uprawnienia.content ? (
+            <Button type="button" variant="outline" size="lg" onClick={() => setDialog("ustawienia-import")} data-importuj-z-dysku data-bez-folderu>{copy.zespol.import.przyciskWPakiecie}</Button>
+          ) : null}
+          {uprawnienia.content ? (
+            <Button type="button" variant="ghost" size="lg" onClick={() => setDialog("ustawienia")} data-ustawienia-pakietu>{t.ustawieniaPakietu.przycisk}</Button>
           ) : null}
           <Link href={adresHarmonogramu} className="text-sm font-medium text-foodie-fiolet hover:underline">{copy.zespol.harmonogram.tytul}</Link>
           {pakiet.folderContentuUrl ? (
@@ -50,6 +56,7 @@ export function EkranPakietuZespolu({ pakiet, teraz, akcje, akcjeMaterialow, upr
       />
       {dialog === "material" ? <DialogNowegoMaterialu open onClose={() => setDialog(null)} pakiet={pakiet} akcje={akcjeMaterialow} uprawnienia={uprawnienia} /> : null}
       {dialog === "kampania" ? <DialogKampanii open onClose={() => setDialog(null)} status={pakiet.status} kampania={null} onZapisz={(d) => akcjeMaterialow.dodajKampanie(d)} /> : null}
+      {dialog === "ustawienia" || dialog === "ustawienia-import" ? <DialogUstawienPakietu open onClose={() => setDialog(null)} pakiet={pakiet} akcje={akcjeMaterialow} dlaImportu={dialog === "ustawienia-import"} /> : null}
     </div>
   );
 }

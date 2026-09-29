@@ -122,6 +122,10 @@ export function PostepImportu({ stan: start, slug, pakietId, adresNowego, odswie
       {wszystkoGotowe ? <p role="status" className="rounded-lg bg-green-50 px-3 py-2 text-sm text-zielony" data-import-gotowy>{t.gotowe}</p> : null}
       <div className="flex flex-wrap gap-2">
         <Link href={`/zespol/klienci/${slug}/pakiety/${pakietId}`} className="inline-flex h-10 items-center rounded-lg bg-foodie-fiolet px-4 text-sm font-medium text-white hover:bg-fiolet-600" data-otworz-pakiet>{t.otworzPakiet}</Link>
+        {/* Po imporcie następny krok to daty publikacji: bez nich wysyłka jest zablokowana (SPEC rozdz. 8). */}
+        {wszystkoGotowe ? (
+          <Link href={`/zespol/klienci/${slug}/harmonogram?p=${pakietId}`} className="inline-flex h-10 items-center rounded-lg border border-szary-300 bg-white px-4 text-sm font-medium text-foodie-czern hover:bg-szary-050" data-ustaw-daty>{copy.zespol.pakietyMaterialow.akcje.ustawDaty}</Link>
+        ) : null}
         {!stan.wToku ? (
           <Link href={adresNowego} className="inline-flex h-10 items-center rounded-lg border border-szary-300 bg-white px-4 text-sm font-medium text-foodie-czern hover:bg-szary-050" data-nowy-import>{t.nowyImport}</Link>
         ) : null}

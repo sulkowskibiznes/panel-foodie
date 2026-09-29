@@ -95,6 +95,14 @@ test("21. wysyłka pakietu z postem bez daty publikacji jest zablokowana z list�
 
     const z = await zespol.newPage();
     await z.goto(`/zespol/klienci/${KLIENT}/pakiety/${p.id}`);
+    // „Ustawienia pakietu": zmiana tytułu bez bazy (plan 3a); „Importuj z Dysku" widać w każdym szkicu
+    await expect(z.locator("[data-importuj-z-dysku]")).toBeVisible();
+    await z.locator("[data-ustawienia-pakietu]").click();
+    const ustawienia = z.locator("[data-dialog-ustawien-pakietu]");
+    await ustawienia.locator("#pakiet-tytul").fill(`Pakiet E2E ${test.info().project.name}`);
+    await ustawienia.locator("[data-zapisz-ustawienia-pakietu]").click();
+    await expect(ustawienia).toHaveCount(0);
+    await expect(z.locator("[data-pasek-pakietu]")).toContainText(`Pakiet E2E ${test.info().project.name}`);
     // lista kontrolna w oknie wysyłki: braki widać przed kliknięciem, a przycisk wysyłki jest zablokowany
     await z.locator('[data-akcja="wyslij"]').click();
     const braki = z.locator("[data-kontrola-wysylki] [data-braki]");

@@ -90,6 +90,7 @@ export default async function PakietZespolu({ params }: PageProps<"/zespol/klien
         uprawnienia={uprawnienia}
         adresHarmonogramu={adresHarmonogramu}
         adresImportu={adresImportu}
+        importMozliwy={wynik.pakiet.status === "szkic" && konfiguracjaDysku() !== null}
       />
     </div>
   );

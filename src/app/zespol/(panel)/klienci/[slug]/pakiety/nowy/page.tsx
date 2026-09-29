@@ -18,8 +18,22 @@ export default async function NowyPakiet({ params }: PageProps<"/zespol/klienci/
   const klient = await pobierzKlientaPoSlugu(slug);
   if (!klient) notFound();
   await assertTeamClientAccess(czlonek, klient.id);
-  const { data: pakiety } = await supabaseSerwer().from("packages").select("id, title, location_id, period_from, period_to, cooperation_month").eq("client_id", klient.id).order("period_from", { ascending: false }).order("created_at", { ascending: false });
-  const istniejace: IstniejacyPakiet[] = (pakiety ?? []).map((p) => ({ id: p.id, tytul: p.title ?? "", lokalId: p.location_id, od: p.period_from, do: p.period_to, miesiacWspolpracy: p.cooperation_month }));
+  const { data: pakiety } = await supabaseSerwer()
+    .from("packages")
+    .select("id, title, location_id, period_from, period_to, cooperation_month, campaigns(name, goal, note, position)")
+    .eq("client_id", klient.id)
+    .order("period_from", { ascending: false })
+    .order("created_at", { ascending: false });
+  const istniejace: IstniejacyPakiet[] = (pakiety ?? []).map((p) => ({
+    id: p.id,
+    tytul: p.title ?? "",
+    lokalId: p.location_id,
+    od: p.period_from,
+    do: p.period_to,
+    miesiacWspolpracy: p.cooperation_month,
+    // Do „Skopiuj kampanie z poprzedniego pakietu": bez folderów reklam (te są co miesiąc nowe).
+    kampanie: [...(p.campaigns ?? [])].sort((a, b) => a.position - b.position).map((c) => ({ nazwa: c.name, cel: c.goal, notatka: c.note })),
+  }));
   const k = copy.zespol.kreator;
 
   return (
