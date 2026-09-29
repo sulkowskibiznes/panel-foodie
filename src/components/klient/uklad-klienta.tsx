@@ -86,11 +86,16 @@ function StopkaSesji({ token, nazwaKlienta, etykietaOsoby, podglad }: { token: s
         {podglad ? copy.podgladKlienta.zalogowanyJako : copy.nawigacja.zalogowanyJako} {etykietaOsoby}
       </p>
       {podglad ? null : (
-        <form action={`/p/${token}/wyloguj`} method="post" className="mt-3">
-          <button type="submit" className="text-sm font-medium text-foodie-fiolet hover:underline">
-            {copy.nawigacja.wyloguj}
-          </button>
-        </form>
+        <div className="mt-3 flex flex-wrap items-center gap-x-4 gap-y-2">
+          <Link href={`/p/${token}/pin`} className="text-sm font-medium text-foodie-fiolet hover:underline" data-zmien-pin>
+            {copy.nawigacja.zmienPin}
+          </Link>
+          <form action={`/p/${token}/wyloguj`} method="post">
+            <button type="submit" className="text-sm font-medium text-foodie-fiolet hover:underline">
+              {copy.nawigacja.wyloguj}
+            </button>
+          </form>
+        </div>
       )}
     </div>
   );

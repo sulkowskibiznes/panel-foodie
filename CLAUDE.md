@@ -56,6 +56,8 @@ src/
       (panel)/materialy/[pakietId]/   # ekran akceptacji (page + akcje.ts: akceptuj, uwagi, komentarz, obejrzenie)
       (panel)/plik/, awatar/          # pliki i zdjęcia profilowe przez signed URL po assertClientAccess
     p/[token]/            # token linku ALBO token podglądu „podglad.…" (impersonacja zespołu, tryb tylko do odczytu)
+      ustaw-pin/                      # własny PIN po kodzie startowym: bez sesji, tylko z pozwoleniem z cookie (lib/pin-klienta.ts)
+      (panel)/pin/                    # „Zmień PIN" (obecny + nowy); podgląd zespołu = 404
       (panel)/harmonogram/            # kalendarz klienta tylko do odczytu (kryterium 22)
       (panel)/raporty/, faktury/      # raporty (link do raporty.foodiemedia.pl w nowej karcie), faktury i dokumenty (rozdz. 5.5, 5.6)
       (panel)/faktura/[id], dokument/[id]   # PDF przez signed URL (10 min) po assertClientAccess; cudzy = 404
@@ -105,9 +107,12 @@ src/
     klient/uslugi/        # karta usługi z modalem jednego pola
     ui/                   # shadcn
   lib/
-    auth-klient.ts        # token linku, PIN, argon2id, hash-atrapa (czysty Node, używa go też seed)
+    auth-klient.ts        # token linku, kod startowy, PIN z pieprzem, argon2id, hash-atrapa, polityka walidujPinKlienta
+                          # (czysty Node, używa go też seed)
     logowanie-klienta.ts  # czysta logika logowania z wstrzykiwanymi zależnościami (test liczy wywołania argon2)
-    sesja-klienta.ts      # cookie sesji, rotacja co 24 h, wygaszanie sesji linku
+    sesja-klienta.ts      # cookie sesji, rotacja co 24 h, wygaszanie sesji linku; „Zapamiętaj mnie" 90 dni (maks. 180) albo 12 h,
+                          # wersja PIN-u w sesji (reset, ustawienie i zmiana PIN-u unieważniają stare sesje)
+    pin-klienta.ts        # kod startowy → pozwolenie w cookie (15 min) → własny PIN; zapis CAS, alarmy blokady i zamrożenia
     kontekst-klienta.ts   # kontekst strony klienta: tryb 'klient' (sesja) albo 'podglad' (token podpisany + sesja zespołu)
     podglad-zespolu.ts, podpis.ts  # token impersonacji i podpisane, wygasające ładunki (także pozwolenie na upload)
     auth-zespol.ts        # Supabase Auth OTP + członek zespołu + assertTeamClientAccess
@@ -180,9 +185,11 @@ tests/e2e/                # Playwright na lokalnym Supabase, port 3100; zespół
    (`publishable` / `secret`), nie wycofywanych `anon` / `service_role`.
 3. **RLS włączone na każdej nowej tabeli**, w tej samej migracji, w której ją tworzysz.
 4. **Pliki tylko przez signed URL** ważny 10 minut, generowany po sprawdzeniu dostępu.
-5. **Tokeny i PIN-y z `crypto.randomBytes`.** Nigdy nie wymyślaj wartości tokenu ani PIN-u —
-   ani w kodzie, ani w seedzie, ani w testach (w testach użyj generatora z ustalonym ziarnem).
-   PIN hashowany argon2id.
+5. **Tokeny i kody startowe z `crypto.randomBytes`.** Nigdy nie wymyślaj wartości tokenu, kodu ani PIN-u —
+   ani w kodzie, ani w seedzie, ani w testach (w testach użyj generatora z ustalonym ziarnem). Własny PIN
+   klienta wpisuje klient: przechodzi wyłącznie przez `walidujPinKlienta` i od razu trafia do `hashujPin`
+   (argon2id z pieprzem `PIN_PEPPER`), zapis tylko funkcją SQL `ustaw_pin_klienta` (porównanie wersji).
+   Literały PIN-ów w testach wolno pisać wyłącznie jako wartości, które mają zostać odrzucone.
 6. **Żadnego `dangerouslySetInnerHTML`** dla treści pochodzącej od użytkownika.
 7. **Teksty interfejsu wyłącznie z `lib/copy.ts`.** Zero polskich stringów wklejonych w JSX.
 8. **Migracje tylko w `supabase/migrations/`**, nigdy `ALTER TABLE` z ręki w panelu Supabase.
@@ -284,6 +291,8 @@ SUPABASE_URL
 SUPABASE_SECRET_KEY             # sb_secret_… — NIGDY z przedrostkiem NEXT_PUBLIC_
 SUPABASE_PUBLISHABLE_KEY        # sb_publishable_…
 SESSION_SECRET                  # podpis cookie sesji klienta
+PIN_PEPPER                      # pieprz do hashy PIN-ów klientów (HMAC przed argon2id), osobny od SESSION_SECRET;
+                                # ustawiany raz na zawsze: zmiana unieważnia wszystkie PIN-y
 GOOGLE_SERVICE_ACCOUNT_JSON     # import z Dysku: JSON klucza konta usługi (surowy albo base64)
 GOOGLE_DRIVE_ROOT_FOLDER_ID     # folder „Materiały klientów" udostępniony na adres konta usługi (odczyt)
 DRIVE_ATRAPA                    # „1" = atrapa Dysku w pamięci (E2E, dev:lokalny); puste na produkcji

@@ -17,6 +17,9 @@ export const ZDARZENIA_OUTBOX = [
   "material.podmieniony_po_akceptacji",
   "usluga.zainteresowanie",
   "bezpieczenstwo.blokada",
+  "bezpieczenstwo.link_zamrozony",
+  "klient.pin_ustawiony",
+  "klient.pin_zmieniony",
   "retencja.do_przegladu",
 ] as const;
 

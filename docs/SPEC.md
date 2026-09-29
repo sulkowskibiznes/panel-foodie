@@ -222,15 +222,22 @@ create table access_links (
   token_hash text not null,                  -- sha256 pełnego tokenu; weryfikacja ZAWSZE po hashu
   token_enc text not null,                   -- token zaszyfrowany AES-256-GCM kluczem z SESSION_SECRET (HKDF),
                                              -- żeby „Kopiuj dostęp" działało w każdej chwili (rozdz. 4.1)
-  pin_hash text not null,                    -- argon2id
+  pin_hash text not null,                    -- argon2id z pieprzem (HMAC-SHA256 kluczem PIN_PEPPER), rozdz. 4.2
   pin_kind pin_kind not null default 'pin4',
+  pin_temporary boolean not null default true,  -- true = w pin_hash kod startowy od zespołu (Etap 2)
+  pin_temporary_expires_at timestamptz,      -- termin kodu startowego (7 dni)
+  pin_set_at timestamptz,                    -- kiedy klient ustawił własny PIN
+  pin_version int not null default 1,        -- podbijane triggerem przy każdej zmianie pin_hash
+  pin_pepper boolean not null default true,  -- false = hash sprzed Etapu 2 (bez pieprzu)
+  frozen_at timestamptz,                     -- druga blokada 24 h w 30 dni: zamrożenie do nowego kodu
+  last_lockout_24h_at timestamptz,
   can_approve boolean not null default true, -- false = link tylko do podglądu i komentarzy
   created_by uuid references team_members(id),
   created_at timestamptz not null default now(),
   last_used_at timestamptz,
   revoked_at timestamptz,
   failed_attempts int not null default 0,
-  failed_window_started_at timestamptz,      -- początek okna liczenia „10 nieudanych w godzinę"
+  failed_window_started_at timestamptz,      -- początek okna liczenia nieudanych prób (24 h od Etapu 2)
   locked_until timestamptz
 );
 
@@ -244,7 +251,9 @@ create table client_sessions (
   ip_hash text,
   created_at timestamptz not null default now(),
   last_seen_at timestamptz not null default now(),
-  expires_at timestamptz not null,           -- 30 dni od ostatniej aktywności (przesuwnie)
+  expires_at timestamptz not null,           -- „Zapamiętaj mnie": 90 dni przesuwnie (maks. 180), bez: 12 h
+  remember boolean not null default true,    -- „Zapamiętaj mnie" z logowania (rodzaj cookie także po rotacji)
+  pin_version int not null default 1,        -- wersja PIN-u linku z chwili logowania; inna = sesja nieważna
   revoked_at timestamptz
 );
 
@@ -633,17 +642,35 @@ daje dostęp), ale sam link nie wystarczy.
   przyciski decyzji nie. Domyślnie link może akceptować.
 
 ### 4.2 PIN
-- Domyślnie 4 cyfry, do wyboru 6 cyfr albo proste hasło (`pin_kind`).
-- Hash **argon2id**, nigdy plaintext, nigdy w logach.
-- Panel po wpisaniu PIN-u ustawia sesję na **30 dni od ostatniej aktywności** (przesuwnie: każde
-  żądanie przedłuża `expires_at`; cookie `httpOnly`, `Secure`, `SameSite=Lax`, `__Host-` prefix).
-  Klient, który wchodzi raz w miesiącu, nie wpisuje PIN-u za każdym razem.
-- „Zapamiętaj mnie na tym urządzeniu" domyślnie zaznaczone.
+**Plan domknięcia, Etap 2 (2026-09-29): kod startowy od zespołu + własny PIN klienta.**
+- Zespół tworzy link i dostaje **jednorazowy kod startowy**: 6 cyfr z `crypto.randomBytes`, ważny 7 dni
+  (`pin_temporary`, `pin_temporary_expires_at`). Link i kod idą do klienta osobnymi wiadomościami.
+- Klient wchodzi z linku i wpisuje kod na **tym samym ekranie PIN** (kryterium 1 bez zmian). Poprawny kod nie daje
+  sesji, tylko podpisane pozwolenie w cookie (`__Host-fm_pin`, 15 min, związane z linkiem i wersją PIN-u) na ekran
+  `/p/<token>/ustaw-pin`: nowy PIN i powtórzenie. Ustawienie PIN-u jest obowiązkowe; kod działa raz (zapis funkcją
+  SQL `ustaw_pin_klienta` z porównaniem wersji). Wygasły kod daje podpowiedź „napisz do opiekuna".
+- **Własny PIN: 4 do 6 cyfr** (decyzja Szymona). Odrzucane: powtórzenia, ciągi (także przez 9→0), bloki (1212, 123123),
+  podwojenia (1122), lata 1940-2039, daty DDMM, MMDD, DDMMRR i MMDDRR, popularne PIN-y; nowy PIN nie może być
+  kodem startowym. Na ekranie: „Nie używaj PIN-u do karty ani do telefonu".
+- **„Zmień PIN"** w panelu (stopka, arkusz „Więcej"): obecny + nowy + powtórzenie. Błędny obecny PIN liczy się do
+  blokad linku, trzeci błąd w jednej sesji ją kończy. Po zmianie wszystkie inne urządzenia linku są wylogowane.
+- Ustawienie i zmiana PIN-u to zdarzenia `klient.pin_ustawiony` i `klient.pin_zmieniony` do opiekuna (rozdz. 15).
+- Hash **argon2id z pieprzem**: argon2id(HMAC-SHA256(`PIN_PEPPER`, PIN)); `PIN_PEPPER` osobny od `SESSION_SECRET`,
+  tylko w zmiennych Vercela. PIN 4-6 cyfr bez pieprzu dałoby się złamać offline z kopii bazy. Nigdy plaintext,
+  nigdy w logach. Hashe sprzed Etapu 2 (`pin_pepper = false`) działają dalej jako kod startowy bez terminu.
+- Sesja po PIN-ie: z **„Zapamiętaj mnie"** (domyślnie zaznaczone) **90 dni od ostatniej aktywności**, najwyżej 180 dni
+  od zalogowania, cookie trwałe; bez zaznaczenia **12 godzin** bezwzględnie i cookie sesyjne, także po rotacji
+  (`client_sessions.remember`). Cookie `httpOnly`, `Secure`, `SameSite=Lax`, `__Host-` prefix.
+- Sesja pamięta `pin_version`: nowy kod od zespołu, ustawienie i zmiana PIN-u unieważniają stare sesje.
 
 ### 4.3 Ochrona przed zgadywaniem — wymóg twardy
 - 5 nieudanych prób → blokada linku na 15 min (`locked_until`), komunikat bez ujawniania,
   czy token istnieje.
-- 10 nieudanych w ciągu godziny → blokada na 24 h + zdarzenie w `outbox` (Slack).
+- 10 nieudanych w ciągu **24 godzin** (od Etapu 2; wcześniej okno godzinne dawało ok. 190 prób na dobę) → blokada na
+  24 h + jedno zdarzenie `bezpieczenstwo.blokada` w `outbox` (tylko przy przejściu na 10.). Licznik i blokada w jednym
+  zapisie w bazie (`odnotuj_nieudane_logowanie`), alarm po odpowiedzi.
+- **Druga blokada 24 h w ciągu 30 dni zamraża link** (`frozen_at`, zdarzenie `bezpieczenstwo.link_zamrozony`):
+  logowanie zamknięte, aż zespół wyda nowy kod startowy.
 - Rate limit na IP: 20 prób PIN / 10 min.
 - **Odpowiedź na zły token i na zły PIN musi wyglądać identycznie** (ten sam ekran, ten sam
   czas odpowiedzi ±, żeby nie dało się enumerować tokenów).
@@ -652,9 +679,11 @@ daje dostęp), ale sam link nie wystarczy.
   nazwy lokalu, bez liczb. Dokładnie jak przy raportach.
 
 ### 4.4 Zarządzanie z panelu zespołu
-CSM na karcie klienta ma: listę linków, „Utwórz link", jednorazowe odsłonięcie PIN-u przy
-tworzeniu, „Wygaś link", „Wyloguj wszystkie urządzenia", „Historia logowań". Kopiowanie
-linku i PIN-u opisane w rozdz. 12.4.
+CSM na karcie klienta ma: listę linków ze stanem PIN-u („Czeka na PIN klienta, kod ważny do…", „Kod startowy
+wygasł", „PIN ustawiony przez klienta {data}", „Zamrożony"), „Utwórz link" z jednorazowym odsłonięciem kodu
+startowego, „Wydaj nowy kod" (dawniej „Zresetuj PIN": nowy kod, odmrożenie, wylogowanie urządzeń), „Wygaś link",
+„Wyloguj wszystkie urządzenia", „Historia logowań". Zespół nigdy nie zna PIN-u ustawionego przez klienta.
+Kopiowanie linku i kodu opisane w rozdz. 12.4.
 
 ### 4.5 Świadomie odrzucone
 - Logowanie e-mail + hasło — restaurator tego nie przejdzie, a to podwaja powierzchnię ataku.
@@ -1110,21 +1139,22 @@ bo to eliminuje najgorszy możliwy błąd: zaimportowanie materiałów z innego 
 
 ### 12.4 Przekazanie dostępu klientowi
 
-Panel **nie układa wiadomości**. Pokazuje dwa pola i przyciski kopiowania:
+Panel **nie układa wiadomości**. Pokazuje dwa pola i osobne przyciski kopiowania (Etap 2: link i kod startowy
+idą osobnymi wiadomościami, więc wspólny przycisk „Kopiuj link i PIN" zniknął):
 
 ```
-Link:  https://panel.foodiemedia.pl/p/a3f1…      [Kopiuj]
-PIN:   4821                                      [Kopiuj]
-                                                 [Kopiuj link i PIN]
+Link:          https://panel.foodiemedia.pl/p/a3f1…      [Kopiuj]
+Kod startowy:  (6 cyfr)                                  [Kopiuj]
 ```
 
 - Wiadomość na WhatsAppie pisze człowiek. Panel nie generuje treści i nie otwiera WhatsAppa.
-- **PIN pokazywany tylko przy pierwszym wygenerowaniu.** Potem widoczny jest wyłącznie
-  przycisk „Zresetuj PIN" (reset wylogowuje wszystkie sesje tego linku).
+- **Kod startowy pokazywany tylko raz** (przy utworzeniu linku i po „Wydaj nowy kod"). Zamknięcie okna bez
+  skopiowania kodu wymaga potwierdzenia; nieudane kopiowanie mówi, żeby skopiować ręcznie. „Wydaj nowy kod"
+  wylogowuje wszystkie sesje tego linku, a klient po kodzie ustawia nowy PIN.
 - **Link nie leży na liście.** Lista linków pokazuje etykietę, daty i status; adres pojawia się dopiero po
   kliknięciu „Pokaż link" w wierszu (akcja serwerowa, tylko `admin` i `csm`, wpis `link.odszyfrowany`
   w `audit_log`), z przyciskiem „Kopiuj" i „Ukryj". Ten sam mechanizm obsługuje kolumnę Akcja na pulpicie.
-- Skopiowanie, pokazanie linku i reset odnotowujemy w `audit_log`.
+- Skopiowanie, pokazanie linku i nowy kod odnotowujemy w `audit_log`.
 
 ### 12.5 Skrzynka uwag
 Jedna lista wszystkich nierozwiązanych komentarzy klientów ze wszystkich pakietów, z filtrem
@@ -1302,7 +1332,10 @@ Zdarzenia:
 | `komentarz.po_akceptacji` | uwaga po akceptacji |
 | `material.podmieniony_po_akceptacji` | zespół podmienił materiał w zaakceptowanym pakiecie |
 | `usluga.zainteresowanie` | klient kliknął „Chcę wiedzieć więcej" |
-| `bezpieczenstwo.blokada` | 10 nieudanych PIN-ów |
+| `bezpieczenstwo.blokada` | 10 nieudanych PIN-ów w 24 h (jeden alarm na blokadę) |
+| `bezpieczenstwo.link_zamrozony` | druga blokada 24 h w ciągu 30 dni; link zamrożony do nowego kodu (Etap 2) |
+| `klient.pin_ustawiony` | klient ustawił własny PIN po kodzie startowym (Etap 2) |
+| `klient.pin_zmieniony` | klient zmienił PIN w panelu; jeśli to nie on, zespół wydaje nowy kod (Etap 2) |
 | `retencja.do_przegladu` | cron retencji zgłosił pakiety do decyzji admina (bez okresu; `count` i `url` do Ustawienia -> Retencja) |
 
 Wysyłka przez tabelę `outbox` + cron co minutę, 5 prób z narastającym odstępem.
@@ -1327,14 +1360,17 @@ Wysyłka przez tabelę `outbox` + cron co minutę, 5 prób z narastającym odst�
    sprawdzić `client_id` z sesji. Jedna funkcja `assertClientAccess()`, używana wszędzie;
    test E2E ma próbować sięgnąć po zasób innego klienta i dostać 404 (nie 403).
 5. **Sesje**: rotacja tokenu sesji raz na 24 h (poprzedni token ważny jeszcze 2 minuty dla
-   równoległych żądań), `expires_at` = 30 dni od ostatniej aktywności, wygaszanie wszystkich
-   sesji linku przy resecie PIN-u i przy `revoked_at`. Cookie `__Host-` w produkcji; w środowisku
-   deweloperskim nazwa bez prefiksu, bo Safari nie przyjmuje `Secure` na `http://localhost`.
+   równoległych żądań), z „Zapamiętaj mnie" `expires_at` = 90 dni od ostatniej aktywności (maks. 180 od
+   zalogowania), bez niego 12 h i cookie sesyjne także po rotacji; wygaszanie wszystkich sesji linku przy nowym
+   kodzie startowym, ustawieniu i zmianie PIN-u (także przez `pin_version`) i przy `revoked_at`. Cookie `__Host-`
+   w produkcji; w środowisku deweloperskim nazwa bez prefiksu, bo Safari nie przyjmuje `Secure` na `http://localhost`.
+   Pozwolenie na ustawienie PIN-u to osobne podpisane cookie (15 min), nie sesja.
 6. **CSP** bez `unsafe-inline` dla skryptów, `frame-ancestors 'none'`, HSTS,
    `X-Content-Type-Options: nosniff`, `Referrer-Policy: strict-origin-when-cross-origin`.
 7. **Bez `dangerouslySetInnerHTML`** dla czegokolwiek, co pochodzi od użytkownika.
 8. **Audyt**: logowanie (udane i nieudane), otwarcie pakietu, akceptacja, komentarz,
-   pobranie pliku, impersonacja, wygenerowanie linku, reset PIN-u, skopiowanie dostępu,
+   pobranie pliku, impersonacja, wygenerowanie linku, nowy kod startowy, wpisanie kodu, ustawienie i zmiana
+   PIN-u (także nieudana), zamrożenie linku, skopiowanie dostępu,
    import z Dysku, podmiana materiału, zmiana faktury.
 9. **Sekrety** wyłącznie w zmiennych środowiskowych Vercela. `.env.local` w `.gitignore`.
 10. **`robots.txt`**: `Disallow: /p/`, `Disallow: /zespol/`. Meta `noindex` na wszystkich trasach.
@@ -1393,7 +1429,7 @@ Panel jest gotowy, gdy przechodzą wszystkie poniższe testy E2E:
 3. Po poprawnym PIN-ie sesja żyje po odświeżeniu i po 24 h.
 4. Klient A nie otwiera pakietu klienta B (404), również przez bezpośredni URL do pliku.
 5. Wygaszenie linku wylogowuje otwartą sesję przy następnym żądaniu.
-6. Reset PIN-u wylogowuje wszystkie urządzenia tego linku.
+6. Reset PIN-u (od Etapu 2: „Wydaj nowy kod") wylogowuje wszystkie urządzenia tego linku.
 
 **Akceptacja**
 7. Pakiet 6 postów + 10 relacji + **2 kampanie** renderuje się na 390 px i 1440 px.
@@ -1441,6 +1477,18 @@ Panel jest gotowy, gdy przechodzą wszystkie poniższe testy E2E:
 28. Klient demonstracyjny (`clients.demo`) nie dostaje linku dostępu ani faktury: baza odrzuca wstawienie,
     a zakładka Dostęp pokazuje notkę zamiast przycisku „Utwórz link".
 
+**Własny PIN klienta (plan domknięcia, Etap 2, 2026-09-29)**
+29. Kod startowy od zespołu nie daje sesji: prowadzi do ustawienia własnego PIN-u, działa raz, po 7 dniach wygasa
+    (z podpowiedzią), a PIN równy kodowi albo łatwy do zgadnięcia jest odrzucony.
+30. Pozwolenie na ustawienie PIN-u jest związane z linkiem: nie działa pod innym tokenem, także podmienionym
+    w ciele akcji; bez pozwolenia ekran ustawienia PIN-u wraca do logowania.
+31. „Zmień PIN": błędny obecny PIN liczy się do blokad, trzeci błąd kończy sesję; po zmianie inne urządzenia
+    są wylogowane, a stary PIN nie działa. Podgląd zespołu nie ma tej funkcji (404).
+32. Druga blokada 24 h w ciągu 30 dni zamraża link (dobry PIN też nie wpuszcza, jeden alarm); nowy kod od
+    zespołu go odmraża.
+33. Bez „Zapamiętaj mnie" cookie jest sesyjne także po rotacji, a sesja kończy się po 12 godzinach;
+    z zapamiętaniem sesja ma 90 dni.
+
 ---
 
 ## 19. Fazy budowy
@@ -1487,7 +1535,7 @@ Każda faza kończy się **działającym wdrożeniem na Vercelu**, nie tylko kod
 | 20 | Raporty w kat1 z kilkoma restauracjami | Raport per lokal (`reports.location_id`) | **potwierdzone** (2026-09-02) |
 | 21 | Impersonacja dla `sales` | **Nie.** `sales` dostaje klienta demonstracyjnego. **1.4:** klient demo powstaje **także na produkcji**, ma `clients.demo = true`, a flaga blokuje link dostępu i fakturę (trigger w bazie + interfejs, kryterium 28) | **zmienione** (2026-09-03) |
 | 22 | Allowlista zespołu | `team_members.active` jako prawdziwa lista, `TEAM_EMAIL_ALLOWLIST` (domeny lub adresy) jako filtr wstępny, rejestracja publiczna wyłączona | **potwierdzone** (2026-09-02) |
-| 23 | Sesja klienta | 30 dni **przesuwnie** od ostatniej aktywności; rotacja tokenu raz na 24 h | **potwierdzone** (2026-09-02) |
+| 23 | Sesja klienta | 30 dni **przesuwnie** od ostatniej aktywności; rotacja tokenu raz na 24 h. **Etap 2 (2026-09-29):** z „Zapamiętaj mnie" 90 dni przesuwnie, najwyżej 180 od zalogowania; bez niego 12 h i cookie sesyjne | **zmienione** (2026-09-29) |
 | 24 | Projekty Supabase | Jeden testowy teraz, drugi produkcyjny przed pilotażem | **potwierdzone** (2026-09-02) |
 | 25 | Zmiana materiałów w `do_akceptacji` | Przesuwa `auto_approve_at` na co najmniej 24 h od zmiany | **potwierdzone** (2026-09-02) |
 | 26 | Nierozwiązane uwagi a cron | Cron nie auto-akceptuje, powiadamia zespół (`pakiet.auto_wstrzymana_uwagi`). **1.4:** to za mało; pakiet z wstrzymaną auto-akceptacją to **osobny, wyróżniony stan na pulpicie** z liczbą nieprzeczytanych uwag (`comments.seen_by_team_at`) i akcją obok, widoczny bez wchodzenia w pakiet (rozdz. 12.1) | **zmienione** (2026-09-03) |
@@ -1501,6 +1549,7 @@ Każda faza kończy się **działającym wdrożeniem na Vercelu**, nie tylko kod
 | 34 | Next.js | 16.x (spec mówił „15+") | **potwierdzone** (2026-09-02) |
 | 35 | Okres pakietu | **1.5:** pakiet dotyczy dowolnego okresu od-do (`period_from`, `period_to`, NOT NULL), nie miesiąca kalendarzowego; `period_year`/`period_month` i unikalność po miesiącu usunięte. Nakładające się okresy klienta (i lokalu) dozwolone, kreator tylko ostrzega. Kalendarz zespołu i klienta to widok okresu pakietu z nawigacją między pakietami. Daty w kreatorze zawsze wpisywane ręcznie. Numer miesiąca współpracy podpowiadany jako „ostatni pakiet + 1" i edytowalny. Webhook: `period` = miesiąc startu, plus `period_from`/`period_to`. Raporty zostają miesięczne | **potwierdzone** (2026-09-05) |
 
+| 37 | Własny PIN klienta | **Plan domknięcia, Etap 2:** kod startowy od zespołu (6 cyfr, 7 dni, jednorazowy) + obowiązkowy własny PIN 4-6 cyfr z polityką przeciw łatwym PIN-om + „Zmień PIN"; pieprz `PIN_PEPPER`; okno blokad 24 h i zamrożenie po drugiej blokadzie w 30 dni; znika wybór „4 cyfry / 6 cyfr / proste hasło". Odrzucone: „link bez PIN-u, pierwszy wchodzący ustawia" (łamie rozdz. 4 i kryterium 1) | **potwierdzone** (2026-09-29) |
 | 36 | Cykl życia klienta w panelu | **Plan domknięcia, Etap 1:** zakładka „Dane i współpraca" (rozdz. 12.2) zamiast edycji w bazie. Opiekuna i przypisania zmienia admin i csm (csm u swoich klientów); slug nieedytowalny; kategoria tylko bez pakietów i raportów; godziny auto-akceptacji per klient 72-720 h; lokali nie archiwizujemy; przerwa we współpracy nie wygasza linków; „Załatwione" tylko z pełnym prawem do materiałów (rozdz. 12.5) | **potwierdzone** (2026-09-29) |
 
 **Zadanie dla Ciebie, nie dla kodu:** dopisać zasadę auto-akceptacji do regulaminu panelu

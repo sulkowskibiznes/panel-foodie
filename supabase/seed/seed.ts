@@ -289,6 +289,7 @@ async function seedKlienta(k: KlientSeed, zespol: Map<string, string>, dostepy: 
   }
 
   // Linki dostępu: osobny link i PIN na każdą osobę kontaktową (SPEC rozdz. 4). Klient demo bez linków (trigger w bazie).
+  // Seed daje od razu „ustawiony" PIN (pin_temporary = false), żeby lokalnie wchodzić bez przechodzenia kodu startowego.
   for (const kontakt of k.demo ? [] : kontakty) {
     const token = generujToken();
     const pin = generujPin("pin4");
@@ -302,6 +303,9 @@ async function seedKlienta(k: KlientSeed, zespol: Map<string, string>, dostepy: 
       token_enc: zaszyfruj(KLUCZ_TOKENU, token),
       pin_hash: await hashujPin(pin),
       pin_kind: "pin4",
+      pin_temporary: false,
+      pin_pepper: true,
+      pin_set_at: new Date().toISOString(),
       can_approve: kontakt.role_label !== "manager",
       created_by: opiekunId ?? null,
     });

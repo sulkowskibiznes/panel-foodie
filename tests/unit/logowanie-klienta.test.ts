@@ -17,8 +17,13 @@ function link(nadpisania: Partial<LinkDoLogowania> = {}): LinkDoLogowania {
     can_approve: true,
     token_hash: hashujToken(TOKEN),
     pin_hash: HASH_PINU,
+    pin_pepper: true,
+    pin_temporary: false,
+    pin_temporary_expires_at: null,
+    pin_version: 1,
     revoked_at: null,
     locked_until: null,
+    frozen_at: null,
     ...nadpisania,
   };
 }
@@ -35,7 +40,7 @@ describe("weryfikujLogowanie: zawsze dokładnie jedno wywołanie argon2", () => 
     const w = await weryfikujLogowanie(TOKEN, "1234", d);
     expect(w.ok).toBe(true);
     expect(weryfikuj).toHaveBeenCalledTimes(1);
-    expect(weryfikuj).toHaveBeenCalledWith(HASH_PINU, "1234");
+    expect(weryfikuj).toHaveBeenCalledWith(HASH_PINU, "1234", true);
   });
 
   it("zły PIN → zly_pin, jedna weryfikacja na hashu linku", async () => {
@@ -43,7 +48,7 @@ describe("weryfikujLogowanie: zawsze dokładnie jedno wywołanie argon2", () => 
     const w = await weryfikujLogowanie(TOKEN, "0000", d);
     expect(w).toMatchObject({ ok: false, powod: "zly_pin" });
     expect(weryfikuj).toHaveBeenCalledTimes(1);
-    expect(weryfikuj).toHaveBeenCalledWith(HASH_PINU, "0000");
+    expect(weryfikuj).toHaveBeenCalledWith(HASH_PINU, "0000", true);
   });
 
   it("nieznany token → zly_token, jedna weryfikacja na atrapie (ten sam koszt czasu)", async () => {
@@ -51,14 +56,14 @@ describe("weryfikujLogowanie: zawsze dokładnie jedno wywołanie argon2", () => 
     const w = await weryfikujLogowanie(INNY_TOKEN, "1234", d);
     expect(w).toMatchObject({ ok: false, powod: "zly_token", link: null });
     expect(weryfikuj).toHaveBeenCalledTimes(1);
-    expect(weryfikuj).toHaveBeenCalledWith(ATRAPA, "1234");
+    expect(weryfikuj).toHaveBeenCalledWith(ATRAPA, "1234", true);
   });
 
   it("token o dobrym lookupie, ale złym hashu → zly_token na atrapie", async () => {
     const { d, weryfikuj } = zaleznosci(link({ token_hash: hashujToken(INNY_TOKEN) }), true);
     const w = await weryfikujLogowanie(TOKEN, "1234", d);
     expect(w).toMatchObject({ ok: false, powod: "zly_token" });
-    expect(weryfikuj).toHaveBeenCalledWith(ATRAPA, "1234");
+    expect(weryfikuj).toHaveBeenCalledWith(ATRAPA, "1234", true);
   });
 
   it("zły format tokenu → zly_format, bez zapytania do bazy, ale z jedną weryfikacją", async () => {
@@ -87,5 +92,44 @@ describe("weryfikujLogowanie: zawsze dokładnie jedno wywołanie argon2", () => 
     const { d } = zaleznosci(link({ locked_until: "2026-09-02T11:00:00Z" }), true);
     const w = await weryfikujLogowanie(TOKEN, "1234", d);
     expect(w.ok).toBe(true);
+  });
+});
+
+describe("weryfikujLogowanie: kod startowy, zamrożenie i hashe sprzed pieprzu (Etap 2)", () => {
+  it("zwykły PIN klienta → ok bez ustawiania PIN-u", async () => {
+    const { d } = zaleznosci(link(), true);
+    expect(await weryfikujLogowanie(TOKEN, "1234", d)).toMatchObject({ ok: true, ustawPin: false });
+  });
+
+  it("ważny kod startowy → ok z ustawieniem własnego PIN-u zamiast sesji", async () => {
+    const { d } = zaleznosci(link({ pin_temporary: true, pin_temporary_expires_at: "2026-09-05T12:00:00Z" }), true);
+    expect(await weryfikujLogowanie(TOKEN, "1234", d)).toMatchObject({ ok: true, ustawPin: true });
+  });
+
+  it("kod startowy sprzed Etapu 2 (bez terminu, bez pieprzu) → ok, weryfikacja bez pieprzu, ustawienie PIN-u", async () => {
+    const { d, weryfikuj } = zaleznosci(link({ pin_temporary: true, pin_temporary_expires_at: null, pin_pepper: false }), true);
+    expect(await weryfikujLogowanie(TOKEN, "1234", d)).toMatchObject({ ok: true, ustawPin: true });
+    expect(weryfikuj).toHaveBeenCalledWith(HASH_PINU, "1234", false);
+  });
+
+  it("wygasły kod: dobry → kod_wygasl, zły → zly_pin; zawsze jedno argon2", async () => {
+    const wygasly = link({ pin_temporary: true, pin_temporary_expires_at: "2026-09-02T11:59:59Z" });
+    const dobry = zaleznosci(wygasly, true);
+    expect(await weryfikujLogowanie(TOKEN, "1234", dobry.d)).toMatchObject({ ok: false, powod: "kod_wygasl" });
+    expect(dobry.weryfikuj).toHaveBeenCalledTimes(1);
+    const zly = zaleznosci(wygasly, false);
+    expect(await weryfikujLogowanie(TOKEN, "0000", zly.d)).toMatchObject({ ok: false, powod: "zly_pin" });
+  });
+
+  it("zamrożony link → zamrozony nawet z dobrym PIN-em, jedno argon2", async () => {
+    const { d, weryfikuj } = zaleznosci(link({ frozen_at: "2026-09-01T00:00:00Z" }), true);
+    expect(await weryfikujLogowanie(TOKEN, "1234", d)).toMatchObject({ ok: false, powod: "zamrozony" });
+    expect(weryfikuj).toHaveBeenCalledTimes(1);
+  });
+
+  it("nieznany token weryfikuje na atrapie z pieprzem (ten sam koszt co link z pieprzem)", async () => {
+    const { d, weryfikuj } = zaleznosci(null, false);
+    await weryfikujLogowanie(INNY_TOKEN, "1234", d);
+    expect(weryfikuj).toHaveBeenCalledWith(ATRAPA, "1234", true);
   });
 });

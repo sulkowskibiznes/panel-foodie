@@ -1,9 +1,10 @@
 import "server-only";
-import { generujPin, generujToken, hashujPin, hashujToken, tokenLookup, type RodzajPinu } from "@/lib/auth-klient";
+import { generujKodStartowy, generujToken, hashujPin, hashujToken, tokenLookup } from "@/lib/auth-klient";
 import type { AkcjaAudytu } from "@/lib/audyt";
 import type { Database } from "@/lib/db-types";
 import { env } from "@/lib/env";
 import { odszyfruj, wyprowadzKlucz, zaszyfruj } from "@/lib/krypto";
+import { terminNowegoKodu, wydajKodStartowy } from "@/lib/pin-klienta";
 import { uniewaznijSesjeLinku } from "@/lib/sesja-klienta";
 import { supabaseSerwer } from "@/lib/supabase/server";
 
@@ -16,7 +17,12 @@ export type LinkDostepu = {
   revokedAt: string | null;
   lockedUntil: string | null;
   canApprove: boolean;
-  pinKind: RodzajPinu;
+  /** Etap 2: kod startowy czeka na klienta, wygasł, albo klient ustawił własny PIN. */
+  stanPinu: "czeka" | "kod_wygasl" | "ustawiony";
+  kodWazyDo: string | null;
+  pinUstawionyO: string | null;
+  /** Druga blokada 24 h w ciągu 30 dni: logowanie zamknięte do nowego kodu startowego. */
+  zamrozonyO: string | null;
   aktywneUrzadzenia: number;
   /** Bez adresu: lista nigdy nie niesie odszyfrowanego tokenu (SPEC rozdz. 16 pkt 12). Adres daje odszyfrujAdresLinku() po kliknięciu „Pokaż link". */
 };
@@ -33,7 +39,7 @@ export async function pobierzLinkiKlienta(clientId: string): Promise<LinkDostepu
   const db = supabaseSerwer();
   const { data, error } = await db
     .from("access_links")
-    .select("id, label, created_at, last_used_at, revoked_at, locked_until, can_approve, pin_kind, client_contacts(name)")
+    .select("id, label, created_at, last_used_at, revoked_at, locked_until, can_approve, pin_temporary, pin_temporary_expires_at, pin_set_at, frozen_at, client_contacts(name)")
     .eq("client_id", clientId)
     .order("created_at", { ascending: false });
   if (error) throw new Error(`pobierzLinkiKlienta: ${error.message}`);
@@ -41,8 +47,10 @@ export async function pobierzLinkiKlienta(clientId: string): Promise<LinkDostepu
   const { data: sesje } = ids.length
     ? await db.from("client_sessions").select("access_link_id").in("access_link_id", ids).is("revoked_at", null).gt("expires_at", new Date().toISOString())
     : { data: [] as { access_link_id: string }[] };
+  const teraz = new Date();
   return (data ?? []).map((l) => {
     const kontakt = l.client_contacts as unknown as { name: string } | null;
+    const kodWygasl = l.pin_temporary && l.pin_temporary_expires_at !== null && new Date(l.pin_temporary_expires_at) <= teraz;
     return {
       id: l.id,
       label: l.label,
@@ -52,7 +60,10 @@ export async function pobierzLinkiKlienta(clientId: string): Promise<LinkDostepu
       revokedAt: l.revoked_at,
       lockedUntil: l.locked_until && new Date(l.locked_until) > new Date() ? l.locked_until : null,
       canApprove: l.can_approve,
-      pinKind: l.pin_kind,
+      stanPinu: !l.pin_temporary ? "ustawiony" : kodWygasl ? "kod_wygasl" : "czeka",
+      kodWazyDo: l.pin_temporary ? l.pin_temporary_expires_at : null,
+      pinUstawionyO: l.pin_temporary ? null : l.pin_set_at,
+      zamrozonyO: l.frozen_at,
       aktywneUrzadzenia: (sesje ?? []).filter((s) => s.access_link_id === l.id).length,
     };
   });
@@ -68,12 +79,15 @@ export async function odszyfrujAdresLinku(linkId: string, clientId: string): Pro
   return adresLinku(odszyfruj(kluczTokenu(), data.token_enc));
 }
 
-export type NowyLink = { clientId: string; contactId: string | null; label: string; pinKind: RodzajPinu; canApprove: boolean; createdBy: string };
+export type NowyLink = { clientId: string; contactId: string | null; label: string; canApprove: boolean; createdBy: string };
 
-/** Token i PIN wyłącznie z generatorów (crypto.randomBytes). PIN wraca do wywołującego tylko raz. */
+/**
+ * Token i kod startowy wyłącznie z generatorów (crypto.randomBytes). Kod (6 cyfr, 7 dni, jednorazowy) wraca do
+ * wywołującego tylko raz; po jego wpisaniu klient ustawia własny PIN (Etap 2 planu domknięcia).
+ */
 export async function utworzLinkDostepu(n: NowyLink): Promise<{ linkId: string; token: string; pin: string }> {
   const token = generujToken();
-  const pin = generujPin(n.pinKind);
+  const pin = generujKodStartowy();
   const { data, error } = await supabaseSerwer()
     .from("access_links")
     .insert({
@@ -84,7 +98,10 @@ export async function utworzLinkDostepu(n: NowyLink): Promise<{ linkId: string; 
       token_hash: hashujToken(token),
       token_enc: zaszyfruj(kluczTokenu(), token),
       pin_hash: await hashujPin(pin),
-      pin_kind: n.pinKind,
+      pin_kind: "pin6",
+      pin_temporary: true,
+      pin_temporary_expires_at: terminNowegoKodu(),
+      pin_pepper: true,
       can_approve: n.canApprove,
       created_by: n.createdBy,
     })
@@ -95,7 +112,7 @@ export async function utworzLinkDostepu(n: NowyLink): Promise<{ linkId: string; 
 }
 
 async function linkKlienta(linkId: string, clientId: string) {
-  const { data } = await supabaseSerwer().from("access_links").select("id, pin_kind, revoked_at").eq("id", linkId).eq("client_id", clientId).maybeSingle();
+  const { data } = await supabaseSerwer().from("access_links").select("id, revoked_at").eq("id", linkId).eq("client_id", clientId).maybeSingle();
   return data;
 }
 
@@ -114,19 +131,17 @@ export async function wylogujUrzadzeniaLinku(linkId: string, clientId: string): 
   return uniewaznijSesjeLinku(linkId);
 }
 
-/** Nowy PIN, zerowanie blokad i liczników, wylogowanie wszystkich urządzeń (SPEC rozdz. 12.4, 16.5). */
+/**
+ * „Wydaj nowy kod" (dawniej reset PIN-u; SPEC rozdz. 12.4, 16.5): nowy kod startowy, zerowanie blokad, odmrożenie,
+ * nowa wersja PIN-u i wylogowanie wszystkich urządzeń. Klient po wpisaniu kodu ustawi nowy własny PIN.
+ */
 export async function zresetujPinLinku(linkId: string, clientId: string): Promise<{ pin: string; token: string } | null> {
-  const db = supabaseSerwer();
-  const { data: link } = await db.from("access_links").select("id, pin_kind, revoked_at, token_enc").eq("id", linkId).eq("client_id", clientId).maybeSingle();
+  const { data: link } = await supabaseSerwer().from("access_links").select("id, revoked_at, token_enc").eq("id", linkId).eq("client_id", clientId).maybeSingle();
   if (!link || link.revoked_at) return null;
-  const pin = generujPin(link.pin_kind);
-  const { error } = await db
-    .from("access_links")
-    .update({ pin_hash: await hashujPin(pin), failed_attempts: 0, failed_window_started_at: null, locked_until: null })
-    .eq("id", linkId);
-  if (error) throw new Error(`zresetujPinLinku: ${error.message}`);
+  const wynik = await wydajKodStartowy(link.id);
+  if (!wynik) return null;
   await uniewaznijSesjeLinku(linkId);
-  return { pin, token: odszyfruj(kluczTokenu(), link.token_enc) };
+  return { pin: wynik.kod, token: odszyfruj(kluczTokenu(), link.token_enc) };
 }
 
 export type WpisHistorii = {
@@ -142,6 +157,11 @@ const AKCJE_HISTORII: AkcjaAudytu[] = [
   "klient.logowanie_ok",
   "klient.logowanie_blad",
   "klient.blokada_24h",
+  "klient.link_zamrozony",
+  "klient.kod_startowy_ok",
+  "klient.pin_ustawiony",
+  "klient.pin_zmieniony",
+  "klient.zmiana_pinu_blad",
   "klient.wylogowanie",
   "link.utworzony",
   "link.wygaszony",

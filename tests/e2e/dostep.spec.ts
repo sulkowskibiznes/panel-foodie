@@ -1,7 +1,7 @@
 import { expect, test, type BrowserContext, type Page } from "@playwright/test";
 import { copy } from "../../src/lib/copy";
-import { aktywneSesje, nieistniejacyToken, pakietKlienta, przesunSesjeWczas, rotatedAt, stanLinku, usunLinkTestowy, utworzLinkTestowy, wyczyscLimity, zasobKlienta, type LinkTestowy } from "./pomocnicze/baza";
-import { probaPinu, zalogujKlienta } from "./pomocnicze/klient";
+import { aktywneSesje, nieistniejacyToken, nowyPinKlienta, pakietKlienta, przesunSesjeWczas, rotatedAt, stanLinku, usunLinkTestowy, utworzLinkTestowy, wyczyscLimity, zasobKlienta, type LinkTestowy } from "./pomocnicze/baza";
+import { probaPinu, wpiszNowyPin, zalogujKlienta, zalogujKodemStartowym } from "./pomocnicze/klient";
 import { PLIK_SESJI_ZESPOLU } from "./pomocnicze/zespol";
 
 /** Kryteria odbioru 1-6 z SPEC rozdz. 18. Serial: limit prób na IP jest wspólny dla localhost. */
@@ -140,7 +140,7 @@ test("5. wygaszenie linku przez zespół wylogowuje otwartą sesję przy następ
   await probaPinu(page, l.token, l.pin);
 });
 
-test("6. reset PIN-u wylogowuje wszystkie urządzenia linku, a nowy PIN działa", async ({ page, browser }) => {
+test("6. nowy kod startowy wylogowuje wszystkie urządzenia linku, a po nim klient ustawia nowy PIN", async ({ page, browser }) => {
   const l = await link(KLIENT_A, { label: `E2E reset ${test.info().project.name} ${Date.now()}` });
   await zalogujKlienta(page, l.token, l.pin);
   const drugieUrzadzenie = await browser.newContext();
@@ -156,8 +156,8 @@ test("6. reset PIN-u wylogowuje wszystkie urządzenia linku, a nowy PIN działa"
   await wiersz.getByRole("button", { name: copy.zespol.dostep.akcje.resetujPin }).click();
   const dialog = stronaZespolu.getByRole("dialog");
   await expect(dialog.getByRole("heading", { name: copy.zespol.dostep.gotowy.nowyPinTytul })).toBeVisible();
-  const nowyPin = await dialog.getByLabel(copy.zespol.dostep.gotowy.pin).inputValue();
-  expect(nowyPin).toMatch(/^\d{4}$/);
+  const kod = await dialog.getByLabel(copy.zespol.dostep.gotowy.pin).inputValue();
+  expect(kod).toMatch(/^\d{6}$/);
   await zespol.close();
 
   expect(await aktywneSesje(l.id)).toBe(0);
@@ -167,6 +167,9 @@ test("6. reset PIN-u wylogowuje wszystkie urządzenia linku, a nowy PIN działa"
   await expect(druga).toHaveURL(`/p/${l.token}`);
   await drugieUrzadzenie.close();
 
-  if (nowyPin !== l.pin) await probaPinu(page, l.token, l.pin);
-  await zalogujKlienta(page, l.token, nowyPin);
+  await probaPinu(page, l.token, l.pin);
+  await zalogujKodemStartowym(page, l.token, kod);
+  const nowyPin = nowyPinKlienta();
+  await wpiszNowyPin(page, nowyPin);
+  await expect(page.locator("[data-baner-pinu]")).toHaveText(copy.klientStart.pinUstawiony);
 });

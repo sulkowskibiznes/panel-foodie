@@ -1,7 +1,7 @@
 import { config as dotenv } from "dotenv";
 import postgres from "postgres";
 import { createClient } from "@supabase/supabase-js";
-import { generujPin, generujToken, hashujPin, hashujToken, tokenLookup, type Losuj } from "../../../src/lib/auth-klient";
+import { generujKodStartowy, generujPin, generujToken, hashujPin, hashujToken, tokenLookup, walidujPinKlienta, type Losuj } from "../../../src/lib/auth-klient";
 import { wyprowadzKlucz, zaszyfruj } from "../../../src/lib/krypto";
 import { losujZZiarnem } from "../../pomocnicze/losowosc";
 
@@ -30,11 +30,16 @@ async function zBaza<T>(fn: (s: ReturnType<typeof postgres>) => Promise<T>): Pro
 
 export type LinkTestowy = { id: string; token: string; pin: string; clientId: string; label: string; contactId: string | null };
 
-/** Link testowy dla klienta z seedu. Token i PIN z generatorów z ustalonym ziarnem, hashe jak w aplikacji. `zKontaktem` = główna osoba kontaktowa klienta. */
-export async function utworzLinkTestowy(slug: string, opcje: { label?: string; canApprove?: boolean; zKontaktem?: boolean } = {}): Promise<LinkTestowy> {
+/**
+ * Link testowy dla klienta z seedu. Token i PIN z generatorów z ustalonym ziarnem, hashe jak w aplikacji (z pieprzem).
+ * `zKontaktem` = główna osoba kontaktowa klienta. Domyślnie PIN już „ustawiony przez klienta" (pin_temporary = false);
+ * `kodStartowy` daje 6-cyfrowy kod od zespołu, `kodWygasaZaGodzin` ujemne = kod po terminie (Etap 2).
+ */
+export async function utworzLinkTestowy(slug: string, opcje: { label?: string; canApprove?: boolean; zKontaktem?: boolean; kodStartowy?: boolean; kodWygasaZaGodzin?: number } = {}): Promise<LinkTestowy> {
   const losuj = losowosc();
   const token = generujToken(losuj);
-  const pin = generujPin("pin4", losuj);
+  const pin = opcje.kodStartowy ? generujKodStartowy(losuj) : generujPin("pin4", losuj);
+  const kodWygasa = opcje.kodStartowy ? new Date(Date.now() + (opcje.kodWygasaZaGodzin ?? 7 * 24) * 3_600_000).toISOString() : null;
   const sekret = process.env.SESSION_SECRET;
   if (!sekret) throw new Error("Brak SESSION_SECRET w .env.local");
   const tokenEnc = zaszyfruj(wyprowadzKlucz(sekret, "token"), token);
@@ -49,8 +54,9 @@ export async function utworzLinkTestowy(slug: string, opcje: { label?: string; c
       contactId = kontakt?.id ?? null;
     }
     const [link] = await s<{ id: string }[]>`
-      insert into public.access_links (client_id, contact_id, label, token_lookup, token_hash, token_enc, pin_hash, pin_kind, can_approve)
-      values (${klient.id}, ${contactId}, ${label}, ${tokenLookup(token)}, ${hashujToken(token)}, ${tokenEnc}, ${pinHash}, 'pin4', ${opcje.canApprove ?? true})
+      insert into public.access_links (client_id, contact_id, label, token_lookup, token_hash, token_enc, pin_hash, pin_kind, can_approve, pin_temporary, pin_temporary_expires_at, pin_pepper, pin_set_at)
+      values (${klient.id}, ${contactId}, ${label}, ${tokenLookup(token)}, ${hashujToken(token)}, ${tokenEnc}, ${pinHash}, ${opcje.kodStartowy ? "pin6" : "pin4"}::public.pin_kind, ${opcje.canApprove ?? true},
+        ${opcje.kodStartowy ?? false}, ${kodWygasa}::timestamptz, true, ${opcje.kodStartowy ? null : new Date().toISOString()}::timestamptz)
       returning id`;
     if (!link) throw new Error("Nie udało się utworzyć linku testowego");
     return { id: link.id, token, pin, clientId: klient.id, label, contactId };
@@ -70,6 +76,80 @@ export async function stanLinku(id: string) {
     const [w] = await s<{ failed_attempts: number; locked_until: string | null; revoked_at: string | null }[]>`
       select failed_attempts, locked_until, revoked_at from public.access_links where id = ${id}`;
     return w ?? null;
+  });
+}
+
+/**
+ * Własny PIN „wybrany przez klienta" w teście: z generatora z ziarnem (zasada 5), tylko taki, który przechodzi
+ * politykę `walidujPinKlienta` (bez dat, ciągów i powtórzeń).
+ */
+export function nowyPinKlienta(): string {
+  const losuj = losowosc();
+  for (;;) {
+    const pin = generujPin("pin4", losuj);
+    if (walidujPinKlienta(pin).ok) return pin;
+  }
+}
+
+export type StanPinuLinku = {
+  pin_temporary: boolean;
+  pin_temporary_expires_at: string | null;
+  pin_set_at: string | null;
+  pin_version: number;
+  pin_pepper: boolean;
+  frozen_at: string | null;
+  failed_attempts: number;
+  locked_until: string | null;
+  last_lockout_24h_at: string | null;
+};
+
+/** Stan PIN-u linku po Etapie 2 (kod startowy, wersja, zamrożenie, blokady). */
+export async function stanPinuLinku(id: string): Promise<StanPinuLinku | null> {
+  return zBaza(async (s) => {
+    const [w] = await s<StanPinuLinku[]>`
+      select pin_temporary, pin_temporary_expires_at::text, pin_set_at::text, pin_version, pin_pepper, frozen_at::text,
+        failed_attempts, locked_until::text, last_lockout_24h_at::text
+      from public.access_links where id = ${id}`;
+    return w ?? null;
+  });
+}
+
+/** Link tuż przed 10. nieudaną próbą, z poprzednią blokadą 24 h sprzed `dniTemu` dni (test zamrożenia). */
+export async function przygotujDrugaBlokade(id: string, dniTemu: number): Promise<void> {
+  await zBaza(
+    (s) => s`
+      update public.access_links
+      set failed_attempts = 9, failed_window_started_at = now() - interval '1 hour', locked_until = null,
+          last_lockout_24h_at = now() - make_interval(days => ${dniTemu})
+      where id = ${id}`,
+  );
+}
+
+export type SesjaTestowa = { remember: boolean; expires_at: string; created_at: string; pin_version: number; revoked_at: string | null };
+
+export async function sesjeLinku(linkId: string): Promise<SesjaTestowa[]> {
+  return zBaza(async (s) => [...(await s<SesjaTestowa[]>`
+    select remember, expires_at::text, created_at::text, pin_version, revoked_at::text
+    from public.client_sessions where access_link_id = ${linkId} order by created_at`)]);
+}
+
+/** Osobne przesunięcie utworzenia i rotacji sesji (12 h bez „Zapamiętaj mnie", rotacja po 24 h). */
+export async function przesunSesje(linkId: string, o: { utworzenieGodzin?: number; rotacjaGodzin?: number }): Promise<void> {
+  await zBaza(
+    (s) => s`
+      update public.client_sessions
+      set created_at = created_at - make_interval(hours => ${o.utworzenieGodzin ?? 0}),
+          rotated_at = rotated_at - make_interval(hours => ${o.rotacjaGodzin ?? 0}),
+          last_seen_at = last_seen_at - make_interval(hours => ${Math.max(o.utworzenieGodzin ?? 0, o.rotacjaGodzin ?? 0)})
+      where access_link_id = ${linkId} and revoked_at is null`,
+  );
+}
+
+/** Zdarzenia outboxu dla linku (payload.access_link_id), np. `klient.pin_ustawiony`. */
+export async function zdarzeniaLinku(linkId: string, event: string): Promise<number> {
+  return zBaza(async (s) => {
+    const [w] = await s<{ n: number }[]>`select count(*)::int as n from public.outbox where event = ${event} and payload->>'access_link_id' = ${linkId}`;
+    return w?.n ?? 0;
   });
 }
 
@@ -101,7 +181,7 @@ export async function rotatedAt(linkId: string): Promise<string | null> {
 
 /** Limit na IP jest współdzielony przez wszystkie testy z localhost; czyścimy go przed każdym testem. */
 export async function wyczyscLimity(): Promise<void> {
-  await zBaza((s) => s`delete from public.rate_limits where key like 'pin:ip:%' or key like 'otp:ip:%'`);
+  await zBaza((s) => s`delete from public.rate_limits where key like 'pin:ip:%' or key like 'pin:zmiana:%' or key like 'otp:ip:%'`);
 }
 
 export async function pakietKlienta(slug: string): Promise<string> {

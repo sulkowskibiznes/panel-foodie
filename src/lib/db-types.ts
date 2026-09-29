@@ -18,12 +18,19 @@ export type Database = {
           created_by: string | null
           failed_attempts: number
           failed_window_started_at: string | null
+          frozen_at: string | null
           id: string
           label: string
+          last_lockout_24h_at: string | null
           last_used_at: string | null
           locked_until: string | null
           pin_hash: string
           pin_kind: Database["public"]["Enums"]["pin_kind"]
+          pin_pepper: boolean
+          pin_set_at: string | null
+          pin_temporary: boolean
+          pin_temporary_expires_at: string | null
+          pin_version: number
           revoked_at: string | null
           token_enc: string
           token_hash: string
@@ -37,12 +44,19 @@ export type Database = {
           created_by?: string | null
           failed_attempts?: number
           failed_window_started_at?: string | null
+          frozen_at?: string | null
           id?: string
           label: string
+          last_lockout_24h_at?: string | null
           last_used_at?: string | null
           locked_until?: string | null
           pin_hash: string
           pin_kind?: Database["public"]["Enums"]["pin_kind"]
+          pin_pepper?: boolean
+          pin_set_at?: string | null
+          pin_temporary?: boolean
+          pin_temporary_expires_at?: string | null
+          pin_version?: number
           revoked_at?: string | null
           token_enc: string
           token_hash: string
@@ -56,12 +70,19 @@ export type Database = {
           created_by?: string | null
           failed_attempts?: number
           failed_window_started_at?: string | null
+          frozen_at?: string | null
           id?: string
           label?: string
+          last_lockout_24h_at?: string | null
           last_used_at?: string | null
           locked_until?: string | null
           pin_hash?: string
           pin_kind?: Database["public"]["Enums"]["pin_kind"]
+          pin_pepper?: boolean
+          pin_set_at?: string | null
+          pin_temporary?: boolean
+          pin_temporary_expires_at?: string | null
+          pin_version?: number
           revoked_at?: string | null
           token_enc?: string
           token_hash?: string
@@ -326,7 +347,9 @@ export type Database = {
           id: string
           ip_hash: string | null
           last_seen_at: string
+          pin_version: number
           previous_session_hash: string | null
+          remember: boolean
           revoked_at: string | null
           rotated_at: string
           session_hash: string
@@ -339,7 +362,9 @@ export type Database = {
           id?: string
           ip_hash?: string | null
           last_seen_at?: string
+          pin_version?: number
           previous_session_hash?: string | null
+          remember?: boolean
           revoked_at?: string | null
           rotated_at?: string
           session_hash: string
@@ -352,7 +377,9 @@ export type Database = {
           id?: string
           ip_hash?: string | null
           last_seen_at?: string
+          pin_version?: number
           previous_session_hash?: string | null
+          remember?: boolean
           revoked_at?: string | null
           rotated_at?: string
           session_hash?: string
@@ -1528,7 +1555,22 @@ export type Database = {
           blokada_24h: boolean
           proby: number
           zablokowany_do: string
+          zamrozony: boolean
         }[]
+      }
+      proby_po_bledzie: {
+        Args: { p_okno: string; p_proby: number }
+        Returns: number
+      }
+      ustaw_pin_klienta: {
+        Args: {
+          p_hash: string
+          p_link: string
+          p_tymczasowy: boolean
+          p_wersja: number
+          p_wygasa?: string
+        }
+        Returns: number
       }
       utworz_klienta: { Args: { p: Json }; Returns: string }
       zwieksz_limit: {

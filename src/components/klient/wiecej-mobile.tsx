@@ -1,6 +1,6 @@
 "use client";
 
-import { Archive, BarChart3, FileText, Menu, Package, Sparkles, type LucideIcon } from "lucide-react";
+import { Archive, BarChart3, FileText, KeyRound, Menu, Package, Sparkles, type LucideIcon } from "lucide-react";
 import Link from "next/link";
 import { useState } from "react";
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
@@ -47,12 +47,18 @@ export function WiecejMobile({ pozycje, token, podglad }: { pozycje: PozycjaMenu
             {podglad ? (
               <span className="block px-3 py-3 text-sm text-szary-600">{copy.podgladKlienta.zalogowanyJako}</span>
             ) : (
+              <>
+              <Link href={`/p/${token}/pin`} onClick={() => setOtwarty(false)} className="flex items-center gap-3 rounded-lg px-3 py-3 text-sm font-medium text-foodie-czern hover:bg-szary-050" data-zmien-pin-mobile>
+                <KeyRound className="size-5" aria-hidden />
+                {n.zmienPin}
+              </Link>
               <form action={`/p/${token}/wyloguj`} method="post">
                 <button type="submit" className="flex w-full items-center gap-3 rounded-lg px-3 py-3 text-left text-sm font-medium text-foodie-fiolet hover:bg-szary-050">
                   <span className="size-5 rounded-full border border-szary-300" aria-hidden />
                   {n.wyloguj}
                 </button>
               </form>
+              </>
             )}
           </nav>
         </SheetContent>

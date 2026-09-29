@@ -30,20 +30,19 @@ function odswiez(slug: string) {
 const schematNowegoLinku = z.object({
   contactId: z.string().nullable(),
   label: z.string().trim().max(120),
-  pinKind: z.enum(["pin4", "pin6", "haslo"]),
   canApprove: z.boolean(),
 });
 
 export type WynikNowegoLinku = { ok: true; linkId: string; adres: string; pin: string } | { ok: false; blad: string };
 
-/** „Utwórz link": PIN wraca tylko tym jednym wynikiem, nigdzie indziej nie jest widoczny. */
+/** „Utwórz link": kod startowy wraca tylko tym jednym wynikiem, nigdzie indziej nie jest widoczny (Etap 2 planu domknięcia). */
 export async function utworzLink(slug: string, dane: z.input<typeof schematNowegoLinku>): Promise<WynikNowegoLinku> {
   const { czlonek, klient } = await autoryzuj(slug);
   if (klient.demo) return { ok: false, blad: copy.zespol.dostep.bledy.klientDemo };
   if (klient.status === "zakonczony") return { ok: false, blad: copy.zespol.dostep.bledy.klientZakonczony };
   const parsed = schematNowegoLinku.safeParse(dane);
   if (!parsed.success) return { ok: false, blad: copy.zespol.dostep.bledy.brakEtykiety };
-  const { contactId, pinKind, canApprove } = parsed.data;
+  const { contactId, canApprove } = parsed.data;
   let label = parsed.data.label;
   let kontaktId: string | null = null;
   if (contactId && czyUuid(contactId)) {
@@ -54,9 +53,9 @@ export async function utworzLink(slug: string, dane: z.input<typeof schematNoweg
   }
   if (!label) return { ok: false, blad: copy.zespol.dostep.bledy.brakEtykiety };
 
-  const { linkId, token, pin } = await utworzLinkDostepu({ clientId: klient.id, contactId: kontaktId, label, pinKind, canApprove, createdBy: czlonek.id });
+  const { linkId, token, pin } = await utworzLinkDostepu({ clientId: klient.id, contactId: kontaktId, label, canApprove, createdBy: czlonek.id });
   const { ipHash } = await infoZadania();
-  await zapiszAudyt({ actor_kind: "zespol", actor_id: czlonek.id, actor_label: czlonek.name, action: "link.utworzony", entity: "access_link", entity_id: linkId, client_id: klient.id, ip_hash: ipHash, meta: { label, pin_kind: pinKind, can_approve: canApprove } });
+  await zapiszAudyt({ actor_kind: "zespol", actor_id: czlonek.id, actor_label: czlonek.name, action: "link.utworzony", entity: "access_link", entity_id: linkId, client_id: klient.id, ip_hash: ipHash, meta: { label, kod_startowy: true, can_approve: canApprove } });
   odswiez(slug);
   return { ok: true, linkId, adres: adresLinku(token), pin };
 }
@@ -86,7 +85,7 @@ export async function wylogujUrzadzenia(slug: string, linkId: string): Promise<{
 
 export type WynikResetu = { ok: true; adres: string; pin: string } | { ok: false; blad: string };
 
-/** Reset PIN-u: stary przestaje działać, wszystkie urządzenia wylogowane, nowy PIN widoczny raz (SPEC rozdz. 12.4). */
+/** „Wydaj nowy kod": stary PIN przestaje działać, link odmrożony, urządzenia wylogowane, kod widoczny raz (SPEC rozdz. 12.4). */
 export async function zresetujPin(slug: string, linkId: string): Promise<WynikResetu> {
   const { czlonek, klient } = await autoryzuj(slug);
   if (!czyUuid(linkId)) return { ok: false, blad: copy.zespol.dostep.bledy.ogolny };
@@ -118,9 +117,10 @@ export async function pokazLink(slug: string, linkId: string): Promise<WynikPoka
 }
 
 /** Skopiowanie linku albo PIN-u odnotowujemy w audycie (SPEC rozdz. 12.4). */
-export async function odnotujSkopiowanie(slug: string, linkId: string, co: "link" | "pin" | "oba"): Promise<void> {
+export async function odnotujSkopiowanie(slug: string, linkId: string, co: "link" | "pin"): Promise<void> {
   const { czlonek, klient } = await autoryzuj(slug);
-  if (!czyUuid(linkId)) return;
+  // Argumenty akcji przychodzą jawnie w ciele żądania: do audytu tylko znane wartości.
+  if (!czyUuid(linkId) || (co !== "link" && co !== "pin")) return;
   const { ipHash } = await infoZadania();
   await zapiszAudyt({ actor_kind: "zespol", actor_id: czlonek.id, actor_label: czlonek.name, action: "link.skopiowany", entity: "access_link", entity_id: linkId, client_id: klient.id, ip_hash: ipHash, meta: { co } });
 }

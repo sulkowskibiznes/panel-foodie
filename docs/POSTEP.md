@@ -567,3 +567,36 @@ Etap 3 (UX zespołu), Etap 4 po pilotażu.
   profilowe przez podpisany adres, osoby z wygaszeniem linku, podmiana lokalu w ciele akcji = 404, content creator
   404 → przypisany → 404, akceptacja 96 h, przerwa i wznowienie), `skrzynka.spec.ts` rozszerzony.
 - Migracja `20260930100001_klienci_edycja.sql` tylko lokalnie; do chmury razem z pozostałymi (Etap A).
+
+### Etap 2: własny PIN klienta (gałąź `faza/8-pin-klienta`)
+
+- **Kod startowy + własny PIN** (decyzja Szymona 2026-09-29): „Utwórz link" daje link i 6-cyfrowy kod startowy
+  (crypto, 7 dni, jednorazowy). Klient wpisuje kod na tym samym ekranie PIN (kryterium 1 bez zmian), dostaje
+  pozwolenie w podpisanym cookie (15 min, związane z linkiem i wersją PIN-u) i ustawia własny PIN 4-6 cyfr
+  (`walidujPinKlienta`: bez powtórzeń, ciągów, bloków, podwojeń, lat, dat i popularnych PIN-ów; nie równy kodowi).
+  „Zmień PIN" w panelu (stopka, „Więcej"): błędny obecny PIN liczy się do blokad, trzeci błąd kończy sesję,
+  zmiana wylogowuje inne urządzenia. Zdarzenia `klient.pin_ustawiony` i `klient.pin_zmieniony` na Slacka.
+- **Pieprz** `PIN_PEPPER` (HMAC przed argon2id), osobny od `SESSION_SECRET`; stare hashe (`pin_pepper = false`)
+  działają dalej jako kod startowy bez terminu.
+- **Blokady**: okno 24 h zamiast godziny (wcześniej ok. 190 prób na dobę na link), blokada w jednym zapisie,
+  jeden alarm przy 10. próbie, **zamrożenie linku** po drugiej blokadzie 24 h w ciągu 30 dni; „Wydaj nowy kod"
+  (dawniej „Zresetuj PIN") odmraża.
+- **Sesje**: `pin_version` w sesji (nowy kod, ustawienie i zmiana PIN-u unieważniają stare sesje, także w wyścigu);
+  **„Zapamiętaj mnie" naprawione**: bez niego 12 h i cookie sesyjne także po rotacji (wcześniej rotacja po 24 h
+  robiła z niego cookie trwałe), z nim 90 dni przesuwnie, najwyżej 180 od zalogowania.
+- Zespół: stan PIN-u przy linku („Czeka na PIN klienta", „Kod startowy wygasł", „PIN ustawiony przez klienta",
+  „Zamrożony"), osobne kopiowanie linku i kodu, pytanie przed zamknięciem okna bez skopiowania kodu, uczciwy
+  komunikat, gdy schowek zawiedzie. Zdarzenia bezpieczeństwa w kształcie z rozdz. 15 (slug, kanał Slack).
+- Migracja `20261001100001_pin_klienta.sql` (kolumny `access_links` i `client_sessions`, trigger wersji,
+  `ustaw_pin_klienta` z CAS, nowe `odnotuj_nieudane_logowanie`), tylko lokalnie.
+- Testy: jednostkowe (polityka PIN-u, pieprz, hash sprzed pieprzu, logowanie z kodem, zamrożeniem i wygasłym kodem),
+  E2E `pin-klienta.spec.ts` (kryteria 29-33: kod → własny PIN i jednorazowość, wygasły kod, pozwolenie A pod
+  tokenem B także w ciele akcji, „Zmień PIN" z trzema błędami i wylogowaniem innych urządzeń, zamrożenie
+  i odmrożenie, „Zapamiętaj mnie", podgląd zespołu 404), `dostep.spec.ts` kryterium 6 na nowym kodzie.
+- Dokumenty: SPEC 3, 4.2-4.4, 12.4, 15, 16, 18 (kryteria 29-33), 20 (poz. 23 zmieniona, poz. 37), CLAUDE.md
+  (zasada 5, sekrety, struktura), regulamin § 4, OBSLUGA 4-5, ściąga dla zespołu.
+
+**Kryteria 29-33: przechodzą** (E2E na obu szerokościach).
+
+**Wymaga Szymona:** `PIN_PEPPER` w Vercelu (Production i Preview osobno, `openssl rand -hex 32`, raz na zawsze:
+zmiana unieważnia wszystkie PIN-y); § 4 regulaminu do przejrzenia z prawnikiem razem z § 5.

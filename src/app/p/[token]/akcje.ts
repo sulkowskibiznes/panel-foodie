@@ -4,9 +4,9 @@ import { redirect } from "next/navigation";
 import { hashAtrapa, weryfikujPin } from "@/lib/auth-klient";
 import { zapiszAudyt } from "@/lib/audyt";
 import { copy } from "@/lib/copy";
-import { czyPrzekroczonyLimitIp, NIEISTNIEJACY_LINK, odnotujNieudaneLogowanie } from "@/lib/limity";
+import { czyPrzekroczonyLimitIp, NIEISTNIEJACY_LINK } from "@/lib/limity";
 import { weryfikujLogowanie, type LinkDoLogowania } from "@/lib/logowanie-klienta";
-import { dodajDoOutbox } from "@/lib/outbox";
+import { odnotujNieudanaProbe, ustawPozwolenieNaPin } from "@/lib/pin-klienta";
 import { utworzSesje } from "@/lib/sesja-klienta";
 import { supabaseSerwer } from "@/lib/supabase/server";
 import { infoZadania } from "@/lib/zadanie";
@@ -16,7 +16,7 @@ export type StanPin = { blad?: string };
 async function znajdzLink(lookup: string): Promise<LinkDoLogowania | null> {
   const { data } = await supabaseSerwer()
     .from("access_links")
-    .select("id, client_id, contact_id, label, can_approve, token_hash, pin_hash, revoked_at, locked_until")
+    .select("id, client_id, contact_id, label, can_approve, token_hash, pin_hash, pin_pepper, pin_temporary, pin_temporary_expires_at, pin_version, revoked_at, locked_until, frozen_at")
     .eq("token_lookup", lookup)
     .maybeSingle();
   return data ?? null;
@@ -25,6 +25,7 @@ async function znajdzLink(lookup: string): Promise<LinkDoLogowania | null> {
 /**
  * Logowanie linkiem i PIN-em (SPEC rozdz. 4.3). Zły token i zły PIN: ten sam komunikat,
  * jedno wywołanie argon2 i jeden zapis w bazie w obu ścieżkach, żeby czas był ten sam.
+ * Poprawny kod startowy (Etap 2 planu domknięcia) nie daje sesji, tylko pozwolenie na ustawienie własnego PIN-u.
  */
 export async function zalogujPinem(_poprzedni: StanPin, formData: FormData): Promise<StanPin> {
   const token = String(formData.get("token") ?? "").trim().toLowerCase();
@@ -38,14 +39,15 @@ export async function zalogujPinem(_poprzedni: StanPin, formData: FormData): Pro
 
   const wynik = await weryfikujLogowanie(token, pin, {
     znajdzLink,
-    weryfikuj: weryfikujPin,
+    weryfikuj: (hashPinu, pinDoSprawdzenia, zPieprzem) => (zPieprzem ? weryfikujPin(hashPinu, pinDoSprawdzenia) : weryfikujPin(hashPinu, pinDoSprawdzenia, null)),
     hashAtrapa: await hashAtrapa(),
     teraz: () => new Date(),
   });
 
   if (!wynik.ok) {
-    const liczyDoBlokady = wynik.powod === "zly_pin" || wynik.powod === "blokada";
-    const proba = await odnotujNieudaneLogowanie(liczyDoBlokady && wynik.link ? wynik.link.id : NIEISTNIEJACY_LINK);
+    // Wygasły kod startowy liczy się jak zły PIN (ten sam zapis), ale klient dostaje podpowiedź, co zrobić.
+    const liczyDoBlokady = wynik.powod === "zly_pin" || wynik.powod === "blokada" || wynik.powod === "kod_wygasl";
+    const proba = await odnotujNieudanaProbe(liczyDoBlokady ? wynik.link : null, liczyDoBlokady && wynik.link ? wynik.link.id : NIEISTNIEJACY_LINK, ipHash);
     await zapiszAudyt({
       actor_kind: "klient",
       actor_id: wynik.link?.contact_id ?? null,
@@ -58,13 +60,7 @@ export async function zalogujPinem(_poprzedni: StanPin, formData: FormData): Pro
       ua,
       meta: { powod: wynik.powod, proby: proba.proby },
     });
-    if (proba.blokada24h && wynik.link) {
-      await Promise.all([
-        zapiszAudyt({ actor_kind: "system", action: "klient.blokada_24h", entity: "access_link", entity_id: wynik.link.id, client_id: wynik.link.client_id, ip_hash: ipHash }),
-        dodajDoOutbox("bezpieczenstwo.blokada", { client_id: wynik.link.client_id, access_link_id: wynik.link.id, label: wynik.link.label, proby: proba.proby, do: proba.zablokowanyDo }),
-      ]);
-    }
-    return { blad: copy.pin.blad };
+    return { blad: wynik.powod === "kod_wygasl" ? copy.pin.kodWygasl : copy.pin.blad };
   }
 
   const link = wynik.link;
@@ -72,7 +68,12 @@ export async function zalogujPinem(_poprzedni: StanPin, formData: FormData): Pro
     .from("access_links")
     .update({ failed_attempts: 0, failed_window_started_at: null, locked_until: null, last_used_at: new Date().toISOString() })
     .eq("id", link.id);
-  await utworzSesje(link.id, { zapamietaj, ipHash, uaHash });
+  if (wynik.ustawPin) {
+    await ustawPozwolenieNaPin(token, link, zapamietaj);
+    await zapiszAudyt({ actor_kind: "klient", actor_id: link.contact_id, actor_label: link.label, action: "klient.kod_startowy_ok", entity: "access_link", entity_id: link.id, client_id: link.client_id, ip_hash: ipHash, ua });
+    redirect(`/p/${token}/ustaw-pin`);
+  }
+  await utworzSesje(link.id, { zapamietaj, ipHash, uaHash, pinVersion: link.pin_version });
   await zapiszAudyt({
     actor_kind: "klient",
     actor_id: link.contact_id,

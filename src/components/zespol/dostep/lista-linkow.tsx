@@ -7,10 +7,19 @@ import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { copy } from "@/lib/copy";
 import type { LinkDostepu } from "@/lib/dane/linki";
-import { formatujDateCzas } from "@/lib/format";
+import { formatujDate, formatujDateCzas } from "@/lib/format";
+
+/** Stan PIN-u linku (Etap 2 planu domknięcia): kod czeka na klienta, wygasł, albo klient ustawił własny PIN. */
+function StanPinu({ l }: { l: LinkDostepu }) {
+  const p = copy.zespol.dostep.pinStan;
+  if (l.stanPinu === "ustawiony") return <p className="mt-1 text-xs text-szary-600" data-stan-pinu="ustawiony">{p.ustawiony.replace("{data}", l.pinUstawionyO ? formatujDate(l.pinUstawionyO) : "")}</p>;
+  if (l.stanPinu === "kod_wygasl") return <p className="mt-1 text-xs font-medium text-bursztyn" data-stan-pinu="kod_wygasl">{p.kodWygasl}</p>;
+  return <p className="mt-1 text-xs text-szary-600" data-stan-pinu="czeka">{l.kodWazyDo ? p.czeka.replace("{data}", formatujDateCzas(l.kodWazyDo)) : p.czekaBezTerminu}</p>;
+}
 
 export function ListaLinkow({ slug, linki }: { slug: string; linki: LinkDostepu[] }) {
   const [reset, setReset] = useState<(WynikResetu & { ok: true; linkId: string }) | null>(null);
+  const [kodSkopiowany, setKodSkopiowany] = useState(false);
   /** Adresy odszyfrowane na żądanie („Pokaż link"): lista z serwera nigdy ich nie niesie (SPEC rozdz. 16 pkt 12). */
   const [pokazane, setPokazane] = useState<Record<string, string>>({});
   const [skopiowany, setSkopiowany] = useState<string | null>(null);
@@ -65,9 +74,17 @@ export function ListaLinkow({ slug, linki }: { slug: string; linki: LinkDostepu[
   function resetuj(l: LinkDostepu) {
     wykonaj(d.akcje.resetujPotwierdz, async () => {
       const r = await zresetujPin(slug, l.id);
-      if (r.ok) setReset({ ...r, linkId: l.id });
-      else setBlad(r.blad);
+      if (r.ok) {
+        setKodSkopiowany(false);
+        setReset({ ...r, linkId: l.id });
+      } else setBlad(r.blad);
     });
+  }
+
+  function zamknijReset() {
+    // Kod startowy widać tylko raz: zamknięcie bez kopiowania wymaga potwierdzenia.
+    if (!kodSkopiowany && !window.confirm(d.gotowy.zamknijBezKopiowania)) return;
+    setReset(null);
   }
 
   return (
@@ -91,6 +108,7 @@ export function ListaLinkow({ slug, linki }: { slug: string; linki: LinkDostepu[
                 <td className="py-3 pr-4">
                   <p className="font-medium text-foodie-czern">{l.label}</p>
                   {!l.canApprove ? <p className="text-xs text-szary-600">{d.status.tylkoPodglad}</p> : null}
+                  {!l.revokedAt ? <StanPinu l={l} /> : null}
                   {pokazane[l.id] ? (
                     <div className="mt-2 flex flex-wrap items-center gap-2">
                       <input aria-label={d.gotowy.link} readOnly value={pokazane[l.id]} onFocus={(e) => e.currentTarget.select()} className="h-9 min-w-[260px] flex-1 rounded-lg border border-szary-300 bg-szary-050 px-2 font-mono text-xs text-foodie-czern" />
@@ -104,6 +122,8 @@ export function ListaLinkow({ slug, linki }: { slug: string; linki: LinkDostepu[
                 <td className="py-3 pr-4">
                   {l.revokedAt ? (
                     <span className="rounded-full bg-szary-100 px-2 py-0.5 text-xs font-medium text-szary-600">{d.status.wygaszony}</span>
+                  ) : l.zamrozonyO ? (
+                    <span className="rounded-full bg-red-50 px-2 py-0.5 text-xs font-medium text-czerwony" data-zamrozony>{d.status.zamrozony}</span>
                   ) : l.lockedUntil ? (
                     <span className="rounded-full bg-red-50 px-2 py-0.5 text-xs font-medium text-czerwony">{d.status.zablokowany} {formatujDateCzas(l.lockedUntil)}</span>
                   ) : (
@@ -127,14 +147,23 @@ export function ListaLinkow({ slug, linki }: { slug: string; linki: LinkDostepu[
         </table>
       </div>
 
-      <Dialog open={reset !== null} onOpenChange={(open) => { if (!open) setReset(null); }}>
+      <Dialog open={reset !== null} onOpenChange={(open) => { if (!open) zamknijReset(); }}>
         <DialogContent className="sm:max-w-md">
           <DialogHeader>
             <DialogTitle className="font-naglowek text-lg">{d.gotowy.nowyPinTytul}</DialogTitle>
             <DialogDescription>{d.gotowy.nowyPinOpis}</DialogDescription>
           </DialogHeader>
-          {reset ? <PolaKopiowania adres={reset.adres} pin={reset.pin} onSkopiowano={(co) => void odnotujSkopiowanie(slug, reset.linkId, co)} /> : null}
-          <Button type="button" variant="outline" size="lg" onClick={() => setReset(null)}>{d.gotowy.zamknij}</Button>
+          {reset ? (
+            <PolaKopiowania
+              adres={reset.adres}
+              pin={reset.pin}
+              onSkopiowano={(co) => {
+                if (co === "pin") setKodSkopiowany(true);
+                void odnotujSkopiowanie(slug, reset.linkId, co);
+              }}
+            />
+          ) : null}
+          <Button type="button" variant="outline" size="lg" onClick={zamknijReset}>{d.gotowy.zamknij}</Button>
         </DialogContent>
       </Dialog>
     </div>

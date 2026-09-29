@@ -16,9 +16,10 @@ export async function czyPrzekroczonyLimitIp(ipHash: string): Promise<boolean> {
   return proby > LIMIT_PIN_IP.max;
 }
 
-export type WynikNieudanejProby = { proby: number; zablokowanyDo: string | null; blokada24h: boolean };
+/** `blokada24h` tylko przy przejściu na 10. próbę (jeden alarm); `zamrozony` = druga blokada 24 h w ciągu 30 dni, właśnie teraz. */
+export type WynikNieudanejProby = { proby: number; zablokowanyDo: string | null; blokada24h: boolean; zamrozony: boolean };
 
-/** Nieudana próba PIN-u dla linku: blokady 15 min / 24 h liczone atomowo w bazie. */
+/** Nieudana próba PIN-u dla linku: okno 24 h, blokady 15 min / 24 h i zamrożenie liczone atomowo w bazie jednym zapisem. */
 export async function odnotujNieudaneLogowanie(linkId: string): Promise<WynikNieudanejProby> {
   const { data, error } = await supabaseSerwer().rpc("odnotuj_nieudane_logowanie", { p_link_id: linkId });
   if (error) throw new Error(`odnotuj_nieudane_logowanie: ${error.message}`);
@@ -27,6 +28,7 @@ export async function odnotujNieudaneLogowanie(linkId: string): Promise<WynikNie
     proby: wiersz?.proby ?? 0,
     zablokowanyDo: wiersz?.zablokowany_do ?? null,
     blokada24h: wiersz?.blokada_24h ?? false,
+    zamrozony: wiersz?.zamrozony ?? false,
   };
 }
 

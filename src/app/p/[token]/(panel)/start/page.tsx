@@ -11,8 +11,9 @@ import { wymagajKontekstuKlienta } from "@/lib/kontekst-klienta";
 const MS_24H = 24 * 60 * 60 * 1000;
 
 /** SPEC rozdz. 5.1: jeden duży kafel akcji, gdy coś czeka; pod spodem najnowszy raport, najbliższa publikacja, faktura po terminie. */
-export default async function Start({ params }: { params: Promise<{ token: string }> }) {
+export default async function Start({ params, searchParams }: { params: Promise<{ token: string }>; searchParams: Promise<Record<string, string | string[] | undefined>> }) {
   const { token } = await params;
+  const { pin } = await searchParams;
   const kontekst = await wymagajKontekstuKlienta(token);
   const teraz = new Date();
   const [pakiety, raport, publikacja, fakturaPoTerminie] = await Promise.all([
@@ -24,8 +25,16 @@ export default async function Start({ params }: { params: Promise<{ token: strin
   const k = copy.klientStart.kafle;
   const f = copy.faktury;
 
+  // Baner po ustawieniu albo zmianie własnego PIN-u (Etap 2 planu domknięcia); tylko znana wartość z adresu.
+  const banerPinu = pin === "ustawiony" ? copy.klientStart.pinUstawiony : pin === "zmieniony" ? copy.klientStart.pinZmieniony : null;
+
   return (
     <div className="space-y-4">
+      {banerPinu ? (
+        <p role="status" className="rounded-xl bg-green-50 px-4 py-3 text-sm font-medium leading-6 text-zielony" data-baner-pinu>
+          {banerPinu}
+        </p>
+      ) : null}
       {pakiety.length === 0 ? (
         <section className="rounded-xl bg-white p-6 shadow-miekki sm:p-8">
           <h1 className="font-naglowek text-2xl text-foodie-czern">{copy.klientStart.naBiezaco}</h1>

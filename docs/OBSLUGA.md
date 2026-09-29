@@ -26,7 +26,7 @@ loguje się kodem z maila przy pierwszym wejściu.
    Slug (adres w panelu) podpowiada się z nazwy; zmieniaj tylko, gdy koliduje.
 3. **Lokale**: każdy z nazwą i **dokładną nazwą strony na Facebooku** (pojawia się w podglądach 1:1).
    Nick na Instagramie bez `@`; bez niego placementy IG w podglądach reklam są wyszarzone.
-4. **Osoby kontaktowe**: każda dostanie potem własny link i PIN. Pierwsza jest główna.
+4. **Osoby kontaktowe**: każda dostanie potem własny link i kod startowy. Pierwsza jest główna.
 5. **Zespół klienta** (opcjonalnie): zaznacz content creatora i media buyera. Bez przypisania content creator
    nie zobaczy klienta.
 6. „Utwórz klienta" → karta klienta. Błąd (np. zajęty slug) nie czyści formularza.
@@ -78,7 +78,7 @@ Karta klienta → **Dane i współpraca** (admin i csm). Wszystko, co wcześniej
 1. W pakiecie **„Wyślij do akceptacji"**. Panel pokazuje listę braków (daty, puste opisy) i ostrzeżenia
    (brak kampanii). Po wysyłce rusza licznik **72 godzin** do automatycznej akceptacji (poniedziałek–sobota,
    gdy admin przełączył tryb dni roboczych).
-2. Klient dostaje od Ciebie wiadomość na WhatsAppie z linkiem i PIN-em (sekcja 4). Panel nie wysyła nic sam.
+2. Klient dostaje od Ciebie wiadomość na WhatsAppie z linkiem (a za pierwszym razem osobno z kodem startowym, sekcja 4). Panel nie wysyła nic sam.
 3. **Pulpit** pokazuje: ile klient czeka, ile zostało do auto-akceptacji (kolory jak w Bazie Klientów:
    niebieski 6–7 dni, żółty 4–5, pomarańczowy 1–3, czerwony dziś, szary po terminie), nieprzeczytane uwagi.
    Bursztynowy wiersz **„Auto-akceptacja wstrzymana"** = termin minął, ale klient ma nierozwiązane uwagi;
@@ -117,39 +117,53 @@ Klient demonstracyjny nie ma faktur ani linków (baza to blokuje).
 
 ## 4. Linki dostępu i PIN-y
 
-Karta klienta → **Dostęp** (admin i csm).
+Karta klienta → **Dostęp** (admin i csm). Od Etapu 2 (2026-09-29) **klient sam ustawia swój PIN**; zespół
+wydaje tylko jednorazowy kod startowy i nigdy nie zna PIN-u klienta.
 
-- **„Utwórz link"**: wybierz osobę kontaktową (albo wpisz opis), rodzaj PIN-u (4 cyfry domyślnie), czy osoba
-  może akceptować (bez zaznaczenia: tylko podgląd i komentarze). **PIN widzisz tylko raz.** Skopiuj „Link i PIN"
-  i wyślij klientowi tak jak zwykle (WhatsApp). Wiadomość piszesz sam.
+- **„Utwórz link"**: wybierz osobę kontaktową (albo wpisz opis) i czy osoba może akceptować (bez zaznaczenia:
+  tylko podgląd i komentarze). Dostajesz **link i 6-cyfrowy kod startowy**. Kod widzisz tylko raz, działa raz
+  i przez 7 dni. Skopiuj link i kod **osobnymi przyciskami** i wyślij **dwiema osobnymi wiadomościami** (WhatsApp).
+  Wiadomość piszesz sam. Okno nie zamknie się bez pytania, dopóki nie skopiujesz kodu.
+- Klient otwiera link, wpisuje kod w polu „PIN albo kod startowy", a panel od razu prosi o **własny PIN**
+  (4 do 6 cyfr; daty, lata, 1234 i podobne są odrzucane). Od tej chwili wchodzi swoim PIN-em. PIN zmieni sam
+  w panelu: „Zmień PIN" w stopce (telefon: „Więcej").
+- Stan przy każdym linku: „Czeka na PIN klienta, kod ważny do…", „Kod startowy wygasł, wydaj nowy",
+  „PIN ustawiony przez klienta {data}", „Zamrożony po próbach zgadnięcia PIN-u".
 - Każda osoba po stronie klienta dostaje **własny link**, żeby było wiadomo, kto zaakceptował.
-- **„Pokaż link"** (także na pulpicie przy pakiecie do akceptacji) odsłania adres bez PIN-u; każde kliknięcie
+- **„Pokaż link"** (także na pulpicie przy pakiecie do akceptacji) odsłania adres bez kodu; każde kliknięcie
   jest w audycie. Do ponownego wysłania linku osobie, która go zgubiła.
-- **„Zresetuj PIN"**: stary przestaje działać, wszystkie urządzenia wylogowane, nowy PIN widzisz raz.
+- **„Wydaj nowy kod"** (dawniej „Zresetuj PIN"): obecny PIN przestaje działać, wszystkie urządzenia są
+  wylogowane, blokada i zamrożenie znikają, a klient po nowym kodzie ustawi nowy PIN. Kod widzisz raz.
 - **„Wyloguj wszystkie urządzenia"**: sesje znikają, link i PIN zostają.
 - **„Wygaś link"**: nieodwracalne; osoba traci dostęp przy następnym wejściu. Potem tworzysz nowy link.
-- **Historia logowań** pod listą: udane i nieudane próby, blokady, z których urządzeń.
+- **Historia logowań** pod listą: udane i nieudane próby, kod startowy, ustawienie i zmiana PIN-u, blokady.
+- Na Slacka trafiają: ustawienie własnego PIN-u, każda zmiana PIN-u (jeśli to nie był klient, wydaj nowy kod),
+  blokada 24 h i zamrożenie linku.
 
 ## 5. Klient mówi, że link nie działa
 
 Sprawdź po kolei, od najczęstszych przyczyn:
 
-1. **Wpisuje zły PIN.** Ekran PIN nie mówi, co jest nie tak (celowo). 5 błędnych PIN-ów blokuje link
-   na 15 minut; **6. próba z dobrym PIN-em też odpada**, więc każ odczekać kwadrans. 10 błędnych w godzinę
-   blokuje na 24 h i wysyła powiadomienie na Slacka. Stan blokady widać w Dostępie („Zablokowany do")
-   i w historii logowań. Najszybsze wyjście: **„Zresetuj PIN"** (czyści blokadę i liczniki) i wyślij nowy PIN.
-2. **Otwiera stary link.** Po wygaszeniu albo po zakończeniu współpracy link prowadzi na ekran PIN, a PIN
+1. **Zapomniał PIN-u albo wpisuje zły.** Ekran PIN nie mówi, co jest nie tak (celowo). 5 błędnych PIN-ów blokuje
+   link na 15 minut; **6. próba z dobrym PIN-em też odpada**, więc każ odczekać kwadrans. 10 błędnych w ciągu doby
+   blokuje na 24 h i wysyła powiadomienie na Slacka; druga taka blokada w ciągu 30 dni **zamraża link**. Stan widać
+   w Dostępie („Zablokowany do", „Zamrożony") i w historii logowań. Zespół nie zna PIN-u klienta, więc wyjście
+   jest jedno: **„Wydaj nowy kod"** (czyści blokadę, odmraża) i wyślij kod; klient ustawi nowy PIN.
+2. **Kod startowy wygasł.** Klient widzi „Ten kod startowy już wygasł". Kod działa 7 dni i tylko raz.
+   „Wydaj nowy kod" i wyślij go jeszcze raz.
+3. **Otwiera stary link.** Po wygaszeniu albo po zakończeniu współpracy link prowadzi na ekran PIN, a PIN
    nigdy nie przechodzi. W Dostępie zobaczysz status „Wygaszony". Utwórz nowy link.
-3. **Obcięty link w wiadomości.** Token ma 32 znaki; WhatsApp czasem łamie długi adres. Poproś o zrzut ekranu
-   albo wyślij „Pokaż link" jeszcze raz, najlepiej osobno od PIN-u.
-4. **Otwiera link w przeglądarce w aplikacji** (np. w Messengerze) z zablokowanymi ciasteczkami: po PIN-ie
-   wraca na ekran PIN. Niech otworzy link w Safari albo Chrome. Panel używa wyłącznie technicznego ciasteczka
-   sesji (bez banera zgody), ale przeglądarki wbudowane bywają dziwne.
-5. **Był zalogowany, a teraz prosi o PIN.** To normalne po 30 dniach bez wejścia, po resecie PIN-u, po
-   „Wyloguj wszystkie urządzenia" i po zakończeniu współpracy. Wpisuje PIN ponownie.
-6. **Widzi „Nie znaleziono" po zalogowaniu.** Otworzył adres innego klienta albo pakiet, którego już nie ma
+4. **Obcięty link w wiadomości.** Token ma 32 znaki; WhatsApp czasem łamie długi adres. Poproś o zrzut ekranu
+   albo wyślij „Pokaż link" jeszcze raz, osobno od kodu.
+5. **Otwiera link w przeglądarce w aplikacji** (np. w Messengerze) z zablokowanymi ciasteczkami: po PIN-ie
+   wraca na ekran PIN. Niech otworzy link w Safari albo Chrome. Panel używa wyłącznie technicznych ciasteczek
+   (bez banera zgody), ale przeglądarki wbudowane bywają dziwne.
+6. **Był zalogowany, a teraz prosi o PIN.** To normalne po 90 dniach bez wejścia (z „Zapamiętaj mnie"), po
+   12 godzinach bez „Zapamiętaj mnie", po nowym kodzie, po zmianie PIN-u na innym urządzeniu, po „Wyloguj
+   wszystkie urządzenia" i po zakończeniu współpracy. Wpisuje PIN ponownie.
+7. **Widzi „Nie znaleziono" po zalogowaniu.** Otworzył adres innego klienta albo pakiet, którego już nie ma
    (szkic, usunięty przez retencję). Wyślij mu link prosto z „Pokaż link"; trafi na Start.
-7. Gdy nic z powyższego nie pasuje: przekaż Szymonowi **godzinę próby i etykietę osoby**. W audycie widać
+8. Gdy nic z powyższego nie pasuje: przekaż Szymonowi **godzinę próby i etykietę osoby**. W audycie widać
    każdą próbę logowania (udaną i nie) z powodem.
 
 ## 6. Podgląd oczami klienta

@@ -14,12 +14,18 @@ export function DialogNowegoLinku({ slug, kontakty }: { slug: string; kontakty: 
   const [otwarty, setOtwarty] = useState(false);
   const [kontaktId, setKontaktId] = useState<string>(kontakty[0]?.id ?? "inna");
   const [wynik, setWynik] = useState<WynikNowegoLinku | null>(null);
+  const [kodSkopiowany, setKodSkopiowany] = useState(false);
   const [trwa, startTransition] = useTransition();
   const d = copy.zespol.dostep;
 
   function zmienOtwarcie(open: boolean) {
+    // Kod startowy widać tylko raz: zamknięcie bez kopiowania wymaga potwierdzenia (plan 3a).
+    if (!open && wynik?.ok && !kodSkopiowany && !window.confirm(d.gotowy.zamknijBezKopiowania)) return;
     setOtwarty(open);
-    if (!open) setWynik(null);
+    if (!open) {
+      setWynik(null);
+      setKodSkopiowany(false);
+    }
   }
 
   function wyslij(e: React.FormEvent<HTMLFormElement>) {
@@ -30,7 +36,6 @@ export function DialogNowegoLinku({ slug, kontakty }: { slug: string; kontakty: 
       const r = await utworzLink(slug, {
         contactId: wybrany === "inna" ? null : wybrany,
         label: String(dane.get("label") ?? ""),
-        pinKind: String(dane.get("pinKind") ?? "pin4") as "pin4" | "pin6" | "haslo",
         canApprove: dane.get("canApprove") === "on",
       });
       setWynik(r);
@@ -47,7 +52,14 @@ export function DialogNowegoLinku({ slug, kontakty }: { slug: string; kontakty: 
               <DialogTitle className="font-naglowek text-lg">{d.gotowy.tytul}</DialogTitle>
               <DialogDescription>{d.gotowy.opis}</DialogDescription>
             </DialogHeader>
-            <PolaKopiowania adres={wynik.adres} pin={wynik.pin} onSkopiowano={(co) => void odnotujSkopiowanie(slug, wynik.linkId, co)} />
+            <PolaKopiowania
+              adres={wynik.adres}
+              pin={wynik.pin}
+              onSkopiowano={(co) => {
+                if (co === "pin") setKodSkopiowany(true);
+                void odnotujSkopiowanie(slug, wynik.linkId, co);
+              }}
+            />
             <Button type="button" variant="outline" size="lg" onClick={() => zmienOtwarcie(false)}>{d.gotowy.zamknij}</Button>
           </>
         ) : (
@@ -68,17 +80,6 @@ export function DialogNowegoLinku({ slug, kontakty }: { slug: string; kontakty: 
               <label htmlFor="label" className="block text-sm font-medium text-foodie-czern">{d.nowy.etykieta}</label>
               <input id="label" name="label" placeholder={d.nowy.etykietaPodpowiedz} required={kontaktId === "inna"} maxLength={120} className={POLE} />
             </div>
-            <fieldset>
-              <legend className="text-sm font-medium text-foodie-czern">{d.nowy.rodzajPinu}</legend>
-              <div className="mt-1 space-y-1 text-sm">
-                {(["pin4", "pin6", "haslo"] as const).map((r) => (
-                  <label key={r} className="flex items-center gap-2">
-                    <input type="radio" name="pinKind" value={r} defaultChecked={r === "pin4"} className="accent-foodie-fiolet" />
-                    {d.nowy[r]}
-                  </label>
-                ))}
-              </div>
-            </fieldset>
             <label className="flex items-start gap-2 text-sm">
               <input type="checkbox" name="canApprove" defaultChecked className="mt-0.5 size-4 accent-foodie-fiolet" />
               <span>

@@ -1,7 +1,7 @@
 # Panel klienta Foodie Media: ściąga dla Gosi i content creatorów
 
 Panel: **panel.foodiemedia.pl/zespol**. Logujesz się adresem e-mail i kodem z maila (bez hasła).
-Klient dostaje od nas link i PIN, ogląda materiały w podglądzie 1:1 i klika **„Akceptuję wszystko"** albo
+Klient dostaje od nas link i jednorazowy kod startowy, ustawia własny PIN, ogląda materiały w podglądzie 1:1 i klika **„Akceptuję wszystko"** albo
 **„Zgłaszam uwagi"**. Bez decyzji materiały akceptują się same po **72 godzinach**. Panel niczego nie publikuje
 na Facebooku: publikuje człowiek w Meta Business Suite.
 
@@ -13,7 +13,7 @@ na Facebooku: publikuje człowiek w Meta Business Suite.
   niebieski 6 do 7 dni, żółty 4 do 5, pomarańczowy 1 do 3, czerwony dziś, szary po terminie.
 - **Bursztynowy wiersz „Auto-akceptacja wstrzymana"**: termin minął, ale klient ma nierozwiązane uwagi.
   Odpowiedz na nie i oznacz „Załatwione", inaczej pakiet nie zostanie zatwierdzony.
-- **„Pokaż link"** przy pakiecie do akceptacji: adres do ponownego wysłania klientowi (bez PIN-u).
+- **„Pokaż link"** przy pakiecie do akceptacji: adres do ponownego wysłania klientowi (bez kodu).
 
 ## 2. Content creator: nowy pakiet w pięciu krokach
 
@@ -37,7 +37,7 @@ materiale; stary plik nigdy nie znika.
 ![Akcje zespołu nad pakietem](zrzuty/03-pakiet-akcje.png)
 
 1. W pakiecie **„Wyślij do akceptacji"**. Panel pokaże braki (daty, opisy) i ostrzeżenia (brak kampanii).
-2. Wyślij klientowi **link i PIN** na WhatsAppie (punkt 4). Panel nie wysyła nic sam.
+2. Wyślij klientowi **link** na WhatsAppie (nowej osobie osobno też kod startowy, punkt 4). Panel nie wysyła nic sam.
 3. Uwagi klienta czytasz przy materiale albo w **Skrzynce uwag**; odpowiadasz tam samo, „Załatwione" zamyka
    wątek. Po poprawkach **„Wyślij wersję 2"**: licznik startuje od nowa, klient widzi plakietki „Poprawione".
 4. Po akceptacji ustaw publikacje w Meta Business Suite i kliknij **„Zaplanowano"**. Zmiana materiału
@@ -45,17 +45,20 @@ materiale; stary plik nigdy nie znika.
 
 ![Skrzynka uwag](zrzuty/05-skrzynka.png)
 
-## 4. Link i PIN dla klienta
+## 4. Link i kod startowy dla klienta
 
 ![Zakładka Dostęp](zrzuty/04-dostep.png)
 
 - Karta klienta → **Dostęp → „Utwórz link"**: osobny link dla każdej osoby (wiemy, kto zaakceptował).
-  **PIN widzisz tylko raz**: skopiuj „Link i PIN" i wyślij klientowi. Wiadomość piszesz sam.
-- **„Zresetuj PIN"**: nowy PIN (widoczny raz), stare urządzenia wylogowane, blokady wyczyszczone.
+  Dostajesz link i **6-cyfrowy kod startowy** (widoczny raz, działa raz, 7 dni). Wyślij je **dwiema osobnymi
+  wiadomościami**. Klient wpisuje kod i od razu ustawia **własny PIN**; my go nie znamy.
+- **„Wydaj nowy kod"**: gdy klient zapomniał PIN-u, kod wygasł albo link jest zablokowany lub zamrożony.
+  Stare urządzenia wylogowane, blokady wyczyszczone, klient ustawi nowy PIN.
 - **„Wygaś link"**: nieodwracalne; potem tworzysz nowy.
 
-**Klient mówi, że link nie działa?** Najczęściej: (1) zły PIN, po 5 próbach blokada na 15 minut, po 10 w godzinę
-na dobę; najszybciej pomaga „Zresetuj PIN". (2) Stary, wygaszony link: utwórz nowy. (3) Link otwarty
+**Klient mówi, że link nie działa?** Najczęściej: (1) zapomniany albo zły PIN, po 5 próbach blokada na 15 minut,
+po 10 w ciągu doby na 24 h; pomaga „Wydaj nowy kod". (2) Kod startowy wygasł: „Wydaj nowy kod". (3) Stary,
+wygaszony link: utwórz nowy. (4) Link otwarty
 w przeglądarce w aplikacji (Messenger): niech otworzy w Safari albo Chrome. Ekran PIN celowo nie mówi,
 co jest nie tak. Historia logowań jest pod listą linków. Reszta: Szymon, z godziną próby.
 

@@ -13,6 +13,8 @@ const schemat = z.object({
     .min(1)
     .refine((v) => !v.startsWith("eyJ"), "Użyj klucza sb_secret_, nie wycofywanego service_role"),
   SESSION_SECRET: z.string().min(32, "SESSION_SECRET: co najmniej 32 znaki (openssl rand -hex 32)"),
+  /** Pieprz do hashy PIN-ów klientów (HMAC przed argon2id), osobny od SESSION_SECRET. Czyta go też lib/auth-klient.ts. */
+  PIN_PEPPER: z.string().min(32, "PIN_PEPPER: co najmniej 32 znaki (openssl rand -hex 32), osobno od SESSION_SECRET"),
   CRON_SECRET: z.string().min(16),
   TEAM_EMAIL_ALLOWLIST: z.preprocess(pusteToBrak, z.string().optional()),
   GOOGLE_SERVICE_ACCOUNT_JSON: z.preprocess(pusteToBrak, z.string().optional()),
