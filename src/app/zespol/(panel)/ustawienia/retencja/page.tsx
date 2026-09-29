@@ -12,8 +12,7 @@ export default async function UstawieniaRetencji() {
   return (
     <div className="space-y-6" data-retencja>
       <div>
-        <h1 className="font-naglowek text-2xl text-foodie-czern sm:text-3xl">{copy.zespol.ustawienia.tytul}</h1>
-        <h2 className="mt-4 font-naglowek text-xl text-foodie-czern">{t.tytul}</h2>
+        <h2 className="font-naglowek text-xl text-foodie-czern">{t.tytul}</h2>
         <p className="mt-1 max-w-prose text-sm text-szary-600">{t.opis.replace("{n}", String(miesiace))}</p>
         <p className="mt-1 max-w-prose text-xs text-szary-600">{t.sprzatanie}</p>
       </div>

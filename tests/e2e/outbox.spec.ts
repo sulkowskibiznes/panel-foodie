@@ -97,6 +97,13 @@ test("cron wysyła zdarzenie do Zapiera z ciałem z rozdz. 15, nieudane próby d
   const admin = await utworzCzlonkaTestowego(`e2e-admin-outbox-${process.env.E2E_SEED ?? "0"}@foodiemedia.pl`, "admin");
   try {
     await zalogujZespol(page, admin.email);
+    await page.locator("[data-link-ustawien]").click();
+    // Ustawienia → Ogólne: tylko odczyt, bez wartości sekretów (plan 3a)
+    await page.locator("[data-link-ogolne]").click();
+    await expect(page.locator("[data-ustawienia-ogolne]")).toBeVisible();
+    await expect(page.locator('[data-ustawienie="zapier"]')).toContainText(copy.zespol.ustawienia.ogolne.skonfigurowane);
+    await expect(page.locator('[data-ustawienie="pieprz"]')).toContainText(copy.zespol.ustawienia.ogolne.skonfigurowane);
+    await expect(page.locator("[data-link-ogolne]")).toHaveAttribute("aria-current", "page");
     await page.locator("[data-link-powiadomien]").click();
     await expect(page).toHaveURL(/\/zespol\/ustawienia\/powiadomienia$/);
     await expect(page.locator("[data-adres-zapiera]")).toHaveAttribute("data-adres-zapiera", "tak");

@@ -10,7 +10,8 @@ import { pobierzKlientaPoSlugu } from "@/lib/dane/klienci-zespolu";
 import { oznaczPrzeczytanePrzezZespol } from "@/lib/dane/komentarze";
 import { pobierzPakietSzczegoly } from "@/lib/dane/materialy";
 import { konfiguracjaDysku } from "@/lib/drive/klient";
-import { maUprawnienie } from "@/lib/uprawnienia";
+import { sprawdzPrzedWysylka } from "@/lib/pakiety/baza";
+import { maUprawnienie, MOZE_ODSZYFROWAC_TOKEN } from "@/lib/uprawnienia";
 import { czyUuid } from "@/lib/walidacja";
 import { odpowiedzNaKomentarz, oznaczZalatwione, wykonajPrzejscieZespolu } from "./akcje";
 import { dodajKampanieAkcja, dodajMaterialAkcja, dodajPlikAkcja, edytujKampanieAkcja, edytujMaterialAkcja, edytujPakietAkcja, pobierzZDyskuAkcja, podmienPlikAkcja, przygotujUpload, usunKampanieAkcja, usunMaterialAkcja, usunPlikAkcja, zakonczUpload, zapiszReklameAkcja } from "./materialy-akcje";
@@ -49,15 +50,32 @@ export default async function PakietZespolu({ params }: PageProps<"/zespol/klien
     edytujPakiet: edytujPakietAkcja.bind(null, slug, pakietId),
   };
   const teraz = new Date().toISOString();
+  // Lista kontrolna w oknie wysyłki (SPEC rozdz. 8): liczona zawczasu, żeby braki były widać przed kliknięciem.
+  const kontrola = mozeZmieniac && (wynik.pakiet.status === "szkic" || wynik.pakiet.status === "poprawki") ? await sprawdzPrzedWysylka(pakietId) : null;
+  const adresHarmonogramu = `/zespol/klienci/${slug}/harmonogram?p=${wynik.pakiet.id}`;
   const maFoldery = !!wynik.pakiet.folderContentuUrl || wynik.pakiet.kampanie.some((k) => !!k.folderReklamUrl);
   const adresImportu = wynik.pakiet.status === "szkic" && maFoldery && konfiguracjaDysku() ? `/zespol/klienci/${slug}/pakiety/${pakietId}/import` : null;
 
   return (
     <div className="space-y-4">
-      <Link href={`/zespol/klienci/${slug}/materialy`} className="text-sm font-medium text-foodie-fiolet hover:underline">
-        {copy.zespol.pakietyMaterialow.wroc}
-      </Link>
-      <PasekZespolu pakiet={wynik.pakiet} teraz={teraz} mozeZmieniac={mozeZmieniac} wykonaj={wykonajPrzejscieZespolu.bind(null, slug, pakietId)} />
+      <nav aria-label={copy.zespol.pakietyMaterialow.okruszki} className="flex flex-wrap items-center gap-1.5 text-sm" data-okruszki>
+        <Link href={`/zespol/klienci/${slug}/materialy`} className="font-medium text-foodie-fiolet hover:underline">
+          {copy.zespol.karta.zakladki.materialy}
+        </Link>
+        <span aria-hidden className="text-szary-300">/</span>
+        <span aria-current="page" className="text-szary-600">{wynik.pakiet.tytul}</span>
+      </nav>
+      <PasekZespolu
+        pakiet={wynik.pakiet}
+        teraz={teraz}
+        mozeZmieniac={mozeZmieniac}
+        wykonaj={wykonajPrzejscieZespolu.bind(null, slug, pakietId)}
+        slug={slug}
+        nazwaKlienta={klient.name}
+        mozePokazacLink={MOZE_ODSZYFROWAC_TOKEN.includes(czlonek.role)}
+        kontrola={kontrola}
+        adresHarmonogramu={adresHarmonogramu}
+      />
       <p className="text-sm text-szary-600">{copy.pakiet.zespolWidziKlienta}</p>
       <EkranPakietuZespolu
         pakiet={wynik.pakiet}
@@ -70,7 +88,7 @@ export default async function PakietZespolu({ params }: PageProps<"/zespol/klien
         }}
         akcjeMaterialow={akcjeMaterialow}
         uprawnienia={uprawnienia}
-        adresHarmonogramu={`/zespol/klienci/${slug}/harmonogram?p=${wynik.pakiet.id}`}
+        adresHarmonogramu={adresHarmonogramu}
         adresImportu={adresImportu}
       />
     </div>

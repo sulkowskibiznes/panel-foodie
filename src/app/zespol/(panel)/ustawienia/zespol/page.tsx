@@ -14,8 +14,7 @@ export default async function UstawieniaZespolu() {
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="font-naglowek text-2xl text-foodie-czern sm:text-3xl">{copy.zespol.ustawienia.tytul}</h1>
-        <h2 className="mt-4 font-naglowek text-xl text-foodie-czern">{u.tytul}</h2>
+        <h2 className="font-naglowek text-xl text-foodie-czern">{u.tytul}</h2>
         <p className="mt-1 max-w-prose text-sm text-szary-600">{u.opis}</p>
       </div>
       <ListaCzlonkow czlonkowie={data ?? []} adminId={admin.id} klienci={Object.fromEntries(klienci)} />

@@ -1,16 +1,16 @@
 "use client";
 
-import { Archive, BarChart3, FileText, KeyRound, Menu, Package, Sparkles, type LucideIcon } from "lucide-react";
+import { BarChart3, FileText, KeyRound, Menu, Package, Sparkles, type LucideIcon } from "lucide-react";
 import Link from "next/link";
 import { useState } from "react";
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { copy } from "@/lib/copy";
 
 /** Ikony po kluczu: komponent serwerowy nie może przekazać funkcji do komponentu klienckiego. */
-export type IkonaMenu = "archiwum" | "raporty" | "faktury" | "pakiet" | "uslugi";
-const IKONY: Record<IkonaMenu, LucideIcon> = { archiwum: Archive, raporty: BarChart3, faktury: FileText, pakiet: Package, uslugi: Sparkles };
+export type IkonaMenu = "raporty" | "faktury" | "pakiet" | "uslugi";
+const IKONY: Record<IkonaMenu, LucideIcon> = { raporty: BarChart3, faktury: FileText, pakiet: Package, uslugi: Sparkles };
 
-export type PozycjaMenu = { href: string; etykieta: string; ikona: IkonaMenu; aktywna: boolean; biezaca: boolean };
+export type PozycjaMenu = { href: string; etykieta: string; ikona: IkonaMenu; biezaca: boolean };
 
 /** Dolna nawigacja na telefonie mieści trzy pozycje; reszta sekcji (raporty, faktury, pakiet, usługi) w arkuszu „Więcej". */
 export function WiecejMobile({ pozycje, token, podglad }: { pozycje: PozycjaMenu[]; token: string; podglad: boolean }) {
@@ -29,19 +29,13 @@ export function WiecejMobile({ pozycje, token, podglad }: { pozycje: PozycjaMenu
             <SheetTitle className="font-naglowek text-lg">{n.wiecejTytul}</SheetTitle>
           </SheetHeader>
           <nav className="mt-2 space-y-1 px-4" data-wiecej-lista>
-            {pozycje.map(({ href, etykieta, ikona, aktywna, biezaca }) => {
+            {pozycje.map(({ href, etykieta, ikona, biezaca }) => {
               const Ikona = IKONY[ikona];
-              return aktywna ? (
+              return (
                 <Link key={href} href={href} onClick={() => setOtwarty(false)} aria-current={biezaca ? "page" : undefined} className={`flex items-center gap-3 rounded-lg px-3 py-3 text-sm font-medium ${biezaca ? "bg-fiolet-050 text-fiolet-700" : "text-foodie-czern hover:bg-szary-050"}`}>
                   <Ikona className="size-5" aria-hidden />
                   {etykieta}
                 </Link>
-              ) : (
-                <span key={href} aria-disabled className="flex items-center gap-3 rounded-lg px-3 py-3 text-sm text-szary-600">
-                  <Ikona className="size-5 opacity-60" aria-hidden />
-                  <span className="flex-1">{etykieta}</span>
-                  <span className="text-xs text-szary-300">{n.wkrotce}</span>
-                </span>
               );
             })}
             {podglad ? (

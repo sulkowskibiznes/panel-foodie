@@ -73,10 +73,12 @@ test("cron zgłasza stary pakiet raz, admin odracza i usuwa; sesje i audyt sprz�
     const csm = await zespol.newPage();
     expect((await csm.goto("/zespol/ustawienia/retencja"))?.status()).toBe(404);
     await expect(csm.locator("[data-link-retencji]")).toHaveCount(0);
+    await expect(csm.locator("[data-link-ustawien]")).toHaveCount(0);
     await zespol.close();
 
     // admin: zgłoszenie na liście, „Zachowaj 12 miesięcy"
     await zalogujZespol(page, admin.email);
+    await page.locator("[data-link-ustawien]").click();
     await page.locator("[data-link-retencji]").click();
     const wiersz = page.locator(`[data-przeglad="${przeglad!.id}"]`);
     await expect(wiersz).toBeVisible();

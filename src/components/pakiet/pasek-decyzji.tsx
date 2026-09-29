@@ -78,14 +78,16 @@ export function PasekDecyzji({ pakiet, teraz, tryb, mozeAkceptowac, obejrzane, a
     return null;
   })();
 
+  const Naglowek = tryb === "klient" ? "h1" : "h2";
   return (
     <header className="sticky top-0 z-30 -mx-5 border-b border-szary-100 bg-white/95 px-5 py-2.5 backdrop-blur sm:mx-0 sm:rounded-xl sm:border sm:py-3 sm:shadow-miekki" data-pasek-pakietu>
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div className="min-w-0">
-          <h1 className="font-naglowek text-xl text-foodie-czern sm:text-2xl">
+          {/* U klienta tytuł pakietu to nagłówek strony; u zespołu nagłówkiem jest nazwa klienta na karcie (jeden h1). */}
+          <Naglowek className="font-naglowek text-xl text-foodie-czern sm:text-2xl">
             {pakiet.tytul}
             {pakiet.runda > 1 ? <span className="ml-2 text-base text-szary-600">{t.wersja} {pakiet.runda}</span> : null}
-          </h1>
+          </Naglowek>
           <p className="mt-0.5 text-xs text-szary-600 sm:text-sm">
             {liczby.posty} · {liczby.relacje} · {liczby.kampanie}
           </p>

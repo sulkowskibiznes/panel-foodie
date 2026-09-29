@@ -4,6 +4,8 @@
  * Do klienta mówimy na Ty, bez żargonu, komunikaty błędów mówią, co zrobić.
  */
 export const copy = {
+  /** Teksty wspólnych komponentów interfejsu (np. okien dialogowych). */
+  wspolne: { zamknij: "Zamknij okno" },
   marka: {
     nazwa: "Foodie Media",
     panel: "Panel klienta Foodie Media",
@@ -70,7 +72,6 @@ export const copy = {
     pakiet: "Twój pakiet",
     uslugi: "Co jeszcze możemy zrobić",
     wdrozenie: "Wdrożenie",
-    wkrotce: "wkrótce",
     wyloguj: "Wyloguj",
     zmienPin: "Zmień PIN",
     zalogowanyJako: "Zalogowano jako",
@@ -399,6 +400,9 @@ export const copy = {
       otworz: "Otwórz",
     },
     zespolWidziKlienta: "Tak widzi ten ekran klient. Przyciski decyzji są u klienta, tu masz akcje zespołu poniżej.",
+    /** Zespół: skrót do nierozwiązanych uwag klienta w pakiecie (plan domknięcia, Etap 3a). */
+    nierozwiazaneWPakiecie: "Nierozwiązane uwagi klienta: {n}",
+    przejdzDoUwagi: "Przejdź do pierwszej",
   },
   /** Harmonogram klienta (SPEC rozdz. 5.3, 8): ten sam kalendarz, tylko do odczytu, z komentarzem przy materiale. */
   harmonogram: {
@@ -458,6 +462,31 @@ export const copy = {
       zbytWiele: "Za dużo prób. Odczekaj chwilę i spróbuj ponownie.",
       brakDostepu: "Ten adres nie ma dostępu do panelu zespołu. Zostałeś wylogowany. Jeśli to pomyłka, poproś admina o dodanie Cię do zespołu.",
     },
+    /** Krótkie potwierdzenia skutków akcji w rogu ekranu (plan domknięcia, Etap 3a). */
+    toasty: {
+      blad: "Nie udało się. Odśwież stronę i spróbuj ponownie.",
+      linkWygaszony: "Link wygaszony. Osoba straci dostęp przy następnym wejściu.",
+      urzadzeniaWylogowane: "Wylogowane urządzenia: {n}.",
+      nowyKod: "Nowy kod startowy gotowy. Poprzedni PIN już nie działa.",
+      raportUsuniety: "Raport usunięty. Klient już go nie widzi.",
+      uwagaZalatwiona: "Uwaga załatwiona. Nie wstrzymuje już auto-akceptacji.",
+      uwagaPrzeczytana: "Oznaczono jako przeczytaną.",
+      odpowiedzDodana: "Odpowiedź dodana do wątku. Klient zobaczy ją w panelu.",
+      czlonekAktywny: "Dostęp przywrócony.",
+      czlonekNieaktywny: "Dostęp wyłączony. Osoba zostanie wylogowana przy następnym wejściu.",
+      przejscia: {
+        wyslij: "Wysłano do akceptacji. Teraz wyślij klientowi link.",
+        wyslij_v2: "Nowa wersja wysłana do akceptacji. Daj znać klientowi.",
+        wycofaj: "Pakiet wrócił do szkicu. Klient go nie widzi.",
+        cofnij_do_poprawek: "Pakiet cofnięty do poprawek. Klient zobaczy baner.",
+        zaplanuj: "Oznaczono jako zaplanowany w Meta Business Suite.",
+      },
+      wspolpraca: {
+        przerwa: "Przerwa we współpracy zapisana. Pakiety czekające na akceptację wróciły do szkicu.",
+        zakoncz: "Współpraca zakończona. Linki wygaszone, urządzenia wylogowane.",
+        wznow: "Współpraca wznowiona.",
+      },
+    },
     /** Okno potwierdzenia zamiast window.confirm (plan domknięcia, Etap 3a). */
     potwierdzenie: { tytul: "Na pewno?", potwierdz: "Tak, dalej", anuluj: "Anuluj" },
     nawigacja: {
@@ -510,13 +539,11 @@ export const copy = {
         dokumenty: "Dokumenty",
         dostep: "Dostęp",
         ustawienia: "Dane i współpraca",
-        wdrozenie: "Wdrożenie (wkrótce)",
       },
-      wkrotce: "Ta zakładka powstaje w kolejnym etapie.",
-      wdrozenieWkrotce: "Wdrożenie klienta jest przygotowane, ale wyłączone (flaga onboarding_enabled).",
       statusKlienta: { aktywny: "Współpraca trwa", wstrzymany: "Przerwa we współpracy", zakonczony: "Współpraca zakończona" },
       zakonczonaOd: "zakończona {data}",
-      podsumowanie: "Podsumowanie",
+      podsumowanie: "Przegląd",
+      nawigacjaKarty: "Zakładki karty klienta",
       kontaktDlaKlienta: "Kontakt dla klienta",
       zainteresowania: {
         tytul: "Zainteresowanie usługami",
@@ -536,7 +563,7 @@ export const copy = {
       kolumny: { klient: "Klient", okres: "Okres", status: "Status", wyslano: "Wysłano", czeka: "Czeka", auto: "Auto-akcept za", uwagi: "Uwagi", akcja: "Akcja" },
       wstrzymana: "Auto-akceptacja wstrzymana",
       nieprzeczytane: "{n} nieprzeczytane",
-      nierozwiazane: "{n} nierozwiązane",
+      nierozwiazane: { jeden: "nierozwiązana", kilka: "nierozwiązane", wiele: "nierozwiązanych" },
       bezUwag: "0",
       odpowiedz: "Odpowiedz na uwagi",
       otworz: "Otwórz pakiet",
@@ -568,6 +595,7 @@ export const copy = {
       kolumny: { okres: "Okres", status: "Status", wyslano: "Wysłano", auto: "Auto-akceptacja", uwagi: "Uwagi" },
       otworz: "Otwórz pakiet",
       wroc: "Wróć do listy pakietów",
+      okruszki: "Ścieżka",
       akcje: {
         tytul: "Akcje zespołu",
         wyslij: "Wyślij do akceptacji",
@@ -586,6 +614,12 @@ export const copy = {
         wycofajPotwierdz: "Wycofać pakiet do szkicu? Klient przestanie go widzieć, licznik zniknie.",
         zaplanowanoPotwierdz: "Oznaczyć jako zaplanowany? Potwierdzasz, że publikacje są ustawione w Meta Business Suite.",
         wyslanoV2Info: "Wysyłka nowej wersji działa też bez zmian w materiałach (klient napisał, że jednak jest dobrze).",
+        kontrolaGotowe: "Wszystko gotowe do wysyłki.",
+        ustawDaty: "Ustaw daty w harmonogramie",
+        wyslanoTytul: "Wysłano do akceptacji",
+        wyslanoOpis: "Teraz wyślij klientowi link (np. na WhatsAppie): pokaż link osoby, która akceptuje, i skopiuj go. Panel sam nic nie wysyła.",
+        gotowe: "Gotowe",
+        linkDlaKlienta: "Link dla klienta",
       },
       braki: "Uzupełnij braki przed wysyłką:",
       ostrzezenia: "Ostrzeżenia (nie blokują wysyłki):",
@@ -594,7 +628,7 @@ export const copy = {
       wyslijOdpowiedz: "Wyślij odpowiedź",
       zalatwione: "Oznacz jako załatwione",
       zalatwioneOpis: "Załatwione uwagi nie wstrzymują auto-akceptacji.",
-      nierozwiazane: "{n} nierozwiązanych uwag klienta w tej rundzie",
+      nierozwiazane: { jeden: "nierozwiązana uwaga klienta w tej rundzie", kilka: "nierozwiązane uwagi klienta w tej rundzie", wiele: "nierozwiązanych uwag klienta w tej rundzie" },
       wstrzymana: "Auto-akceptacja wstrzymana",
       wstrzymanaOpis: "Termin minął, ale klient ma nierozwiązane uwagi. Odpowiedz i oznacz je jako załatwione (cron zatwierdzi przy następnym przebiegu) albo cofnij do poprawek.",
       autoTermin: "Termin auto-akceptacji:",
@@ -1395,6 +1429,32 @@ export const copy = {
     },
     ustawienia: {
       tytul: "Ustawienia",
+      zakladki: { zespol: "Zespół", ogolne: "Ogólne", powiadomienia: "Powiadomienia", retencja: "Retencja", nawigacja: "Zakładki ustawień" },
+      /** Ustawienia → Ogólne: podgląd ustawień globalnych i integracji, bez edycji (zmiany przez migrację albo Szymona). */
+      ogolne: {
+        tytul: "Ogólne",
+        opis: "Ustawienia całego panelu i stan integracji. Tylko do odczytu: zmianę robi Szymon, żeby żadna liczba nie zmieniła się przez przypadek.",
+        autoAkceptacja: "Automatyczna akceptacja",
+        autoAkceptacjaWartosc: "{godziny} h od wysyłki ({dni})",
+        dniKalendarzowe: "dni kalendarzowe",
+        dniRobocze: "dni robocze, poniedziałek-sobota",
+        autoPerKlient: "Klient może mieć dłuższy termin (do 720 h) w zakładce „Dane i współpraca”.",
+        retencja: "Retencja materiałów",
+        retencjaWartosc: "{n} miesięcy, potem zgłoszenie do decyzji admina",
+        wdrozenie: "Ekran wdrożenia dla klientów",
+        wlaczone: "włączony",
+        wylaczone: "wyłączony",
+        integracje: "Integracje",
+        zapier: "Powiadomienia do Slacka (Zapier)",
+        dysk: "Import z Dysku Google",
+        raporty: "Webhook raportów",
+        pieprz: "Ochrona PIN-ów (PIN_PEPPER)",
+        skonfigurowane: "skonfigurowane",
+        brak: "brak konfiguracji",
+        crony: "Zadania automatyczne",
+        cronOstatni: "ostatni przebieg {data}",
+        cronNigdy: "jeszcze nie działał",
+      },
       zespol: {
         tytul: "Zespół",
         opis: "Tylko osoby z tej listy mogą zalogować się do panelu zespołu. Dodanie osoby tworzy jej konto; kod logowania dostaje na e-mail przy pierwszym wejściu.",

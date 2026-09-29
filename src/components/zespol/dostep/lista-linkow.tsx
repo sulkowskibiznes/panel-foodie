@@ -6,6 +6,7 @@ import { PolaKopiowania } from "@/components/zespol/dostep/pola-kopiowania";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { usePotwierdzenie } from "@/components/zespol/potwierdzenie";
+import { toast } from "sonner";
 import { copy } from "@/lib/copy";
 import type { LinkDostepu } from "@/lib/dane/linki";
 import { formatujDate, formatujDateCzas } from "@/lib/format";
@@ -82,6 +83,7 @@ export function ListaLinkow({ slug, linki }: { slug: string; linki: LinkDostepu[
       if (r.ok) {
         setKodSkopiowany(false);
         setReset({ ...r, linkId: l.id });
+        toast.success(copy.zespol.toasty.nowyKod);
       } else setBlad(r.blad);
     });
   }
@@ -140,9 +142,17 @@ export function ListaLinkow({ slug, linki }: { slug: string; linki: LinkDostepu[
                   {!l.revokedAt ? (
                     <div className="flex flex-wrap justify-end gap-1">
                       {!pokazane[l.id] ? <Button type="button" variant="outline" size="sm" disabled={trwa} onClick={() => pokaz(l)}>{d.akcje.pokazLink}</Button> : null}
-                      <Button type="button" variant="ghost" size="sm" disabled={trwa} onClick={() => void wykonaj(d.akcje.wylogujPotwierdz, d.akcje.wylogujUrzadzenia, () => wylogujUrzadzenia(slug, l.id))}>{d.akcje.wylogujUrzadzenia}</Button>
+                      <Button type="button" variant="ghost" size="sm" disabled={trwa} onClick={() => void wykonaj(d.akcje.wylogujPotwierdz, d.akcje.wylogujUrzadzenia, async () => {
+                        const w = await wylogujUrzadzenia(slug, l.id);
+                        if (w.ok) toast.success(copy.zespol.toasty.urzadzeniaWylogowane.replace("{n}", String(w.liczba)));
+                        else toast.error(copy.zespol.toasty.blad);
+                      })}>{d.akcje.wylogujUrzadzenia}</Button>
                       <Button type="button" variant="ghost" size="sm" disabled={trwa} onClick={() => resetuj(l)}>{d.akcje.resetujPin}</Button>
-                      <Button type="button" variant="destructive" size="sm" disabled={trwa} onClick={() => void wykonaj(d.akcje.wygasPotwierdz, d.akcje.wygas, () => wygasLink(slug, l.id))}>{d.akcje.wygas}</Button>
+                      <Button type="button" variant="destructive" size="sm" disabled={trwa} onClick={() => void wykonaj(d.akcje.wygasPotwierdz, d.akcje.wygas, async () => {
+                        const w = await wygasLink(slug, l.id);
+                        if (w.ok) toast.success(copy.zespol.toasty.linkWygaszony);
+                        else toast.error(copy.zespol.toasty.blad);
+                      })}>{d.akcje.wygas}</Button>
                     </div>
                   ) : null}
                 </td>

@@ -170,4 +170,8 @@
   h1, h2, h3 {
     @apply font-naglowek;
   }
+  /* Kotwice w pakiecie (#uwagi, #material-…, #watek-…): miejsce na przyklejony pasek pakietu u góry. */
+  #uwagi-pakietu, [id^="material-"], [id^="watek-"], [id^="kampania-"] {
+    scroll-margin-top: 8rem;
+  }
 }

@@ -75,6 +75,13 @@ test("11. cron akceptuje po terminie, pomija wyłączone i poprawki, wstrzymuje 
     await expect(wiersz).toContainText(copy.zespol.pulpitPakiety.nieprzeczytane.replace("{n}", "1"));
     await expect(wiersz.getByRole("link", { name: copy.zespol.pulpitPakiety.odpowiedz })).toBeVisible();
     await expect(z.locator(`[data-pakiet-wiersz="${poTerminie.id}"]`)).toContainText(copy.materialy.status.zaakceptowany);
+
+    // „Odpowiedz na uwagi" prowadzi prosto do wątku z nierozwiązaną uwagą (kotwica #uwagi, plan 3a)
+    const postZUwaga = (await materialyPakietu(zUwagami.id)).find((m) => m.type === "post")!;
+    await wiersz.getByRole("link", { name: copy.zespol.pulpitPakiety.odpowiedz }).click();
+    await expect(z).toHaveURL(new RegExp(`/pakiety/${zUwagami.id}#uwagi$`));
+    await expect(z.locator("[data-otwarte-uwagi]")).toHaveAttribute("data-otwarte-uwagi", "1");
+    await expect(z.locator(`#watek-${postZUwaga.id}`)).toBeInViewport();
   } finally {
     await zespol.close();
     await Promise.all([poTerminie, wylaczony, wPoprawkach, zUwagami].map((p) => usunPakiet(p.id)));

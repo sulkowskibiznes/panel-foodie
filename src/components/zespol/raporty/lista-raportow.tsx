@@ -4,6 +4,7 @@ import { useRouter } from "next/navigation";
 import { useTransition } from "react";
 import { usunRaport } from "@/app/zespol/(panel)/klienci/[slug]/raporty/akcje";
 import { usePotwierdzenie } from "@/components/zespol/potwierdzenie";
+import { toast } from "sonner";
 import { copy } from "@/lib/copy";
 import type { RaportZespolu } from "@/lib/dane/raporty";
 import { etykietaMiesiaca, formatujDate } from "@/lib/format";
@@ -18,7 +19,9 @@ export function ListaRaportow({ slug, raporty, mozeUsuwac }: { slug: string; rap
   async function usun(id: string) {
     if (!(await potwierdz({ tresc: t.usunPotwierdz, przycisk: t.usun, niebezpieczne: true }))) return;
     startTransition(async () => {
-      await usunRaport(slug, id);
+      const w = await usunRaport(slug, id);
+      if (w.ok) toast.success(copy.zespol.toasty.raportUsuniety);
+      else toast.error(copy.zespol.toasty.blad);
       router.refresh();
     });
   }

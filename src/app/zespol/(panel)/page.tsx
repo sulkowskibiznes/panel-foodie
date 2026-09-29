@@ -180,7 +180,7 @@ export default async function Pulpit({ searchParams }: PageProps<"/zespol">) {
                             {t.nieprzeczytane.replace("{n}", String(p.nieprzeczytaneUwagi))}
                           </span>
                         ) : p.nierozwiazaneUwagi > 0 ? (
-                          <span className="text-szary-600">{t.nierozwiazane.replace("{n}", String(p.nierozwiazaneUwagi))}</span>
+                          <span className="text-szary-600">{liczebnik(p.nierozwiazaneUwagi, t.nierozwiazane.jeden, t.nierozwiazane.kilka, t.nierozwiazane.wiele)}</span>
                         ) : (
                           <span className="text-szary-300">{t.bezUwag}</span>
                         )}

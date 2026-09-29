@@ -142,7 +142,7 @@ test(`12. „Wyślij v2" podbija rundę, restartuje licznik i pokazuje plakietk�
 
     const z = await zespol.newPage();
     await z.goto(`/zespol/klienci/${KLIENT}/pakiety/${p.id}`);
-    await expect(z.locator("[data-pasek-zespolu]")).toContainText(copy.zespol.pakietyMaterialow.nierozwiazane.replace("{n}", "1"));
+    await expect(z.locator("[data-pasek-zespolu]")).toContainText(`1 ${copy.zespol.pakietyMaterialow.nierozwiazane.jeden}`);
     await z.locator('[data-akcja="wyslij_v2"]').click();
     await z.locator("[data-potwierdz-wysylke]").click();
     await expect(z.locator("[data-pasek-zespolu]")).toContainText("wersja 2");

@@ -8,8 +8,10 @@ import type { MaterialDto, StronaDto } from "@/lib/dto/materialy";
 import { formatujDate } from "@/lib/format";
 
 /** Seria relacji: jedna ramka 9:16 z nawigacją przez cały pakiet; wątek uwag dotyczy pokazywanej relacji. */
-export function SekcjaRelacji({ relacje, strona, runda, tryb, akcje, onObejrzano, notka, narzedzia }: { relacje: MaterialDto[]; strona: StronaDto | null; runda: number; tryb: "klient" | "zespol"; akcje: ((materialId: string) => AkcjeWatku | null) | null; onObejrzano?: (id: string) => void; notka?: string; narzedzia?: (m: MaterialDto) => ReactNode }) {
-  const [biezacaId, setBiezacaId] = useState<string | null>(relacje[0]?.id ?? null);
+/** `startId`: relacja pokazana na start (kotwica z pulpitu albo skrzynki); zmiana startu tworzy sekcję od nowa (klucz u rodzica). */
+export function SekcjaRelacji({ relacje, strona, runda, tryb, akcje, onObejrzano, notka, narzedzia, startId }: { relacje: MaterialDto[]; strona: StronaDto | null; runda: number; tryb: "klient" | "zespol"; akcje: ((materialId: string) => AkcjeWatku | null) | null; onObejrzano?: (id: string) => void; notka?: string; narzedzia?: (m: MaterialDto) => ReactNode; startId?: string | null }) {
+  const indeksStartu = Math.max(0, relacje.findIndex((r) => r.id === startId));
+  const [biezacaId, setBiezacaId] = useState<string | null>(relacje[indeksStartu]?.id ?? null);
   const biezaca = relacje.find((r) => r.id === biezacaId) ?? relacje[0] ?? null;
   const seria: RelacjaWSerii[] = relacje.map((r) => ({ id: r.id, tytul: r.tytul, plik: r.pliki[0] ?? null }));
 
@@ -31,7 +33,7 @@ export function SekcjaRelacji({ relacje, strona, runda, tryb, akcje, onObejrzano
         </span>
       </header>
       {narzedzia ? <div className="mb-3">{narzedzia(biezaca)}</div> : null}
-      <RelacjaFb strona={strona ?? { nazwaStrony: "", igHandle: null, avatarUrl: null }} relacje={seria} onZmiana={(r) => setBiezacaId(r.id)} />
+      <RelacjaFb strona={strona ?? { nazwaStrony: "", igHandle: null, avatarUrl: null }} relacje={seria} start={indeksStartu} onZmiana={(r) => setBiezacaId(r.id)} />
       <div className="mt-5 border-t border-szary-100 pt-4">
         <WatekKomentarzy id={`watek-${biezaca.id}`} komentarze={biezaca.komentarze} runda={runda} tryb={tryb} akcje={akcje ? akcje(biezaca.id) : null} notka={notka} />
       </div>

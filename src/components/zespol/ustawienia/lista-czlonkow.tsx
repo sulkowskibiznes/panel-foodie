@@ -4,6 +4,7 @@ import { useState, useTransition } from "react";
 import { przelaczAktywnosc, zapiszKontaktDlaKlienta } from "@/app/zespol/(panel)/ustawienia/zespol/akcje";
 import { Button } from "@/components/ui/button";
 import { usePotwierdzenie } from "@/components/zespol/potwierdzenie";
+import { toast } from "sonner";
 import { copy } from "@/lib/copy";
 import type { KlienciCzlonka } from "@/lib/dane/dane-klienta";
 import type { Rola } from "@/lib/uprawnienia";
@@ -83,7 +84,10 @@ export function ListaCzlonkow({ czlonkowie, adminId, klienci }: { czlonkowie: Cz
                       // Dezaktywacja opiekuna zostawia klientów bez opiekuna w „Twój pakiet": ostrzegamy przed kliknięciem.
                       const podOpieka = klienci[c.id]?.opiekun ?? 0;
                       if (c.active && podOpieka > 0 && !(await potwierdz({ tresc: u.dezaktywujOpiekuna.replace("{osoba}", c.name).replace("{n}", String(podOpieka)), przycisk: u.dezaktywuj, niebezpieczne: true }))) return;
-                      startTransition(() => przelaczAktywnosc(c.id, !c.active));
+                      startTransition(async () => {
+                        await przelaczAktywnosc(c.id, !c.active);
+                        toast.success(c.active ? copy.zespol.toasty.czlonekNieaktywny : copy.zespol.toasty.czlonekAktywny);
+                      });
                     }}
                   >
                     {c.active ? u.dezaktywuj : u.aktywuj}

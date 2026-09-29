@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { useState, useTransition } from "react";
 import { odpowiedzNaKomentarz, oznaczPrzeczytana, oznaczZalatwione } from "@/app/zespol/(panel)/klienci/[slug]/pakiety/[pakietId]/akcje";
 import { Button } from "@/components/ui/button";
+import { toast } from "sonner";
 import { copy } from "@/lib/copy";
 import type { UwagaWSkrzynce } from "@/lib/dane/skrzynka";
 import { etykietaOkresu, formatujDateCzas } from "@/lib/format";
@@ -32,6 +33,7 @@ export function UwagaWSkrzynceKarta({ u, mozeObslugiwac }: { u: UwagaWSkrzynce; 
         return;
       }
       setTresc("");
+      toast.success(copy.zespol.toasty.odpowiedzDodana);
       router.refresh();
     });
   }
@@ -44,6 +46,7 @@ export function UwagaWSkrzynceKarta({ u, mozeObslugiwac }: { u: UwagaWSkrzynce; 
         setBlad(w.blad);
         return;
       }
+      toast.success(copy.zespol.toasty.uwagaPrzeczytana);
       router.refresh();
     });
   }
@@ -56,6 +59,7 @@ export function UwagaWSkrzynceKarta({ u, mozeObslugiwac }: { u: UwagaWSkrzynce; 
         setBlad(w.blad);
         return;
       }
+      toast.success(copy.zespol.toasty.uwagaZalatwiona);
       router.refresh();
     });
   }

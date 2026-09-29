@@ -77,7 +77,7 @@ test("usługi: karty z tabeli services, modal z jednym polem, zapis service_inte
   expect(String(outbox[0]?.payload.summary)).toContain("Sesja zdjęciowa");
   expect(String(outbox[0]?.payload.url)).toContain(`/zespol/klienci/${KLIENT}`);
 
-  await dialog.getByRole("button", { name: u.potwierdzenie.zamknij }).click();
+  await dialog.getByRole("button", { name: u.potwierdzenie.zamknij, exact: true }).click();
   await expect(karta.locator("[data-juz-zgloszone]")).toContainText(copy.uslugi.juzZgloszone.split(" ")[0] ?? "Zgłoszone");
 
   const zespol = await browser.newContext({ storageState: PLIK_SESJI_ZESPOLU });
@@ -132,7 +132,9 @@ test("nawigacja na telefonie: arkusz „Więcej\" prowadzi do raportów, faktur,
   for (const etykieta of [copy.nawigacja.raporty, copy.nawigacja.faktury, copy.nawigacja.pakiet, copy.nawigacja.uslugi]) {
     await expect(lista.getByRole("link", { name: etykieta })).toBeVisible();
   }
-  await expect(lista.getByText(copy.nawigacja.archiwum)).toBeVisible();
+  // bez pozycji „wkrótce" (plan domknięcia, Etap 3): Archiwum wróci do menu, gdy powstanie; „Zmień PIN" jest w arkuszu
+  await expect(lista.getByText(copy.nawigacja.archiwum)).toHaveCount(0);
+  await expect(lista.locator("[data-zmien-pin-mobile]")).toBeVisible();
   await lista.getByRole("link", { name: copy.nawigacja.faktury }).click();
   await expect(page).toHaveURL(`/p/${link.token}/faktury`);
   await expect(page.getByRole("heading", { level: 1 })).toHaveText(copy.faktury.tytul);

@@ -4,6 +4,7 @@ import { useRouter } from "next/navigation";
 import { useTransition } from "react";
 import { FormularzKomentarza, type OpcjaCelu } from "@/components/pakiet/formularz-komentarza";
 import { Button } from "@/components/ui/button";
+import { toast } from "sonner";
 import { copy } from "@/lib/copy";
 import type { KomentarzDto } from "@/lib/dto/materialy";
 import type { WynikAkcji } from "@/lib/dto/wynik";
@@ -57,12 +58,17 @@ export function WatekKomentarzy({ id, komentarze, runda, tryb, akcje, opcjeCelu,
     if (!akcje?.zalatwione) return;
     startTransition(async () => {
       const w = await akcje.zalatwione!(komentarzId);
-      if (w.ok) router.refresh();
+      if (!w.ok) {
+        toast.error(w.blad);
+        return;
+      }
+      toast.success(copy.zespol.toasty.uwagaZalatwiona);
+      router.refresh();
     });
   }
 
   return (
-    <div className="space-y-3" data-watek={id}>
+    <div id={id} className="space-y-3" data-watek={id}>
       <h3 className="text-sm font-semibold text-foodie-czern">{tytul ?? k.tytul}</h3>
       {biezace.length === 0 ? <p className="text-sm text-szary-600">{k.brak}</p> : null}
       {biezace.length > 0 ? (

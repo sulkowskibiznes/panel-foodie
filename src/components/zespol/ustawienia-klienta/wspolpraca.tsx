@@ -5,6 +5,7 @@ import { useState, useTransition } from "react";
 import { wstrzymajWspolprace, wznowWspolprace, zakonczWspolprace } from "@/app/zespol/(panel)/klienci/[slug]/ustawienia/akcje";
 import { Button } from "@/components/ui/button";
 import { usePotwierdzenie } from "@/components/zespol/potwierdzenie";
+import { toast } from "sonner";
 import { copy } from "@/lib/copy";
 import type { StanWspolpracy } from "@/lib/dane/offboarding";
 import { formatujDateCzas } from "@/lib/format";
@@ -20,23 +21,24 @@ export function Wspolpraca({ slug, nazwa, stan }: { slug: string; nazwa: string;
   const { potwierdz, okno } = usePotwierdzenie();
   const u = copy.zespol.ustawieniaKlienta;
 
-  function wykonaj(fn: () => Promise<{ ok: boolean; blad?: string }>) {
+  function wykonaj(fn: () => Promise<{ ok: boolean; blad?: string }>, sukces: string) {
     setBlad(null);
     startTransition(async () => {
       const w = await fn();
       if (!w.ok) setBlad(w.blad ?? u.bledy.ogolny);
+      else toast.success(sukces);
       router.refresh();
     });
   }
 
   async function zakoncz() {
     if (!(await potwierdz({ tresc: u.zakonczPotwierdz.replace("{klient}", nazwa), przycisk: u.zakoncz, niebezpieczne: true }))) return;
-    wykonaj(() => zakonczWspolprace(slug));
+    wykonaj(() => zakonczWspolprace(slug), copy.zespol.toasty.wspolpraca.zakoncz);
   }
 
   async function przerwa() {
     if (!(await potwierdz({ tresc: u.przerwaPotwierdz.replace("{klient}", nazwa), przycisk: u.przerwa }))) return;
-    wykonaj(() => wstrzymajWspolprace(slug));
+    wykonaj(() => wstrzymajWspolprace(slug), copy.zespol.toasty.wspolpraca.przerwa);
   }
 
   const zakonczButton = (
@@ -45,7 +47,7 @@ export function Wspolpraca({ slug, nazwa, stan }: { slug: string; nazwa: string;
     </Button>
   );
   const wznowButton = (
-    <Button type="button" variant="outline" size="lg" disabled={trwa} onClick={() => wykonaj(() => wznowWspolprace(slug))} data-wznow-wspolprace>
+    <Button type="button" variant="outline" size="lg" disabled={trwa} onClick={() => wykonaj(() => wznowWspolprace(slug), copy.zespol.toasty.wspolpraca.wznow)} data-wznow-wspolprace>
       {u.wznow}
     </Button>
   );

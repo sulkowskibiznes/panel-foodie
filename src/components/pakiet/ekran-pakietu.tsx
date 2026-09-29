@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { BaneryPakietu } from "@/components/pakiet/banery-pakietu";
 import { ObserwatorObejrzenia } from "@/components/pakiet/obserwator-obejrzenia";
 import { PasekDecyzji, type AkcjeDecyzji } from "@/components/pakiet/pasek-decyzji";
@@ -12,7 +12,7 @@ import { PostFb } from "@/components/podglad/post-fb";
 import { ReelsFb } from "@/components/podglad/reels-fb";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { copy } from "@/lib/copy";
-import type { KampaniaDto, MaterialDto, PakietSzczegoly } from "@/lib/dto/materialy";
+import type { KampaniaDto, KomentarzDto, MaterialDto, PakietSzczegoly } from "@/lib/dto/materialy";
 import type { WynikAkcji } from "@/lib/dto/wynik";
 import type { ReactNode } from "react";
 
@@ -34,6 +34,11 @@ function nieprzeczytane(materialy: MaterialDto[]): number {
   return materialy.reduce((suma, m) => suma + m.komentarze.filter((k) => k.nieprzeczytany).length, 0);
 }
 
+const otwartaUwaga = (k: KomentarzDto) => k.autor === "klient" && !k.zalatwionoO;
+
+/** Cel przewinięcia: materiał (sekcja) albo jego wątek; `null` materiału = uwagi do całego pakietu (#uwagi). */
+type Cel = { materialId: string | null; watek: boolean };
+
 /**
  * Ekran pakietu (SPEC rozdz. 6.2): ten sam dla klienta i podglądu zespołu. Zakładki Posty / Relacje / Kampanie /
  * Wszystko z plakietkami nieprzeczytanych odpowiedzi, pasek decyzji, banery, „Obejrzano x z y".
@@ -41,7 +46,64 @@ function nieprzeczytane(materialy: MaterialDto[]): number {
 export function EkranPakietu({ pakiet, teraz, tryb, mozeAkceptowac, akcje, blokada = null, narzedzia }: { pakiet: PakietSzczegoly; teraz: string; tryb: "klient" | "zespol"; mozeAkceptowac: boolean; akcje: AkcjeEkranu; /** Podgląd zespołu: przyciski decyzji wyszarzone z tą podpowiedzią, formularze uwag zastąpione notką. */ blokada?: string | null; /** Zespół: przyciski nad materiałem („Edytuj", „Podmień") i nad kampanią. */ narzedzia?: NarzedziaEkranu }) {
   const [zakladka, setZakladka] = useState<Zakladka>(pakiet.kampanie.length > 0 && pakiet.posty.length === 0 ? "kampanie" : "posty");
   const [obejrzane, setObejrzane] = useState<Set<string>>(() => new Set(pakiet.obejrzane));
+  const [cel, setCel] = useState<Cel | null>(null);
+  const [startRelacji, setStartRelacji] = useState<string | null>(null);
   const z = copy.pakiet.zakladki;
+  const reklamy = pakiet.kampanie.map((k) => k.reklama).filter((m): m is MaterialDto => m !== null);
+  const pierwszaOtwarta = [...pakiet.posty, ...pakiet.relacje, ...reklamy].find((m) => m.komentarze.some(otwartaUwaga)) ?? null;
+  const otwarteUwagi = [...pakiet.posty, ...pakiet.relacje, ...reklamy].reduce((n, m) => n + m.komentarze.filter(otwartaUwaga).length, 0) + pakiet.komentarzePakietu.filter(otwartaUwaga).length;
+
+  /** Przejście do materiału (albo jego wątku): właściwa zakładka, właściwa relacja, potem przewinięcie. */
+  const przejdz = useCallback(
+    (c: Cel) => {
+      if (c.materialId) {
+        const id = c.materialId;
+        if (pakiet.posty.some((m) => m.id === id)) setZakladka("posty");
+        else if (pakiet.relacje.some((m) => m.id === id)) {
+          setZakladka("relacje");
+          setStartRelacji(id);
+        } else if (pakiet.kampanie.some((k) => k.reklama?.id === id)) setZakladka("kampanie");
+      }
+      setCel({ ...c });
+    },
+    [pakiet],
+  );
+
+  // Kotwice z pulpitu i skrzynki: #material-<id> (sekcja materiału) i #uwagi (pierwsza nierozwiązana uwaga klienta).
+  // Przy wejściu raz (odświeżenie danych po odpowiedzi nie przewija ponownie) i przy każdej zmianie kotwicy.
+  const idPierwszejOtwartej = pierwszaOtwarta?.id ?? null;
+  const wejscieObsluzone = useRef(false);
+  useEffect(() => {
+    const obsluz = () => {
+      const kotwica = decodeURIComponent(window.location.hash.slice(1));
+      if (kotwica.startsWith("material-")) przejdz({ materialId: kotwica.slice("material-".length), watek: false });
+      else if (kotwica === "uwagi") przejdz({ materialId: idPierwszejOtwartej, watek: true });
+    };
+    // Flaga ustawiana dopiero w klatce: podwójny montaż w trybie deweloperskim (StrictMode) anuluje pierwszą klatkę.
+    let klatka = 0;
+    if (!wejscieObsluzone.current) {
+      klatka = window.requestAnimationFrame(() => {
+        wejscieObsluzone.current = true;
+        obsluz();
+      });
+    }
+    window.addEventListener("hashchange", obsluz);
+    return () => {
+      window.cancelAnimationFrame(klatka);
+      window.removeEventListener("hashchange", obsluz);
+    };
+  }, [przejdz, idPierwszejOtwartej]);
+
+  useEffect(() => {
+    if (!cel) return;
+    const klatka = window.requestAnimationFrame(() => {
+      const kandydaci = cel.materialId ? (cel.watek ? [`watek-${cel.materialId}`, `material-${cel.materialId}`] : [`material-${cel.materialId}`, `watek-${cel.materialId}`]) : ["uwagi-pakietu"];
+      const el = kandydaci.map((id) => document.getElementById(id)).find(Boolean);
+      // Bez animacji: płynne przewijanie przerywał własny scroll routera do kotwicy.
+      el?.scrollIntoView({ block: "start" });
+    });
+    return () => window.cancelAnimationFrame(klatka);
+  }, [cel, zakladka, startRelacji]);
   const stronaGlowna = pakiet.lokale[0] ?? null;
 
   const odnotuj = useCallback(
@@ -86,7 +148,7 @@ export function EkranPakietu({ pakiet, teraz, tryb, mozeAkceptowac, akcje, bloka
       })}
     </div>
   );
-  const Relacje = pakiet.relacje.length > 0 ? <SekcjaRelacji relacje={pakiet.relacje} strona={stronaGlowna} runda={pakiet.runda} tryb={tryb} akcje={akcje.komentarz ? akcjeWatku : null} onObejrzano={sledzenie ? odnotuj : undefined} notka={notkaWatku} narzedzia={narzedzia?.material} /> : null;
+  const Relacje = pakiet.relacje.length > 0 ? <SekcjaRelacji key={startRelacji ?? "start"} relacje={pakiet.relacje} strona={stronaGlowna} runda={pakiet.runda} tryb={tryb} akcje={akcje.komentarz ? akcjeWatku : null} onObejrzano={sledzenie ? odnotuj : undefined} notka={notkaWatku} narzedzia={narzedzia?.material} startId={startRelacji} /> : null;
   const Kampanie = (
     <div className="space-y-4">
       {pakiet.kampanie.map((k, i) => (
@@ -107,6 +169,14 @@ export function EkranPakietu({ pakiet, teraz, tryb, mozeAkceptowac, akcje, bloka
     <div className="space-y-4">
       <PasekDecyzji pakiet={pakiet} teraz={teraz} tryb={tryb} mozeAkceptowac={mozeAkceptowac} obejrzane={obejrzane.size} akcje={akcje.decyzje} blokada={blokada} />
       <BaneryPakietu pakiet={pakiet} />
+      {tryb === "zespol" && otwarteUwagi > 0 ? (
+        <p className="flex flex-wrap items-center gap-3 rounded-lg bg-amber-50 px-3 py-2 text-sm text-bursztyn" data-otwarte-uwagi={otwarteUwagi}>
+          <span className="font-medium">{copy.pakiet.nierozwiazaneWPakiecie.replace("{n}", String(otwarteUwagi))}</span>
+          <button type="button" className="font-medium underline underline-offset-4 hover:no-underline" onClick={() => przejdz({ materialId: idPierwszejOtwartej, watek: true })} data-przejdz-do-uwag>
+            {copy.pakiet.przejdzDoUwagi}
+          </button>
+        </p>
+      ) : null}
       <Tabs value={zakladka} onValueChange={(v) => setZakladka(v as Zakladka)} className="gap-4">
         <TabsList className="h-auto w-full justify-start gap-1 overflow-x-auto bg-white p-1 shadow-miekki group-data-horizontal/tabs:h-auto" aria-label={copy.nawigacja.materialy}>
           <TabsTrigger value="posty" className="h-9 flex-none whitespace-nowrap px-3">{etykieta(z.posty, pakiet.posty.length, liczniki.posty)}</TabsTrigger>
@@ -125,7 +195,8 @@ export function EkranPakietu({ pakiet, teraz, tryb, mozeAkceptowac, akcje, bloka
           </div>
         </TabsContent>
       </Tabs>
-      <section className="rounded-xl bg-white p-4 shadow-miekki sm:p-6" data-uwagi-pakietu>
+      {/* Id inne niż kotwica #uwagi: o celu #uwagi decyduje ekran (pierwsza nierozwiązana uwaga), nie przeglądarka. */}
+      <section id="uwagi-pakietu" className="rounded-xl bg-white p-4 shadow-miekki sm:p-6" data-uwagi-pakietu>
         <WatekKomentarzy id="watek-pakiet" komentarze={pakiet.komentarzePakietu} runda={pakiet.runda} tryb={tryb} akcje={akcjeWatku(null)} tytul={copy.pakiet.komentarze.doPakietu} etykietaPola={tryb === "klient" ? copy.pakiet.komentarze.doPakietuOpis : undefined} notka={notkaWatku} />
       </section>
     </div>

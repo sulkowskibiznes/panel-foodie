@@ -67,12 +67,12 @@ test("zespół tworzy link z kodem startowym, klient ustawia własny PIN, kod dz
     expect(kod).toMatch(/^\d{6}$/);
 
     // zamknięcie bez skopiowania kodu pyta o potwierdzenie; po skopiowaniu już nie
-    await dialog.getByRole("button", { name: copy.zespol.dostep.gotowy.zamknij }).click();
+    await dialog.getByRole("button", { name: copy.zespol.dostep.gotowy.zamknij, exact: true }).click();
     await anulujOkno(z, copy.zespol.dostep.gotowy.zamknijBezKopiowania);
     await expect(dialog).toBeVisible();
     await dialog.locator("[data-kopiuj-kod]").click();
     await expect(dialog.locator("[data-kopiuj-kod]")).toHaveText(copy.zespol.dostep.gotowy.skopiowano);
-    await dialog.getByRole("button", { name: copy.zespol.dostep.gotowy.zamknij }).click();
+    await dialog.getByRole("button", { name: copy.zespol.dostep.gotowy.zamknij, exact: true }).click();
     await expect(dialog).toHaveCount(0);
     await expect(wierszLinku(z, label).locator('[data-stan-pinu="czeka"]')).toBeVisible();
   } finally {

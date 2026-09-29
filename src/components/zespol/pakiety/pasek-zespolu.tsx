@@ -1,23 +1,81 @@
 "use client";
 
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState, useTransition } from "react";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { LinkiDoWyslania } from "@/components/zespol/pulpit/linki-do-wyslania";
+import { PokazLinkPulpit } from "@/components/zespol/pulpit/pokaz-link";
 import { usePotwierdzenie } from "@/components/zespol/potwierdzenie";
+import { toast } from "sonner";
 import { copy } from "@/lib/copy";
 import type { PakietSzczegoly } from "@/lib/dto/materialy";
 import type { WynikAkcji } from "@/lib/dto/wynik";
-import { formatujDateCzas } from "@/lib/format";
-import type { Przejscie } from "@/lib/pakiety/przejscia";
+import { formatujDateCzas, liczebnik } from "@/lib/format";
+import type { KontrolaWysylki, Przejscie } from "@/lib/pakiety/przejscia";
 
-type Dialogowe = "wyslij" | "wyslij_v2" | "cofnij" | null;
+type Dialogowe = "wyslij" | "wyslij_v2" | "cofnij" | "wyslano" | null;
+
+/** Lista kontrolna przed wysyłką (SPEC rozdz. 8): braki blokują, ostrzeżenia nie. Widoczna, zanim ktoś kliknie „Wyślij". */
+function ListaKontrolna({ kontrola, adresHarmonogramu }: { kontrola: KontrolaWysylki; adresHarmonogramu: string }) {
+  const t = copy.zespol.pakietyMaterialow;
+  if (kontrola.braki.length === 0 && kontrola.ostrzezenia.length === 0) {
+    return <p className="rounded-lg bg-green-50 px-3 py-2 text-sm text-zielony" data-kontrola-gotowe>{t.akcje.kontrolaGotowe}</p>;
+  }
+  return (
+    <div className="space-y-2" data-kontrola-wysylki>
+      {kontrola.braki.length > 0 ? (
+        <div className="rounded-lg bg-red-50 px-3 py-2 text-sm text-czerwony">
+          <p className="font-medium">{t.braki}</p>
+          <ul className="mt-1 list-disc pl-5" data-braki>
+            {kontrola.braki.map((b) => (
+              <li key={b}>{b}</li>
+            ))}
+          </ul>
+          <Link href={adresHarmonogramu} className="mt-1 inline-block font-medium underline underline-offset-4">{t.akcje.ustawDaty}</Link>
+        </div>
+      ) : null}
+      {kontrola.ostrzezenia.length > 0 ? (
+        <div className="rounded-lg bg-amber-50 px-3 py-2 text-sm text-bursztyn" data-ostrzezenia>
+          <p className="font-medium">{t.ostrzezenia}</p>
+          <ul className="mt-1 list-disc pl-5">
+            {kontrola.ostrzezenia.map((o) => (
+              <li key={o}>{o}</li>
+            ))}
+          </ul>
+        </div>
+      ) : null}
+    </div>
+  );
+}
 
 /**
- * Akcje zespołu nad pakietem (SPEC rozdz. 6.8, 12.3 pkt 7): wyślij (z checkboxem auto-akceptacji), wycofaj,
- * wyślij v2, cofnij do poprawek (z obowiązkowym powodem), zaplanowano. Braki z walidacji wypisane wprost.
+ * Akcje zespołu nad pakietem (SPEC rozdz. 6.8, 12.3 pkt 7): wyślij (z checkboxem auto-akceptacji i listą kontrolną),
+ * wycofaj, wyślij v2, cofnij do poprawek (z obowiązkowym powodem), zaplanowano. Po wysyłce admin i csm od razu dostają
+ * krok „link dla klienta" (plan domknięcia, Etap 3b), a przy pakiecie czekającym na klienta przycisk „Link dla klienta".
  */
-export function PasekZespolu({ pakiet, teraz, mozeZmieniac, wykonaj }: { pakiet: PakietSzczegoly; teraz: string; mozeZmieniac: boolean; wykonaj: (przejscie: Przejscie) => Promise<WynikAkcji> }) {
+export function PasekZespolu({
+  pakiet,
+  teraz,
+  mozeZmieniac,
+  wykonaj,
+  slug,
+  nazwaKlienta,
+  mozePokazacLink,
+  kontrola,
+  adresHarmonogramu,
+}: {
+  pakiet: PakietSzczegoly;
+  teraz: string;
+  mozeZmieniac: boolean;
+  wykonaj: (przejscie: Przejscie) => Promise<WynikAkcji>;
+  slug: string;
+  nazwaKlienta: string;
+  mozePokazacLink: boolean;
+  kontrola: KontrolaWysylki | null;
+  adresHarmonogramu: string;
+}) {
   const router = useRouter();
   const [dialog, setDialog] = useState<Dialogowe>(null);
   const [auto, setAuto] = useState(pakiet.status === "szkic" ? pakiet.autoDomyslnaKlienta : pakiet.autoWlaczona);
@@ -36,8 +94,10 @@ export function PasekZespolu({ pakiet, teraz, mozeZmieniac, wykonaj }: { pakiet:
       const w = await wykonaj(przejscie);
       setWynik(w);
       if (w.ok) {
-        setDialog(null);
+        // Po wysyłce: od razu link dla klienta (admin i csm), zamiast zamykać okno i szukać linku osobno.
+        setDialog((przejscie.typ === "wyslij" || przejscie.typ === "wyslij_v2") && mozePokazacLink ? "wyslano" : null);
         setPowod("");
+        toast.success(copy.zespol.toasty.przejscia[przejscie.typ as keyof typeof copy.zespol.toasty.przejscia] ?? copy.zespol.toasty.przejscia.wyslij);
         router.refresh();
       }
     });
@@ -50,7 +110,7 @@ export function PasekZespolu({ pakiet, teraz, mozeZmieniac, wykonaj }: { pakiet:
         {pakiet.wyslanoO ? <div>{t.wyslanoV.replace("{data}", formatujDateCzas(pakiet.wyslanoO)).replace("{n}", String(pakiet.runda))}</div> : null}
         {pakiet.status === "do_akceptacji" ? <div>{pakiet.autoAkceptacjaO ? `${t.autoTermin} ${formatujDateCzas(pakiet.autoAkceptacjaO)}` : t.autoWylaczona}</div> : null}
         {pakiet.zaakceptowanoO && pakiet.rodzajAkceptacji ? <div>{t.zaakceptowano.replace("{data}", formatujDateCzas(pakiet.zaakceptowanoO)).replace("{rodzaj}", t.rodzajAkceptacji[pakiet.rodzajAkceptacji]).replace("{osoba}", pakiet.zaakceptowal ?? t.nikt)}</div> : null}
-        {pakiet.nierozwiazaneUwagiKlienta > 0 ? <div className="font-medium text-bursztyn">{t.nierozwiazane.replace("{n}", String(pakiet.nierozwiazaneUwagiKlienta))}</div> : null}
+        {pakiet.nierozwiazaneUwagiKlienta > 0 ? <div className="font-medium text-bursztyn">{liczebnik(pakiet.nierozwiazaneUwagiKlienta, t.nierozwiazane.jeden, t.nierozwiazane.kilka, t.nierozwiazane.wiele)}</div> : null}
       </dl>
       {wstrzymana ? (
         <p role="status" data-wstrzymana className="mt-3 rounded-lg bg-amber-50 px-3 py-2 text-sm text-bursztyn">
@@ -60,6 +120,7 @@ export function PasekZespolu({ pakiet, teraz, mozeZmieniac, wykonaj }: { pakiet:
       {mozeZmieniac ? (
         <div className="mt-4 flex flex-wrap gap-2">
           {pakiet.status === "szkic" ? <Button type="button" size="lg" disabled={trwa} onClick={() => setDialog("wyslij")} data-akcja="wyslij">{a.wyslij}</Button> : null}
+          {pakiet.status === "do_akceptacji" && mozePokazacLink ? <PokazLinkPulpit slug={slug} nazwaKlienta={nazwaKlienta} etykieta={a.linkDlaKlienta} /> : null}
           {pakiet.status === "do_akceptacji" ? <Button type="button" variant="outline" size="lg" disabled={trwa} onClick={() => void uruchom({ typ: "wycofaj" }, a.wycofajPotwierdz)} data-akcja="wycofaj">{a.wycofaj}</Button> : null}
           {pakiet.status === "poprawki" ? <Button type="button" size="lg" disabled={trwa} onClick={() => setDialog("wyslij_v2")} data-akcja="wyslij_v2">{a.wyslijV2.replace("{n}", String(pakiet.runda + 1))}</Button> : null}
           {pakiet.status === "zaakceptowany" ? <Button type="button" size="lg" disabled={trwa} onClick={() => void uruchom({ typ: "zaplanuj" }, a.zaplanowanoPotwierdz)} data-akcja="zaplanuj">{a.zaplanowano}</Button> : null}
@@ -85,6 +146,7 @@ export function PasekZespolu({ pakiet, teraz, mozeZmieniac, wykonaj }: { pakiet:
             <DialogTitle className="font-naglowek text-lg">{dialog === "wyslij_v2" ? a.wyslijV2.replace("{n}", String(pakiet.runda + 1)) : a.wyslij}</DialogTitle>
             {dialog === "wyslij_v2" ? <DialogDescription>{a.wyslanoV2Info}</DialogDescription> : null}
           </DialogHeader>
+          {kontrola ? <ListaKontrolna kontrola={kontrola} adresHarmonogramu={adresHarmonogramu} /> : null}
           <label className="flex items-start gap-2 text-sm text-foodie-czern">
             <input type="checkbox" checked={auto} onChange={(e) => setAuto(e.target.checked)} className="mt-0.5 size-4 accent-foodie-fiolet" data-auto-checkbox />
             <span>
@@ -109,9 +171,22 @@ export function PasekZespolu({ pakiet, teraz, mozeZmieniac, wykonaj }: { pakiet:
           ) : null}
           <div className="flex justify-end gap-2">
             <Button type="button" variant="outline" size="lg" onClick={() => setDialog(null)}>{a.anuluj}</Button>
-            <Button type="button" size="lg" disabled={trwa} onClick={() => void uruchom(dialog === "wyslij_v2" ? { typ: "wyslij_v2", autoAkceptacja: auto } : { typ: "wyslij", autoAkceptacja: auto })} data-potwierdz-wysylke>
+            <Button type="button" size="lg" disabled={trwa || (kontrola?.braki.length ?? 0) > 0} onClick={() => void uruchom(dialog === "wyslij_v2" ? { typ: "wyslij_v2", autoAkceptacja: auto } : { typ: "wyslij", autoAkceptacja: auto })} data-potwierdz-wysylke>
               {trwa ? a.trwa : dialog === "wyslij_v2" ? a.wyslijV2.replace("{n}", String(pakiet.runda + 1)) : a.wyslij}
             </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={dialog === "wyslano"} onOpenChange={(open) => !open && setDialog(null)}>
+        <DialogContent className="sm:max-w-md" data-okno-po-wysylce>
+          <DialogHeader>
+            <DialogTitle className="font-naglowek text-lg">{a.wyslanoTytul}</DialogTitle>
+            <DialogDescription>{a.wyslanoOpis}</DialogDescription>
+          </DialogHeader>
+          {dialog === "wyslano" ? <LinkiDoWyslania slug={slug} /> : null}
+          <div className="flex justify-end">
+            <Button type="button" size="lg" onClick={() => setDialog(null)} data-gotowe-po-wysylce>{a.gotowe}</Button>
           </div>
         </DialogContent>
       </Dialog>

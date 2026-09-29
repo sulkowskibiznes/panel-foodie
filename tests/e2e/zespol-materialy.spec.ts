@@ -95,10 +95,11 @@ test("21. wysyłka pakietu z postem bez daty publikacji jest zablokowana z list�
 
     const z = await zespol.newPage();
     await z.goto(`/zespol/klienci/${KLIENT}/pakiety/${p.id}`);
+    // lista kontrolna w oknie wysyłki: braki widać przed kliknięciem, a przycisk wysyłki jest zablokowany
     await z.locator('[data-akcja="wyslij"]').click();
-    await z.locator("[data-potwierdz-wysylke]").click();
-    const braki = z.locator("[data-braki]");
+    const braki = z.locator("[data-kontrola-wysylki] [data-braki]");
     await expect(braki).toBeVisible();
+    await expect(z.locator("[data-potwierdz-wysylke]")).toBeDisabled();
     await expect(braki).toContainText(copy.wysylka.brakDaty.replace("{tytul}", post3.title ?? ""));
     await expect(braki).toContainText(copy.wysylka.brakDaty.replace("{tytul}", relacja2.title ?? ""));
     await expect(braki.locator("li")).toHaveCount(2);
@@ -124,9 +125,18 @@ test("21. wysyłka pakietu z postem bez daty publikacji jest zablokowana z list�
       await expect.poll(async () => (await stanMaterialu(m.id))?.publish_at).not.toBeNull();
     }
     await z.locator('[data-akcja="wyslij"]').click();
+    await expect(z.locator("[data-kontrola-wysylki] [data-braki]")).toHaveCount(0);
     await z.locator("[data-potwierdz-wysylke]").click();
     await expect(z.locator("[data-pasek-zespolu]")).toContainText(copy.zespol.pakietyMaterialow.autoTermin);
     expect((await stanPakietu(p.id)).status).toBe("do_akceptacji");
+
+    // po wysyłce od razu krok „link dla klienta" (csm): pokazanie linku zapisuje się w audycie
+    const poWysylce = z.locator("[data-okno-po-wysylce]");
+    await expect(poWysylce).toBeVisible();
+    await expect(poWysylce.locator("[data-linki-do-wyslania]")).toBeVisible();
+    await poWysylce.locator("[data-gotowe-po-wysylce]").click();
+    await expect(poWysylce).toHaveCount(0);
+    await expect(z.locator("[data-pasek-zespolu] [data-pokaz-link-pulpit]")).toBeVisible();
   } finally {
     await zespol.close();
     await usunPakiet(p.id);

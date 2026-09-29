@@ -1,4 +1,4 @@
-import { Archive, BarChart3, CalendarDays, FileText, Home, Inbox, Package, Sparkles } from "lucide-react";
+import { BarChart3, CalendarDays, FileText, Home, Inbox, Package, Sparkles } from "lucide-react";
 import Link from "next/link";
 import type { ReactNode } from "react";
 import { WiecejMobile, type IkonaMenu } from "@/components/klient/wiecej-mobile";
@@ -16,17 +16,17 @@ export function UkladKlienta({ token, nazwaKlienta, etykietaOsoby, sciezka, podg
     { href: `${baza}/start`, etykieta: copy.nawigacja.start, Ikona: Home },
     { href: `${baza}/materialy`, etykieta: copy.nawigacja.materialy, Ikona: Inbox },
     { href: `${baza}/harmonogram`, etykieta: copy.nawigacja.harmonogram, Ikona: CalendarDays },
-  ].map((p) => ({ ...p, aktywna: true, biezaca: biezaca(p.href) }));
+  ].map((p) => ({ ...p, biezaca: biezaca(p.href) }));
   // Pozostałe sekcje idą też do arkusza „Więcej" (komponent kliencki), więc ikona jest kluczem, nie funkcją.
-  const pozostaleZrodlo: Array<{ href: string; etykieta: string; ikona: IkonaMenu; aktywna: boolean }> = [
-    { href: `${baza}/archiwum`, etykieta: copy.nawigacja.archiwum, ikona: "archiwum", aktywna: false },
-    { href: `${baza}/raporty`, etykieta: copy.nawigacja.raporty, ikona: "raporty", aktywna: true },
-    { href: `${baza}/faktury`, etykieta: copy.nawigacja.faktury, ikona: "faktury", aktywna: true },
-    { href: `${baza}/pakiet`, etykieta: copy.nawigacja.pakiet, ikona: "pakiet", aktywna: true },
-    { href: `${baza}/uslugi`, etykieta: copy.nawigacja.uslugi, ikona: "uslugi", aktywna: true },
+  // Bez pozycji „wkrótce": Archiwum wraca do menu, gdy powstanie (plan domknięcia, Etap 4).
+  const pozostaleZrodlo: Array<{ href: string; etykieta: string; ikona: IkonaMenu }> = [
+    { href: `${baza}/raporty`, etykieta: copy.nawigacja.raporty, ikona: "raporty" },
+    { href: `${baza}/faktury`, etykieta: copy.nawigacja.faktury, ikona: "faktury" },
+    { href: `${baza}/pakiet`, etykieta: copy.nawigacja.pakiet, ikona: "pakiet" },
+    { href: `${baza}/uslugi`, etykieta: copy.nawigacja.uslugi, ikona: "uslugi" },
   ];
-  const pozostale = pozostaleZrodlo.map((p) => ({ ...p, biezaca: p.aktywna && biezaca(p.href) }));
-  const IKONY: Record<IkonaMenu, typeof Home> = { archiwum: Archive, raporty: BarChart3, faktury: FileText, pakiet: Package, uslugi: Sparkles };
+  const pozostale = pozostaleZrodlo.map((p) => ({ ...p, biezaca: biezaca(p.href) }));
+  const IKONY: Record<IkonaMenu, typeof Home> = { raporty: BarChart3, faktury: FileText, pakiet: Package, uslugi: Sparkles };
   const pozycje = [...glowne, ...pozostale.map((p) => ({ ...p, Ikona: IKONY[p.ikona] }))];
 
   return (
@@ -37,20 +37,12 @@ export function UkladKlienta({ token, nazwaKlienta, etykietaOsoby, sciezka, podg
           <span className="font-naglowek text-lg text-foodie-czern">{copy.marka.nazwa}</span>
         </div>
         <nav aria-label={copy.marka.panel} className="flex-1 space-y-1 px-3">
-          {pozycje.map(({ href, etykieta, Ikona, aktywna, biezaca: tu }) =>
-            aktywna ? (
-              <Link key={href} href={href} aria-current={tu ? "page" : undefined} className={`flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium ${tu ? "bg-fiolet-050 text-fiolet-700" : "text-foodie-czern hover:bg-szary-050"}`}>
-                <Ikona className="size-5" aria-hidden />
-                {etykieta}
-              </Link>
-            ) : (
-              <span key={href} aria-disabled className="flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm text-szary-600">
-                <Ikona className="size-5 opacity-60" aria-hidden />
-                <span className="flex-1">{etykieta}</span>
-                <span className="text-xs text-szary-300">{copy.nawigacja.wkrotce}</span>
-              </span>
-            ),
-          )}
+          {pozycje.map(({ href, etykieta, Ikona, biezaca: tu }) => (
+            <Link key={href} href={href} aria-current={tu ? "page" : undefined} className={`flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium ${tu ? "bg-fiolet-050 text-fiolet-700" : "text-foodie-czern hover:bg-szary-050"}`}>
+              <Ikona className="size-5" aria-hidden />
+              {etykieta}
+            </Link>
+          ))}
         </nav>
         <StopkaSesji token={token} nazwaKlienta={nazwaKlienta} etykietaOsoby={etykietaOsoby} podglad={podglad} />
       </aside>
