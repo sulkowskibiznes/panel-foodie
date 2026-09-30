@@ -539,24 +539,24 @@ Pytania Szymona: czego brakuje, łatwe dodawanie i usuwanie klientów, własny P
 Plan: Etap 0 (poprawki offboardingu), Etap A (operacje Szymona), Etap 1 (cykl życia klienta), Etap 2 (własny PIN),
 Etap 3 (UX zespołu), Etap 4 po pilotażu.
 
-### Etap A: operacje przed pilotażem (stan 2026-09-30)
+### Etap A: operacje przed pilotażem (stan 2026-09-30, po wdrożeniu)
 
-Zrobione: cztery gałęzie wypchnięte na GitHub (`faza/5-reszta-panelu` → `faza/7-klienci` → `faza/8-pin-klienta` →
-`faza/9-ux-zespolu`), CI zielone na każdej; plan Vercel Pro potwierdzony (cron outboxu co minutę przejdzie); Zapier,
-Google i `TEAM_EMAIL_ALLOWLIST` już są w zmiennych Vercela (Production i Preview); § 4 i § 5 regulaminu przejrzane
-z prawnikiem. Kod z planu (seed produkcyjny, monitoring cronów, `client_contact`) jest na gałęziach.
+Zrobione 2026-09-30:
+- Cztery gałęzie wypchnięte na GitHub (`faza/5-reszta-panelu` → `faza/7-klienci` → `faza/8-pin-klienta` →
+  `faza/9-ux-zespolu`), CI zielone na każdej. Plan Vercel Pro potwierdzony (cron outboxu co minutę).
+- `PIN_PEPPER` w Vercelu dla Production i Preview (ta sama wartość co w `.env.local`: wszystkie środowiska pracują na
+  jednym projekcie Supabase; nowy pieprz dopiero razem z osobnym projektem produkcyjnym). Zapier, Google
+  i `TEAM_EMAIL_ALLOWLIST` były już wcześniej.
+- `pnpm db:migrate`: 5 migracji w chmurze (`20260908100001`, `20260909100001`, `20260930100001`, `20261001100001`,
+  `20261002100001`), potwierdzone `supabase migration list`.
+- Merge `faza/9-ux-zespolu` → `main` (fast-forward do `1fcabd3`) i wdrożenie produkcyjne na Vercelu: READY pod
+  `panel-foodie.vercel.app`, cztery crony zarejestrowane i włączone, strony logowania zespołu i klienta odpowiadają,
+  cron bez `Bearer` daje 401.
+- § 4 i § 5 regulaminu przejrzane z prawnikiem.
 
-Czeka na Szymona, w tej kolejności (żaden krok nie może iść z tej sesji: zapis sekretów w Vercelu i migracje chmury
-są zablokowane dla asystenta):
-1. `PIN_PEPPER` w Vercelu dla Production i Preview: **ta sama wartość co w `.env.local`**, bo wszystkie trzy
-   środowiska pracują dziś na tym samym projekcie Supabase (inny pieprz = PIN ustawiony w jednym środowisku nie
-   działa w drugim). Nowy pieprz dopiero razem z osobnym projektem produkcyjnym.
-2. `pnpm db:migrate` (5 migracji: `20260908100001`, `20260909100001`, `20260930100001`, `20261001100001`,
-   `20261002100001`; `--dry-run` z tej sesji pokazał dokładnie tę listę; wszystkie tylko dodają).
-3. Merge `faza/9-ux-zespolu` do `main` (fast-forward) i push: Vercel wdraża produkcję z `main`. Bez punktów 1 i 2
-   nowy kod na Vercelu zgłosi błąd konfiguracji (brak `PIN_PEPPER`) albo brak kolumn.
-4. Osobny projekt Supabase produkcyjny, domena `panel.foodiemedia.pl`, PITR, `INGEST_TOKEN` (razem z konfiguracją
-   po stronie raporty.foodiemedia.pl) jak w planie.
+Czeka na Szymona: osobny projekt Supabase produkcyjny (`supabase link` + `db push`, Auth wg `docs/KONFIGURACJA-MAILI.md`,
+osobne zmienne Production w Vercelu z nowym `SESSION_SECRET` i `PIN_PEPPER`), domena `panel.foodiemedia.pl`, PITR,
+`INGEST_TOKEN` razem z konfiguracją po stronie raporty.foodiemedia.pl.
 
 ### Etap 0: poprawki offboardingu (commit `607d3b3` na `faza/5-reszta-panelu`)
 
