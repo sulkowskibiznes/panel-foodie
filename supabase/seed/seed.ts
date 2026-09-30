@@ -13,6 +13,10 @@
  *
  * `--produkcja` (skrypt `pnpm db:seed:produkcja`): start świeżego projektu produkcyjnego. Zespół tylko DOPISYWANY
  * (istniejące osoby zostają z obecną rolą i aktywnością), usługi, klient demonstracyjny. Żadnych klientów testowych.
+ * Odmawia pracy na lokalnym stacku (tam jest pełny seed).
+ *
+ * `--env=<plik>`: inny plik zmiennych niż .env.local, np. `.env.produkcja` z kluczami projektu produkcyjnego
+ * (pliki `.env.*` są w .gitignore). Dzięki temu sekretów produkcji nie wpisuje się w linii poleceń.
  */
 import { randomUUID } from "node:crypto";
 import { config as wczytajEnv } from "dotenv";
@@ -23,11 +27,12 @@ import { wyprowadzKlucz, zaszyfruj } from "../../src/lib/krypto";
 import { KLIENCI, MIESIAC, ROK, USLUGI, ZESPOL, type KlientSeed, type PakietSeed } from "./dane";
 import { prostyPdf } from "./pdf";
 
-wczytajEnv({ path: ".env.local" });
+const PLIK_ENV = process.argv.find((a) => a.startsWith("--env="))?.slice("--env=".length) || ".env.local";
+wczytajEnv({ path: PLIK_ENV });
 
 function wymagane(nazwa: string): string {
   const wartosc = process.env[nazwa];
-  if (!wartosc) throw new Error(`Brak zmiennej ${nazwa}. Sprawdź .env.local wg .env.example.`);
+  if (!wartosc) throw new Error(`Brak zmiennej ${nazwa} (plik ${PLIK_ENV} albo zmienne procesu). Sprawdź .env.example.`);
   return wartosc;
 }
 
@@ -529,6 +534,7 @@ async function main(): Promise<void> {
   const start = Date.now();
 
   if (PRODUKCJA && TYLKO_KLIENT) throw new Error("Użyj albo --produkcja, albo --tylko=<slug>, nie obu naraz.");
+  if (PRODUKCJA && /localhost|127\.0\.0\.1/.test(SUPABASE_URL)) throw new Error(`--produkcja na lokalnym stacku (${SUPABASE_URL}) nie ma sensu: podaj projekt chmurowy przez --env=<plik> albo zmienne procesu.`);
   const wybrany = PRODUKCJA ? KLIENT_DEMO : TYLKO_KLIENT;
   const klienci = wybrany ? KLIENCI.filter((k) => k.slug === wybrany) : KLIENCI;
   if (klienci.length === 0) throw new Error(`Nie ma klienta seedu o slugu ${wybrany}.`);

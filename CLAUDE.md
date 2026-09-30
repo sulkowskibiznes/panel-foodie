@@ -173,6 +173,7 @@ docs/PLAN-SESJA-STARTOWA.md  # plan faz 0 i 1, krytyka spec-u, decyzje (2026-09-
 docs/POSTEP.md            # stan kryteriów odbioru z rozdz. 18
 docs/OBSLUGA.md           # instrukcja obsługi dla zespołu: nowy klient, wysyłka materiałów, faktury, „link nie działa"
 docs/KOPIE-ZAPASOWE.md    # kopie zapasowe Supabase (PITR) i procedura odtworzenia
+docs/WDROZENIE-PRODUKCJA.md  # runbook: osobny projekt Supabase prod, seed --env=.env.produkcja, zmienne Vercela, domena, PITR, webhook raportów
 docs/instrukcja/          # dwustronicowa instrukcja dla Gosi i content creatorów (markdown, zrzuty, PDF)
 tests/unit/
 tests/e2e/                # Playwright na lokalnym Supabase, port 3100; zespół logowany raz w projekcie „przygotowanie";
