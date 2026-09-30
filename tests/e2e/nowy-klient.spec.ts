@@ -34,8 +34,12 @@ test("csm zakłada klienta z formularza i trafia na jego kartę; zajęty slug da
   const t = copy.zespol.nowyKlient;
   try {
     await page.goto("/zespol");
+    await expect(page.locator("[data-link-pulpitu]")).toHaveAttribute("aria-current", "page");
     await page.locator("[data-link-klientow]").click();
     await expect(page).toHaveURL("/zespol/klienci");
+    // aktywna pozycja liczona w przeglądarce: po przejściu linkiem (bez przeładowania) podświetla się nowa sekcja
+    await expect(page.locator("[data-link-klientow]")).toHaveAttribute("aria-current", "page");
+    await expect(page.locator("[data-link-pulpitu]")).not.toHaveAttribute("aria-current", "page");
     await page.locator("[data-nowy-klient-link]").click();
     await expect(page.getByRole("heading", { level: 1, name: t.tytul })).toBeVisible();
 

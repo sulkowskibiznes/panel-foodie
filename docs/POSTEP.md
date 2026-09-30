@@ -62,7 +62,7 @@ Stan na 2026-09-02, gałąź `faza/0-fundament`.
 - Placeholdery wideo w seedzie (relacje wideo, Reels): faza 2, razem z podglądami.
 
 **Wymaga decyzji Szymona:**
-- Treść regulaminu i polityki prywatności: dostarczona 2026-09-03 w `docs/TRESCI-PRAWNE.md`, wpisana do stron (patrz domknięcie fazy 1). § 5 regulaminu i klauzula do umowy (część C) nadal do przejrzenia z prawnikiem.
+- Treść regulaminu i polityki prywatności: dostarczona 2026-09-03 w `docs/TRESCI-PRAWNE.md`, wpisana do stron (patrz domknięcie fazy 1). § 5 regulaminu i klauzula do umowy (część C) zatwierdzone przez prawnika 2026-09-04; § 4 i § 5 po zmianie na własny PIN klienta przejrzane ponownie 2026-09-30.
 
 ## Faza 1: Dostęp
 
@@ -618,7 +618,7 @@ Etap 3 (UX zespołu), Etap 4 po pilotażu.
   ramek identyczna; wzorce desktop bez zmian. Trzy przebiegi pod rząd na obu szerokościach zielone.
 
 **Wymaga Szymona:** `PIN_PEPPER` w Vercelu (Production i Preview osobno, `openssl rand -hex 32`, raz na zawsze:
-zmiana unieważnia wszystkie PIN-y); § 4 regulaminu do przejrzenia z prawnikiem razem z § 5.
+zmiana unieważnia wszystkie PIN-y). § 4 i § 5 regulaminu (model własnego PIN-u) przejrzane z prawnikiem 2026-09-30.
 
 ### Etap 3: porządki UX zespołu (gałąź `faza/9-ux-zespolu`)
 
@@ -649,3 +649,23 @@ zmiana unieważnia wszystkie PIN-y); § 4 regulaminu do przejrzenia z prawnikiem
   z pulpitu, Ustawienia → Ogólne, lista i wyszukiwarka csm bez cudzych klientów, „Moja praca" i kafelki, szybkie
   akcje, ustawienia pakietu, podpowiedzi kreatora; testy z natywnymi oknami przeszły na okno panelu.
 - Ściąga dla zespołu (`pnpm instrukcja`): tekst i zrzuty odświeżone, nadal 2 strony.
+
+**Przegląd Etapu 3 (workflow adwersarzy, 2026-09-30), poprawione osobnym commitem:**
+- Pasek „Nierozwiązane uwagi klienta" i cel kotwicy `#uwagi` liczyły uwagi ze wszystkich rund; teraz jak DTO, pulpit
+  i pasek zespołu: tylko bieżąca runda. Cel przewinięcia jest zużywany po przewinięciu (zmiana zakładki nie wraca do
+  kotwicy); uwaga do całego pakietu ze skrzynki prowadzi kotwicą `#uwagi-do-pakietu` do wątku pakietu, nie do pierwszej
+  uwagi przy materiale (`lib/pakiety/kotwice.ts`); ponowne „Przejdź do pierwszej" na tę samą relację też ją pokazuje.
+- „Klienci bez pakietu na następny okres" i lista klientów ściągały całą tabelę `packages` (PostgREST ucina odpowiedź
+  na 1000 wierszach bez błędu: przy 80 klientach w ciągu roku). Migracja `20261002100001_podsumowanie_pakietow.sql`:
+  funkcja SQL `podsumowanie_pakietow` liczy w bazie koniec ostatniego okresu i pakiety do akceptacji na parę
+  (klient, lokal). Klient kat1 (osobny pakiet na lokal) jest oceniany lokal po lokalu: pakiet lokalu B nie zasłania
+  braku pakietu lokalu A, wiersz na pulpicie nazywa lokal.
+- Aktywna pozycja nagłówka liczona w przeglądarce (`NawigacjaZespolu`, `usePathname`): wspólny układ nie renderuje
+  się ponownie przy przejściu linkiem, więc ścieżka z nagłówka żądania zostawała na pierwszej stronie.
+- „Ustawienia pakietu" i kampanie przyjmują wyłącznie link do folderu (jak kreator i karta importu), nie do pliku.
+- Toast aktywacji członka zespołu mówi o porażce (akcja zwraca `{ ok }`); po wysyłce content creator (bez dostępu
+  do linków) dostaje „Link klientowi wysyła opiekun" zamiast polecenia wysłania linku; notka pod auto-akceptacją
+  w Ustawienia → Ogólne wewnątrz `<dd>`; teksty i OBSLUGA bez odwołań do usuniętej listy „Przerwy i zakończone
+  współprace" na pulpicie.
+- Testy: `pilnosc.test.ts` (kat1 lokal po lokalu), E2E 21 pokazuje link w oknie po wysyłce i sprawdza wpis
+  `link.odszyfrowany`, test nowego klienta sprawdza `aria-current` po przejściu linkiem.

@@ -290,14 +290,16 @@ export async function pobierzPakietyNaPulpit(clientIds: string[] | null, teraz =
   });
 }
 
-/** Okresy wszystkich pakietów (także zaplanowanych) klientów z trwającą współpracą: „Klienci bez pakietu na następny okres". */
-export async function pobierzOkresyPakietow(clientIds: string[] | null): Promise<Array<{ clientId: string; od: string; do: string }>> {
-  let zapytanie = supabaseSerwer().from("packages").select("client_id, period_from, period_to, clients!inner(status)").eq("clients.status", "aktywny");
-  if (clientIds) {
-    if (clientIds.length === 0) return [];
-    zapytanie = zapytanie.in("client_id", clientIds);
-  }
-  const { data, error } = await zapytanie;
-  if (error) throw new Error(`pobierzOkresyPakietow: ${error.message}`);
-  return (data ?? []).map((p) => ({ clientId: p.client_id, od: p.period_from, do: p.period_to }));
+/** Jeden wiersz na parę (klient, lokal): koniec ostatniego okresu i liczba pakietów do akceptacji. */
+export type PodsumowaniePakietow = { clientId: string; lokalId: string | null; ostatniDo: string; doAkceptacji: number };
+
+/**
+ * Podsumowanie pakietów liczone w bazie (funkcja SQL `podsumowanie_pakietow`): pulpit („Klienci bez pakietu na następny
+ * okres") i lista klientów. Nie ściągamy całej tabeli packages: PostgREST ucina odpowiedź na 1000 wierszach bez błędu.
+ */
+export async function pobierzPodsumowaniePakietow(clientIds: string[] | null): Promise<PodsumowaniePakietow[]> {
+  if (clientIds && clientIds.length === 0) return [];
+  const { data, error } = await supabaseSerwer().rpc("podsumowanie_pakietow", clientIds ? { p_client_ids: clientIds } : {});
+  if (error) throw new Error(`pobierzPodsumowaniePakietow: ${error.message}`);
+  return ((data ?? []) as Array<{ client_id: string; location_id: string | null; ostatni_do: string; do_akceptacji: number }>).map((w) => ({ clientId: w.client_id, lokalId: w.location_id, ostatniDo: w.ostatni_do, doAkceptacji: w.do_akceptacji }));
 }

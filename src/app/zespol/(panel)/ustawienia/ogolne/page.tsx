@@ -8,11 +8,15 @@ import { konfiguracjaDysku } from "@/lib/drive/klient";
 import { formatujDateCzas } from "@/lib/format";
 import { adresZapiera } from "@/lib/outbox/baza";
 
-function Wiersz({ etykieta, wartosc, dane }: { etykieta: string; wartosc: string; dane?: string }) {
+function Wiersz({ etykieta, wartosc, dane, notka }: { etykieta: string; wartosc: string; dane?: string; notka?: string }) {
   return (
     <div className="grid gap-1 py-3 sm:grid-cols-[16rem_1fr]" data-ustawienie={dane}>
       <dt className="text-sm text-szary-600">{etykieta}</dt>
-      <dd className="text-sm font-medium text-foodie-czern">{wartosc}</dd>
+      <dd className="text-sm font-medium text-foodie-czern">
+        {wartosc}
+        {/* Notka w <dd>, nie luzem w <dl>: lista definicji może zawierać tylko pary dt/dd. */}
+        {notka ? <span className="mt-1 block text-xs font-normal text-szary-600">{notka}</span> : null}
+      </dd>
     </div>
   );
 }
@@ -37,8 +41,7 @@ export default async function UstawieniaOgolne() {
         <p className="mt-1 max-w-prose text-sm text-szary-600">{o.opis}</p>
       </div>
       <dl className="divide-y divide-szary-100 rounded-xl bg-white px-5 shadow-miekki">
-        <Wiersz dane="auto" etykieta={o.autoAkceptacja} wartosc={o.autoAkceptacjaWartosc.replace("{godziny}", String(auto.godziny)).replace("{dni}", auto.dniRobocze ? o.dniRobocze : o.dniKalendarzowe)} />
-        <p className="py-2 text-xs text-szary-600">{o.autoPerKlient}</p>
+        <Wiersz dane="auto" etykieta={o.autoAkceptacja} wartosc={o.autoAkceptacjaWartosc.replace("{godziny}", String(auto.godziny)).replace("{dni}", auto.dniRobocze ? o.dniRobocze : o.dniKalendarzowe)} notka={o.autoPerKlient} />
         <Wiersz dane="retencja" etykieta={o.retencja} wartosc={o.retencjaWartosc.replace("{n}", String(miesiace))} />
         <Wiersz dane="wdrozenie" etykieta={o.wdrozenie} wartosc={wdrozenie ? o.wlaczone : o.wylaczone} />
       </dl>

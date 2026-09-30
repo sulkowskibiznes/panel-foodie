@@ -1,6 +1,6 @@
 import { expect, test } from "@playwright/test";
 import { copy } from "../../src/lib/copy";
-import { usunLinkTestowy, utworzLinkTestowy, wyczyscLimity, type LinkTestowy } from "./pomocnicze/baza";
+import { usunLinkTestowy, utworzLinkTestowy, wpisyAudytu, wyczyscLimity, type LinkTestowy } from "./pomocnicze/baza";
 import { zalogujKlienta } from "./pomocnicze/klient";
 import { flagaPoAkceptacji, idKlienta, liczbaZdarzenOutbox, liczbaZdarzenPakietu, materialyPakietu, okresDlaProjektu, plikiMaterialu, sklonujPakiet, stanMaterialu, stanPakietu, ustawDatePublikacji, usunPakiet, wpisyAudytuKlienta, type OpcjeKlonu } from "./pomocnicze/pakiety";
 import { grafikaTestowa } from "./pomocnicze/pliki";
@@ -85,6 +85,7 @@ test("19 i 20. podmiana w zaakceptowanym pakiecie: potwierdzenie, zdarzenie, pla
 
 test("21. wysyłka pakietu z postem bez daty publikacji jest zablokowana z listą braków", async ({ browser }) => {
   const p = await klon(1, { status: "szkic" });
+  const link = await utworzLinkTestowy(KLIENT, { label: `E2E po wysyłce ${test.info().project.name}` });
   const zespol = await browser.newContext({ storageState: PLIK_SESJI_ZESPOLU });
   try {
     const materialy = await materialyPakietu(p.id);
@@ -138,15 +139,22 @@ test("21. wysyłka pakietu z postem bez daty publikacji jest zablokowana z list�
     await expect(z.locator("[data-pasek-zespolu]")).toContainText(copy.zespol.pakietyMaterialow.autoTermin);
     expect((await stanPakietu(p.id)).status).toBe("do_akceptacji");
 
-    // po wysyłce od razu krok „link dla klienta" (csm): pokazanie linku zapisuje się w audycie
+    // po wysyłce od razu krok „link dla klienta" (csm): tokenu nie ma w HTML, każde pokazanie linku zapisuje się w audycie
     const poWysylce = z.locator("[data-okno-po-wysylce]");
     await expect(poWysylce).toBeVisible();
-    await expect(poWysylce.locator("[data-linki-do-wyslania]")).toBeVisible();
+    const wiersz = poWysylce.locator("[data-linki-do-wyslania] li", { hasText: link.label });
+    await expect(wiersz).toBeVisible();
+    expect(await z.content()).not.toContain(link.token);
+    expect(await wpisyAudytu(link.id, "link.odszyfrowany")).toBe(0);
+    await wiersz.getByRole("button", { name: copy.zespol.dostep.akcje.pokazLink }).click();
+    await expect(wiersz.getByRole("textbox", { name: copy.zespol.dostep.gotowy.link })).toHaveValue(new RegExp(`/p/${link.token}$`));
+    expect(await wpisyAudytu(link.id, "link.odszyfrowany")).toBe(1);
     await poWysylce.locator("[data-gotowe-po-wysylce]").click();
     await expect(poWysylce).toHaveCount(0);
     await expect(z.locator("[data-pasek-zespolu] [data-pokaz-link-pulpit]")).toBeVisible();
   } finally {
     await zespol.close();
+    await usunLinkTestowy(link.id);
     await usunPakiet(p.id);
   }
 });

@@ -85,7 +85,11 @@ export function ListaCzlonkow({ czlonkowie, adminId, klienci }: { czlonkowie: Cz
                       const podOpieka = klienci[c.id]?.opiekun ?? 0;
                       if (c.active && podOpieka > 0 && !(await potwierdz({ tresc: u.dezaktywujOpiekuna.replace("{osoba}", c.name).replace("{n}", String(podOpieka)), przycisk: u.dezaktywuj, niebezpieczne: true }))) return;
                       startTransition(async () => {
-                        await przelaczAktywnosc(c.id, !c.active);
+                        const w = await przelaczAktywnosc(c.id, !c.active);
+                        if (!w.ok) {
+                          toast.error(copy.zespol.toasty.blad);
+                          return;
+                        }
                         toast.success(c.active ? copy.zespol.toasty.czlonekNieaktywny : copy.zespol.toasty.czlonekAktywny);
                       });
                     }}

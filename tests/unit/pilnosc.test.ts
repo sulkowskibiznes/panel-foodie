@@ -50,13 +50,29 @@ describe("klienciBezNastepnegoPakietu", () => {
   ];
   it("okres kończy się w ciągu 10 dni albo już się skończył; bez pakietów też na liście; z kolejnym pakietem nie", () => {
     const okresy = [
-      { clientId: "a", od: "2026-09-10", do: "2026-10-05" },
-      { clientId: "b", od: "2026-09-10", do: "2026-10-09" },
-      { clientId: "b", od: "2026-10-10", do: "2026-11-09" },
+      { clientId: "a", lokalId: null, do: "2026-10-05" },
+      { clientId: "b", lokalId: null, do: "2026-11-09" },
     ];
     expect(klienciBezNastepnegoPakietu(klienci, okresy, "2026-09-29")).toEqual([
-      { id: "c", slug: "c", name: "Cezar", ostatniDo: null },
-      { id: "a", slug: "a", name: "Alfa", ostatniDo: "2026-10-05" },
+      { id: "c", slug: "c", name: "Cezar", ostatniDo: null, lokal: null },
+      { id: "a", slug: "a", name: "Alfa", ostatniDo: "2026-10-05", lokal: null },
     ]);
+  });
+
+  it("kat1: każdy lokal osobno, pakiet lokalu B nie zasłania braku pakietu lokalu A; lokal bez pakietu też na liście", () => {
+    const kat1 = { id: "r", slug: "r", name: "Restauracje", category: "kat1", lokale: [{ id: "A", name: "Rynek" }, { id: "B", name: "Port" }, { id: "C", name: "Dworzec" }] };
+    const okresy = [
+      { clientId: "r", lokalId: "A", do: "2026-10-03" },
+      { clientId: "r", lokalId: "B", do: "2026-11-05" },
+    ];
+    expect(klienciBezNastepnegoPakietu([kat1, ...klienci], okresy, "2026-09-29").map((k) => [k.id, k.lokal?.name ?? null, k.ostatniDo])).toEqual([
+      ["a", null, null],
+      ["b", null, null],
+      ["c", null, null],
+      ["r", "Dworzec", null],
+      ["r", "Rynek", "2026-10-03"],
+    ]);
+    // kat1 bez listy lokali: ocena jak dla reszty (ostatni okres klienta)
+    expect(klienciBezNastepnegoPakietu([{ ...kat1, lokale: undefined }], okresy, "2026-09-29")).toEqual([]);
   });
 });

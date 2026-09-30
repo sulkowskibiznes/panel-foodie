@@ -97,7 +97,9 @@ export function PasekZespolu({
         // Po wysyłce: od razu link dla klienta (admin i csm), zamiast zamykać okno i szukać linku osobno.
         setDialog((przejscie.typ === "wyslij" || przejscie.typ === "wyslij_v2") && mozePokazacLink ? "wyslano" : null);
         setPowod("");
-        toast.success(copy.zespol.toasty.przejscia[przejscie.typ as keyof typeof copy.zespol.toasty.przejscia] ?? copy.zespol.toasty.przejscia.wyslij);
+        const toasty = copy.zespol.toasty.przejscia;
+        // Content creator nie widzi linków (bez zakładki Dostęp): nie każemy mu wysyłać czegoś, czego nie ma.
+        toast.success(przejscie.typ === "wyslij" && !mozePokazacLink ? toasty.wyslijBezLinku : (toasty[przejscie.typ as keyof typeof toasty] ?? toasty.wyslij));
         router.refresh();
       }
     });

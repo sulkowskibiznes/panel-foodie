@@ -1,5 +1,6 @@
 import "server-only";
 import type { CzlonekZespolu } from "@/lib/auth-zespol";
+import { pobierzPodsumowaniePakietow } from "@/lib/dane/materialy";
 import type { Database } from "@/lib/db-types";
 import type { KlientNaLiscie } from "@/lib/klienci/lista";
 import { supabaseSerwer } from "@/lib/supabase/server";
@@ -70,14 +71,12 @@ export async function pobierzListeKlientow(czlonek: CzlonekZespolu): Promise<Kli
   if (error) throw new Error(`pobierzListeKlientow: ${error.message}`);
   if (!klienci || klienci.length === 0) return [];
   const ids = klienci.map((k) => k.id);
-  const [{ data: pakiety }, { data: linki }] = await Promise.all([
-    db.from("packages").select("client_id, status, period_to").in("client_id", ids),
-    db.from("access_links").select("client_id").in("client_id", ids).is("revoked_at", null),
-  ]);
+  // Pakiety zliczone w bazie (jeden wiersz na klienta i lokal), nie cała tabela: limit 1000 wierszy PostgREST.
+  const [pakiety, { data: linki }] = await Promise.all([pobierzPodsumowaniePakietow(ids), db.from("access_links").select("client_id").in("client_id", ids).is("revoked_at", null)]);
   return klienci.map((k) => {
     const opiekun = k.opiekun as unknown as { name: string } | { name: string }[] | null;
-    const jego = (pakiety ?? []).filter((p) => p.client_id === k.id);
-    const ostatni = jego.reduce<string | null>((max, p) => (max === null || p.period_to > max ? p.period_to : max), null);
+    const jego = pakiety.filter((p) => p.clientId === k.id);
+    const ostatni = jego.reduce<string | null>((max, p) => (max === null || p.ostatniDo > max ? p.ostatniDo : max), null);
     return {
       id: k.id,
       slug: k.slug,
@@ -87,11 +86,19 @@ export async function pobierzListeKlientow(czlonek: CzlonekZespolu): Promise<Kli
       demo: k.demo,
       opiekunId: k.opiekun_id,
       opiekun: (Array.isArray(opiekun) ? opiekun[0]?.name : opiekun?.name) ?? null,
-      doAkceptacji: jego.filter((p) => p.status === "do_akceptacji").length,
+      doAkceptacji: jego.reduce((n, p) => n + p.doAkceptacji, 0),
       aktywneLinki: (linki ?? []).filter((l) => l.client_id === k.id).length,
       ostatniOkresDo: ostatni,
     };
   });
+}
+
+/** Lokale klientów (id, nazwa) w kolejności `position`: pulpit ocenia klientów kat1 lokal po lokalu. */
+export async function pobierzLokaleKlientow(clientIds: string[]): Promise<Array<{ id: string; clientId: string; name: string }>> {
+  if (clientIds.length === 0) return [];
+  const { data, error } = await supabaseSerwer().from("locations").select("id, client_id, name").in("client_id", clientIds).order("position").order("name");
+  if (error) throw new Error(`pobierzLokaleKlientow: ${error.message}`);
+  return (data ?? []).map((l) => ({ id: l.id, clientId: l.client_id, name: l.name }));
 }
 
 export type KartaKlienta = {

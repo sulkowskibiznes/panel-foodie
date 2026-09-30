@@ -79,23 +79,43 @@ export function sortujWgPilnosci<T extends PakietDoPilnosci>(pakiety: T[], teraz
   });
 }
 
-export type KlientDoPlanu = { id: string; slug: string; name: string };
-export type OkresPakietu = { clientId: string; od: string; do: string };
-export type KlientBezPakietu = KlientDoPlanu & { ostatniDo: string | null };
+export type LokalDoPlanu = { id: string; name: string };
+/** Klient z listy pulpitu; kat1 (osobny pakiet na lokal) dostaje listę lokali i jest oceniany lokal po lokalu. */
+export type KlientDoPlanu = { id: string; slug: string; name: string; category?: string; lokale?: LokalDoPlanu[] };
+/** Koniec ostatniego okresu dla pary (klient, lokal) z funkcji SQL podsumowanie_pakietow; `lokalId` null = pakiet wspólny. */
+export type OkresPakietu = { clientId: string; lokalId: string | null; do: string };
+export type KlientBezPakietu = KlientDoPlanu & { ostatniDo: string | null; lokal: LokalDoPlanu | null };
 
 /**
  * Klienci bez pakietu na następny okres: ostatni okres kończy się w ciągu `dni` dni (albo już się skończył), a po nim
- * nie ma kolejnego pakietu; klient bez żadnego pakietu też trafia na listę (`ostatniDo: null`). Daty `YYYY-MM-DD`.
+ * nie ma kolejnego pakietu; klient bez żadnego pakietu też trafia na listę (`ostatniDo: null`). Dla kat1 każdy lokal
+ * osobno (pakiet lokalu B nie zasłania braku pakietu lokalu A): wiersz na lokal, z jego nazwą. Daty `YYYY-MM-DD`.
  */
 export function klienciBezNastepnegoPakietu(klienci: KlientDoPlanu[], okresy: OkresPakietu[], dzis: string, dni = 10): KlientBezPakietu[] {
   const granica = new Date(new Date(`${dzis}T00:00:00Z`).getTime() + dni * MS_DNIA).toISOString().slice(0, 10);
-  const ostatni = new Map<string, string>();
+  const ostatniKlienta = new Map<string, string>();
+  const ostatniLokalu = new Map<string, string>();
   for (const o of okresy) {
-    const obecny = ostatni.get(o.clientId);
-    if (!obecny || o.do > obecny) ostatni.set(o.clientId, o.do);
+    const k = ostatniKlienta.get(o.clientId);
+    if (!k || o.do > k) ostatniKlienta.set(o.clientId, o.do);
+    if (o.lokalId) {
+      const klucz = `${o.clientId}/${o.lokalId}`;
+      const l = ostatniLokalu.get(klucz);
+      if (!l || o.do > l) ostatniLokalu.set(klucz, o.do);
+    }
   }
-  return klienci
-    .map((k) => ({ ...k, ostatniDo: ostatni.get(k.id) ?? null }))
-    .filter((k) => k.ostatniDo === null || k.ostatniDo <= granica)
-    .sort((a, b) => (a.ostatniDo ?? "").localeCompare(b.ostatniDo ?? "") || a.name.localeCompare(b.name, "pl"));
+  const brak = (ostatniDo: string | null) => ostatniDo === null || ostatniDo <= granica;
+  const wynik: KlientBezPakietu[] = [];
+  for (const k of klienci) {
+    if (k.category === "kat1" && k.lokale && k.lokale.length > 0) {
+      for (const lokal of k.lokale) {
+        const ostatniDo = ostatniLokalu.get(`${k.id}/${lokal.id}`) ?? null;
+        if (brak(ostatniDo)) wynik.push({ ...k, ostatniDo, lokal });
+      }
+    } else {
+      const ostatniDo = ostatniKlienta.get(k.id) ?? null;
+      if (brak(ostatniDo)) wynik.push({ ...k, ostatniDo, lokal: null });
+    }
+  }
+  return wynik.sort((a, b) => (a.ostatniDo ?? "").localeCompare(b.ostatniDo ?? "") || a.name.localeCompare(b.name, "pl") || (a.lokal?.name ?? "").localeCompare(b.lokal?.name ?? "", "pl"));
 }

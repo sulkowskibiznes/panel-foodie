@@ -200,7 +200,8 @@ Karta klienta → **Dane i współpraca** (admin i csm), sekcja „Współpraca"
 1. **„Przerwa we współpracy"**: klient znika z pulpitu i skrzynki, cron go nie akceptuje, wysyłka pakietów jest
    wstrzymana; linki działają, klient może zajrzeć do panelu. Pakiety czekające na akceptację wracają do szkicu.
 2. **„Zakończ współpracę"**: wygasza wszystkie linki, wylogowuje urządzenia klienta, wycofuje pakiety czekające
-   na akceptację, zdejmuje klienta z pulpitu (lista „Przerwy i zakończone współprace" pod klientami). Dane zostają.
+   na akceptację, zdejmuje klienta z pulpitu. Znajdziesz go w **Klienci** pod filtrem „Współpraca: Przerwy i zakończone"
+   (link pod listą). Dane zostają.
 3. **„Wznów współpracę"**: klient wraca na pulpit; po zakończeniu linki trzeba utworzyć od nowa, pakiety wysłać ponownie.
 4. **„Usuń dane klienta"** (tylko admin, tylko po zakończeniu): przepisz nazwę klienta i potwierdź. Znikają
    lokale, osoby, linki, pakiety z plikami, komentarze, faktury, dokumenty, raporty i kolejka powiadomień klienta.

@@ -5,10 +5,11 @@ import { wymagajCzlonka } from "@/lib/auth-zespol";
 import { copy } from "@/lib/copy";
 import { ocenCrony } from "@/lib/crony/monitoring";
 import { liczNieudaneOutbox, pobierzPrzebiegiCronow } from "@/lib/dane/crony";
-import { pobierzIdsMoichKlientow, pobierzKlientowDla } from "@/lib/dane/klienci-zespolu";
-import { pobierzOkresyPakietow, pobierzPakietyNaPulpit, type PakietNaPulpicie } from "@/lib/dane/materialy";
+import { pobierzIdsMoichKlientow, pobierzKlientowDla, pobierzLokaleKlientow } from "@/lib/dane/klienci-zespolu";
+import { pobierzPakietyNaPulpit, pobierzPodsumowaniePakietow, type PakietNaPulpicie } from "@/lib/dane/materialy";
 import { etykietaMiesiaca, etykietaOkresu, formatujDate, liczebnik, tekstOdliczania } from "@/lib/format";
 import { dataLokalna, kluczMiesiaca, miesiacZDaty, parsujMiesiac } from "@/lib/harmonogram/kalendarz";
+import { KOTWICA_UWAG } from "@/lib/pakiety/kotwice";
 import { czyWKafelku, KAFELKI, klienciBezNastepnegoPakietu, policzKafelki, sortujWgPilnosci, type Kafelek } from "@/lib/pakiety/pilnosc";
 import { KLASA_TERMINU, kolorTerminu } from "@/lib/pakiety/terminy";
 import { maUprawnienie, MOZE_ODSZYFROWAC_TOKEN, WIDZI_WSZYSTKICH_KLIENTOW } from "@/lib/uprawnienia";
@@ -77,7 +78,7 @@ export default async function Pulpit({ searchParams }: PageProps<"/zespol">) {
     : [];
   const klienci = await pobierzKlientowDla(czlonek);
   const zakres = !widziWszystkich ? klienci.map((k) => k.id) : filtry.zakres === "moi" ? await pobierzIdsMoichKlientow(czlonek.id) : null;
-  const [wszystkiePakiety, okresy] = await Promise.all([pobierzPakietyNaPulpit(zakres, teraz), pobierzOkresyPakietow(zakres)]);
+  const [wszystkiePakiety, podsumowanie] = await Promise.all([pobierzPakietyNaPulpit(zakres, teraz), pobierzPodsumowaniePakietow(zakres)]);
   const wMiesiacu = wszystkiePakiety.filter((p) => (filtry.miesiac ? miesiacStartu(p) === filtry.miesiac : true));
   const kafelki = policzKafelki(wMiesiacu, teraz);
   const pakiety = sortujWgPilnosci(
@@ -86,7 +87,13 @@ export default async function Pulpit({ searchParams }: PageProps<"/zespol">) {
   );
   const miesiace = [...new Set(wszystkiePakiety.map(miesiacStartu))].sort().reverse();
   const klienciWZakresie = klienci.filter((k) => !k.demo && (zakres === null || zakres.includes(k.id)));
-  const bezNastepnego = klienciBezNastepnegoPakietu(klienciWZakresie, okresy, dataLokalna(teraz));
+  // kat1 ma osobny pakiet na lokal: „bez pakietu" oceniamy lokal po lokalu, więc potrzebne są ich lokale.
+  const lokaleKat1 = await pobierzLokaleKlientow(klienciWZakresie.filter((k) => k.category === "kat1").map((k) => k.id));
+  const bezNastepnego = klienciBezNastepnegoPakietu(
+    klienciWZakresie.map((k) => ({ ...k, lokale: k.category === "kat1" ? lokaleKat1.filter((l) => l.clientId === k.id) : undefined })),
+    podsumowanie.map((p) => ({ clientId: p.clientId, lokalId: p.lokalId, do: p.ostatniDo })),
+    dataLokalna(teraz),
+  );
   const mozeTworzycPakiety = maUprawnienie(czlonek.role, "materialy", "pelne");
   const t = copy.zespol.pulpitPakiety;
   const pu = copy.zespol.pulpit;
@@ -232,7 +239,7 @@ export default async function Pulpit({ searchParams }: PageProps<"/zespol">) {
                       <td className="px-4 py-3">
                         <div className="flex flex-wrap items-center gap-2">
                           {odpowiedz ? (
-                            <Link href={`${adresPakietu}#uwagi`} className="font-medium text-bursztyn hover:underline">{t.odpowiedz}</Link>
+                            <Link href={`${adresPakietu}#${KOTWICA_UWAG}`} className="font-medium text-bursztyn hover:underline">{t.odpowiedz}</Link>
                           ) : p.status === "poprawki" ? (
                             <Link href={adresPakietu} className="font-medium text-bursztyn hover:underline">{t.zobaczUwagi}</Link>
                           ) : (
@@ -256,9 +263,10 @@ export default async function Pulpit({ searchParams }: PageProps<"/zespol">) {
           <p className="mt-1 text-sm text-szary-600">{pu.bezNastepnego.opis}</p>
           <ul className="mt-3 divide-y divide-szary-100 rounded-xl bg-white shadow-miekki">
             {bezNastepnego.map((k) => (
-              <li key={k.id} className="flex flex-wrap items-center justify-between gap-3 px-4 py-3 text-sm" data-klient-bez-pakietu={k.slug}>
+              <li key={k.lokal ? `${k.id}/${k.lokal.id}` : k.id} className="flex flex-wrap items-center justify-between gap-3 px-4 py-3 text-sm" data-klient-bez-pakietu={k.slug} data-lokal-bez-pakietu={k.lokal?.id}>
                 <div>
                   <span className="font-medium text-foodie-czern">{k.name}</span>
+                  {k.lokal ? <span className="ml-1 text-foodie-czern">· {k.lokal.name}</span> : null}
                   <span className="ml-2 text-szary-600">{k.ostatniDo ? pu.bezNastepnego.konczySie.replace("{data}", formatujDate(k.ostatniDo, { day: "numeric", month: "long" })) : pu.bezNastepnego.brakPakietu}</span>
                 </div>
                 <Link href={mozeTworzycPakiety ? `/zespol/klienci/${k.slug}/pakiety/nowy` : `/zespol/klienci/${k.slug}`} className="font-medium text-foodie-fiolet hover:underline">

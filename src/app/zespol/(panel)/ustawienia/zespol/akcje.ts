@@ -50,13 +50,15 @@ export async function dodajCzlonka(_poprzedni: StanCzlonka, formData: FormData):
   return { ok: true };
 }
 
-export async function przelaczAktywnosc(id: string, active: boolean): Promise<void> {
+export async function przelaczAktywnosc(id: string, active: boolean): Promise<{ ok: boolean }> {
   const admin = await wymagajCzlonka();
   wymagajUprawnienia(admin, "ustawienia", "pelne");
-  if (!czyUuid(id) || id === admin.id) return;
-  await supabaseSerwer().from("team_members").update({ active }).eq("id", id);
+  if (!czyUuid(id) || id === admin.id) return { ok: false };
+  const { error } = await supabaseSerwer().from("team_members").update({ active }).eq("id", id);
+  if (error) return { ok: false };
   await zapiszAudyt({ actor_kind: "zespol", actor_id: admin.id, actor_label: admin.name, action: "zespol.czlonek_zmieniony", entity: "team_member", entity_id: id, meta: { active } });
   revalidatePath("/zespol/ustawienia/zespol");
+  return { ok: true };
 }
 
 /** „Kontakt dla klienta" (SPEC rozdz. 5.7): to, co klient widzi przy imieniu opiekuna w „Twój pakiet". */

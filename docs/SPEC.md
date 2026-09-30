@@ -1129,9 +1129,9 @@ w Dokumentach, pierwszy pakiet. Każdy krok odhacza się sam, gdy dane są w baz
   żeby po wznowieniu przeterminowany termin nie zatwierdził pakietu od razu.
 - **Usuń dane klienta**: wyłącznie admin i wyłącznie po zakończeniu, z potwierdzeniem przez przepisanie nazwy.
 
-Klient `wstrzymany` i `zakonczony` znika z głównej listy pulpitu, ale ma osobną listę „Przerwy i zakończone
-współprace" z wejściem do karty; Dostęp nie tworzy linków klientowi `zakonczony`, dopóki współpraca nie zostanie
-wznowiona.
+Klient `wstrzymany` i `zakonczony` znika z pulpitu; jest na liście **Klienci** (rozdz. 12.2) pod filtrem
+„Współpraca: Przerwy i zakończone" (link pod listą prowadzi do niego wprost), z wejściem do karty. Dostęp nie tworzy
+linków klientowi `zakonczony`, dopóki współpraca nie zostanie wznowiona.
 
 **Nowy klient** (faza 6, `/zespol/klienci/nowy`, admin i csm): nazwa, slug (podpowiadany z nazwy), kategoria,
 pakiet, kwota netto, kanał Slack, data startu, opiekun (aktywni admini i csm), lokale (nazwa, miasto, strona FB,

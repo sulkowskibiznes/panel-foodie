@@ -9,6 +9,7 @@ import { toast } from "sonner";
 import { copy } from "@/lib/copy";
 import type { UwagaWSkrzynce } from "@/lib/dane/skrzynka";
 import { etykietaOkresu, formatujDateCzas } from "@/lib/format";
+import { KOTWICA_UWAG_PAKIETU, kotwicaMaterialu } from "@/lib/pakiety/kotwice";
 
 /**
  * Jedna uwaga w skrzynce (SPEC rozdz. 12.5): odpowiedź w tym samym wątku co u klienta i „Załatwione".
@@ -21,7 +22,8 @@ export function UwagaWSkrzynceKarta({ u, mozeObslugiwac }: { u: UwagaWSkrzynce; 
   const [tresc, setTresc] = useState("");
   const [blad, setBlad] = useState<string | null>(null);
   const [trwa, startTransition] = useTransition();
-  const adres = `/zespol/klienci/${u.klient.slug}/pakiety/${u.pakietId}${u.materialId ? `#material-${u.materialId}` : "#uwagi"}`;
+  // Uwaga do całego pakietu prowadzi do wątku pakietu, nie do pierwszej uwagi przy materiale.
+  const adres = `/zespol/klienci/${u.klient.slug}/pakiety/${u.pakietId}#${u.materialId ? kotwicaMaterialu(u.materialId) : KOTWICA_UWAG_PAKIETU}`;
 
   function odpowiedz(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();

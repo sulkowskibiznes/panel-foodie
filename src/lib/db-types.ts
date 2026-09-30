@@ -1549,6 +1549,15 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      podsumowanie_pakietow: {
+        Args: { p_client_ids?: string[] }
+        Returns: {
+          client_id: string
+          do_akceptacji: number
+          location_id: string
+          ostatni_do: string
+        }[]
+      }
       potwierdz_nieudana_probe_pinu: {
         Args: { p_link_id: string; p_proby: number }
         Returns: {

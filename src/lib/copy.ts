@@ -257,7 +257,7 @@ export const copy = {
       braki_w_materialach: "Uzupełnij braki przed wysyłką.",
       nie_znaleziono: "Nie znaleziono pakietu. Odśwież stronę.",
       konflikt: "Ktoś w międzyczasie zmienił status pakietu. Odśwież stronę i sprawdź, co się zmieniło.",
-      klient_nieaktywny: "Współpraca z tym klientem jest wstrzymana albo zakończona. Wznów ją w zakładce Ustawienia karty klienta, zanim wyślesz materiały.",
+      klient_nieaktywny: "Współpraca z tym klientem jest wstrzymana albo zakończona. Wznów ją w zakładce „Dane i współpraca” karty klienta, zanim wyślesz materiały.",
     },
   },
   /** Ramki podglądów 1:1 (SPEC rozdz. 7). Neutralne teksty interfejsu Facebooka i Instagramu, bez logotypów Meta. */
@@ -501,6 +501,7 @@ export const copy = {
       czlonekNieaktywny: "Dostęp wyłączony. Osoba zostanie wylogowana przy następnym wejściu.",
       przejscia: {
         wyslij: "Wysłano do akceptacji. Teraz wyślij klientowi link.",
+        wyslijBezLinku: "Wysłano do akceptacji. Link klientowi wysyła opiekun.",
         wyslij_v2: "Nowa wersja wysłana do akceptacji. Daj znać klientowi.",
         wycofaj: "Pakiet wrócił do szkicu. Klient go nie widzi.",
         cofnij_do_poprawek: "Pakiet cofnięty do poprawek. Klient zobaczy baner.",

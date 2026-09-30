@@ -8,7 +8,7 @@ import { assertTeamClientAccess, wymagajCzlonka, wymagajUprawnienia, type Czlone
 import { copy } from "@/lib/copy";
 import { pobierzKlientaPoSlugu } from "@/lib/dane/klienci-zespolu";
 import { dodajKampanie, dodajMaterial, dodajPlik, edytujKampanie, edytujMaterial, edytujPakiet, podmienPlik, usunKampanie, usunMaterial, usunPlik, zapiszReklame, type AktorZespolu, type DaneKampanii, type DaneReklamy, type PowodMutacji, type WynikMutacji } from "@/lib/dane/materialy-zespol";
-import { rozpoznajLinkDysku } from "@/lib/drive/linki";
+import { czyLinkDoFolderu, rozpoznajLinkDysku } from "@/lib/drive/linki";
 import { pobierzPlikZDysku, type WynikPlikuZDysku } from "@/lib/import/pojedynczy";
 import type { WynikAkcji } from "@/lib/dto/wynik";
 import { formatujDateCzas } from "@/lib/format";
@@ -281,7 +281,7 @@ const schematKampanii = z.object({
 
 function daneKampanii(d: z.infer<typeof schematKampanii>): DaneKampanii | { blad: string } {
   const link = d.folder ? rozpoznajLinkDysku(d.folder) : null;
-  if (d.folder && !link) return { blad: copy.zespol.kreator.bledy.zlyLink };
+  if (d.folder && !czyLinkDoFolderu(link)) return { blad: copy.zespol.kreator.bledy.zlyLink };
   return { nazwa: d.nazwa, cel: d.cel, notatka: d.notatka || null, folderReklamUrl: link?.url ?? null, folderReklamId: link?.id ?? null };
 }
 
@@ -337,8 +337,9 @@ export async function edytujPakietAkcja(slug: string, pakietId: string, dane: z.
   if (parsed.data.tytul !== undefined) zmiany.tytul = parsed.data.tytul;
   if (parsed.data.folder !== undefined) {
     if (parsed.data.folder) {
+      // Jak w kreatorze i karcie importu: tylko link do folderu (link do pliku wywaliłby się dopiero na karcie weryfikacyjnej).
       const link = rozpoznajLinkDysku(parsed.data.folder);
-      if (!link) return { ok: false, blad: copy.zespol.kreator.bledy.zlyLink };
+      if (!czyLinkDoFolderu(link)) return { ok: false, blad: copy.zespol.kreator.bledy.zlyLink };
       zmiany.folderContentuUrl = link.url;
       zmiany.folderContentuId = link.id;
     } else {
