@@ -539,24 +539,25 @@ Pytania Szymona: czego brakuje, łatwe dodawanie i usuwanie klientów, własny P
 Plan: Etap 0 (poprawki offboardingu), Etap A (operacje Szymona), Etap 1 (cykl życia klienta), Etap 2 (własny PIN),
 Etap 3 (UX zespołu), Etap 4 po pilotażu.
 
-### Etap A: operacje przed pilotażem (stan 2026-09-30, po wdrożeniu)
+### Etap A: operacje przed pilotażem (zakończony 2026-09-30)
 
-Zrobione 2026-09-30:
-- Cztery gałęzie wypchnięte na GitHub (`faza/5-reszta-panelu` → `faza/7-klienci` → `faza/8-pin-klienta` →
-  `faza/9-ux-zespolu`), CI zielone na każdej. Plan Vercel Pro potwierdzony (cron outboxu co minutę).
-- `PIN_PEPPER` w Vercelu dla Production i Preview (ta sama wartość co w `.env.local`: wszystkie środowiska pracują na
-  jednym projekcie Supabase; nowy pieprz dopiero razem z osobnym projektem produkcyjnym). Zapier, Google
-  i `TEAM_EMAIL_ALLOWLIST` były już wcześniej.
-- `pnpm db:migrate`: 5 migracji w chmurze (`20260908100001`, `20260909100001`, `20260930100001`, `20261001100001`,
-  `20261002100001`), potwierdzone `supabase migration list`.
-- Merge `faza/9-ux-zespolu` → `main` (fast-forward do `1fcabd3`) i wdrożenie produkcyjne na Vercelu: READY pod
-  `panel-foodie.vercel.app`, cztery crony zarejestrowane i włączone, strony logowania zespołu i klienta odpowiadają,
-  cron bez `Bearer` daje 401.
-- § 4 i § 5 regulaminu przejrzane z prawnikiem.
+- Gałęzie planu domknięcia wypchnięte i zmergowane do `main` (ff do `1fcabd3`), CI zielone; plan Vercel Pro.
+- **Osobny projekt Supabase produkcyjny** `panel-foodie-prod` (`mcfrdcllddklhcoxamjy`, `eu-central-1`, compute Small):
+  22 migracje, 4 prywatne buckety, Auth (SMTP Resend, szablon z `{{ .Token }}`, OTP 600 s / 8 cyfr, limit 30 maili/h,
+  rejestracja wyłączona, Site URL `https://panel.foodiemedia.pl`), seed `pnpm db:seed:produkcja --env=.env.produkcja`
+  (5 osób zespołu, usługi, klient demo, bez linków). Projekt testowy `fdpbpnenqrrjtorexbnx` zostaje dla Preview
+  i `pnpm dev` (`.env.local`).
+- **Vercel**: zmienne rozdzielone na Production (projekt prod, nowe `SESSION_SECRET` i `PIN_PEPPER`, `INGEST_TOKEN`)
+  i Preview (projekt testowy); redeploy po zmianie. Domena `panel.foodiemedia.pl` (CNAME DNS only w Cloudflare,
+  certyfikat Let's Encrypt, HSTS), `panel-foodie.vercel.app` → 308 na domenę; podglądy za logowaniem Vercela.
+- Zweryfikowane odczytem 2026-09-30: logowanie zespołu na produkcji (audyt na projekcie prod), cron outboxu chodzi
+  co minutę bez błędów, `POST /api/ingest/report` bez tokenu = 401 (z tokenem zapisał raport testowy klienta demo),
+  crony bez `Bearer` = 401, CSP z nonce na domenie, projekt testowy nietknięty.
+- § 4 i § 5 regulaminu przejrzane z prawnikiem; runbook w `docs/WDROZENIE-PRODUKCJA.md`.
 
-Czeka na Szymona: osobny projekt Supabase produkcyjny (`supabase link` + `db push`, Auth wg `docs/KONFIGURACJA-MAILI.md`,
-osobne zmienne Production w Vercelu z nowym `SESSION_SECRET` i `PIN_PEPPER`), domena `panel.foodiemedia.pl`, PITR,
-`INGEST_TOKEN` razem z konfiguracją po stronie raporty.foodiemedia.pl.
+**Otwarte:** PITR na projekcie produkcyjnym nadal **wyłączone** (compute Small już jest; decyzja kosztowa,
+`docs/WDROZENIE-PRODUKCJA.md` krok 8). Pierwsze zdarzenie do Zapiera z produkcji jeszcze nie poszło (outbox pusty):
+sprawdzić w Ustawienia → Powiadomienia po pierwszej wysyłce pakietu.
 
 ### Etap 0: poprawki offboardingu (commit `607d3b3` na `faza/5-reszta-panelu`)
 

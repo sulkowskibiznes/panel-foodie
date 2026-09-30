@@ -1,15 +1,16 @@
 # Kopie zapasowe i odtwarzanie — Supabase
 
-Stan na 2026-09-06 (faza 6). Dotyczy projektu testowego `panel-foodie` (`fdpbpnenqrrjtorexbnx`,
-`eu-central-1`); przed pilotażem powtórz krok 1 dla projektu produkcyjnego.
+Stan na 2026-09-30. Od tego dnia produkcja to osobny projekt **`panel-foodie-prod`** (`mcfrdcllddklhcoxamjy`,
+`eu-central-1`); projekt testowy `panel-foodie` (`fdpbpnenqrrjtorexbnx`) służy Preview i pracy lokalnej i nie
+wymaga PITR.
 
 ## 1. Co jest, a czego nie ma (sprawdzone przez Management API)
 
-| Element | Stan | Uwagi |
+| Element | Produkcja `mcfrdcllddklhcoxamjy` | Uwagi |
 |---|---|---|
-| Codzienne kopie bazy (fizyczne) | **włączone** | 5 ostatnich dni widocznych w API, `walg_enabled: true` |
-| Point-in-time recovery (PITR) | **wyłączone** (`pitr_enabled: false`) | płatny dodatek, patrz niżej |
-| Compute | Micro (~10 USD/mies.) | PITR wymaga co najmniej **Small** |
+| Codzienne kopie bazy (fizyczne) | **włączone** (`walg_enabled: true`) | pierwsza kopia z dnia utworzenia projektu |
+| Point-in-time recovery (PITR) | **wyłączone** (`pitr_enabled: false`) | płatny dodatek, patrz niżej; compute już wystarcza |
+| Compute | **Small** (~15 USD/mies.) | próg wymagany przez PITR spełniony |
 | Storage (pliki) | brak kopii po stronie Supabase | patrz sekcja 4 |
 
 **Włączenie PITR to decyzja Szymona (koszt).** Kroki w panelu Supabase: *Project Settings → Add-ons →
@@ -19,7 +20,7 @@ compute jest za mały, najpierw *Compute Size → Small*. Po włączeniu wróć 
 Sprawdzenie stanu bez klikania (token narzędziowy z `.env.local`, tylko odczyt):
 
 ```bash
-curl -s -H "Authorization: Bearer $SUPABASE_ACCESS_TOKEN" https://api.supabase.com/v1/projects/fdpbpnenqrrjtorexbnx/database/backups
+curl -s -H "Authorization: Bearer $SUPABASE_ACCESS_TOKEN" https://api.supabase.com/v1/projects/mcfrdcllddklhcoxamjy/database/backups
 ```
 
 ## 2. Kiedy odtwarzać
